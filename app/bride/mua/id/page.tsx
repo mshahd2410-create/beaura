@@ -53,14 +53,15 @@ export default function MUAProfile() {
 
         {/* Prices */}
         <div className="space-y-2">
-          {Object.entries(mua.services || {}).map(([k, v]) =>
-            v ? (
-              <div key={k} className="flex justify-between">
-                <span>{k}</span>
-                <span>EGP {v}</span>
-              </div>
-            ) : null
-          )}
+         {Object.entries(mua.services as Record<string, string | number>).map(
+  ([k, v]) =>
+    v ? (
+      <div key={k} className="flex justify-between">
+        <span className="capitalize">{k}</span>
+        <span>EGP {String(v)}</span>
+      </div>
+    ) : null
+)}
         </div>
 
         {/* Actions */}
