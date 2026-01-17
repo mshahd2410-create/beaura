@@ -1,154 +1,96 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 
+type MUA = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  city: string;
+  portfolio: { image_path: string }[];
+};
+
 export default function BrideHome() {
-  const router = useRouter();
-  const [muas, setMuas] = useState<any[]>([]);
+  const [muas, setMuas] = useState<MUA[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadMUAs = async () => {
-      const { data: profiles } = await supabase
+      const { data, error } = await supabase
         .from("mua_profiles")
         .select(`
           id,
           first_name,
           last_name,
           cities,
-          services
+          mua_portfolio (
+            image_path
+          )
         `);
 
-      if (!profiles) return;
-
-      // Fetch portfolio cover for each MUA
-      const enriched = await Promise.all(
-        profiles.map(async (mua) => {
-          const { data: cover } = await supabase
-            .from("mua_portfolio")
-            .select("image_path")
-            .eq("mua_id", mua.id)
-            .limit(1)
-            .single();
-
-          return {
-            ...mua,
-            cover:
-              cover?.image_path
-                ? supabase.storage
-                    .from("mua-portfolio")
-                    .getPublicUrl(cover.image_path).data.publicUrl
-                : "/placeholder.jpg",
-          };
-        })
-      );
-
-      setMuas(enriched);
+      if (!error && data) {
+        setMuas(
+          data.map((m) => ({
+            ...m,
+            portfolio: m.mua_portfolio || [],
+          }))
+        );
+      }
       setLoading(false);
     };
 
     loadMUAs();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#faf7f2] flex items-center justify-center">
-        <p className="text-gray-500">Loading artists ✨</p>
-      </div>
-    );
-  }
-
   return (
-    <main className="min-h-screen bg-[#faf7f2] px-5 pb-28">
+    <main className="min-h-screen bg-gradient-to-br from-[#fff7fb] to-[#f3f4ff] px-6 py-6">
       {/* Top bar */}
-      <header className="pt-8 pb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-light">Discover MUAs</h1>
+      <header className="flex items-center justify-between mb-8">
+        <h1 className="text-xl font-semibold">Discover Artists ✨</h1>
 
-        <div className="flex items-center gap-4">
-          <button className="text-xl">💬</button>
-          <button className="text-xl">🔔</button>
-        </div>
+        <Link href="/bride/messages" className="text-sm">
+          💬
+        </Link>
       </header>
 
-      {/* MUA Feed */}
-      <section className="grid grid-cols-1 gap-8">
-        {muas.map((mua) => (
-          <MUACard
-            key={mua.id}
-            mua={mua}
-            onClick={() => router.push(`/bride/mua/${mua.id}`)}
-          />
-        ))}
-      </section>
+      {loading && <p>Loading artists...</p>}
+
+      {/* MUA Grid */}
+      <div className="columns-2 md:columns-3 gap-4 space-y-4">
+        {muas.map((mua) => {
+          const image =
+            mua.portfolio?.[0]?.image_path
+              ? supabase.storage
+                  .from("mua-portfolio")
+                  .getPublicUrl(mua.portfolio[0].image_path).data.publicUrl
+              : "/placeholder.jpg";
+
+          return (
+            <Link
+              key={mua.id}
+              href={`/bride/mua/${mua.id}`}
+              className="break-inside-avoid block rounded-3xl overflow-hidden bg-white shadow hover:scale-[1.02] transition"
+            >
+              <img
+                src={image}
+                alt="MUA work"
+                className="w-full object-cover"
+              />
+
+              <div className="p-3">
+                <p className="font-medium text-sm">
+                  {mua.first_name} {mua.last_name}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {mua.cities?.[0]}
+                </p>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
     </main>
-  );
-}
-
-/* ---------- CARD ---------- */
-
-function MUACard({
-  mua,
-  onClick,
-}: {
-  mua: any;
-  onClick: () => void;
-}) {
-  const minPrice = Object.values(mua.services || {})
-    .map(Number)
-    .filter(Boolean)
-    .sort((a, b) => a - b)[0];
-
-  return (
-    <button
-      onClick={onClick}
-      className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition text-left"
-    >
-      {/* Image */}
-      <div className="relative h-64 w-full">
-        <Image
-          src={mua.cover}
-          alt="MUA portfolio"
-          fill
-          className="object-cover"
-        />
-      </div>
-
-      {/* Info */}
-      <div className="p-5 space-y-3">
-        <div className="flex justify-between items-start">
-          <h2 className="text-lg font-medium">
-            {mua.first_name} {mua.last_name}
-          </h2>
-
-          {minPrice && (
-            <span className="text-sm text-gray-600">
-              from <strong>EGP {minPrice}</strong>
-            </span>
-          )}
-        </div>
-
-        {/* Cities */}
-        <p className="text-xs text-gray-500">
-          {mua.cities?.join(" · ")}
-        </p>
-
-        {/* Services */}
-        <div className="flex gap-2 flex-wrap">
-          {Object.entries(mua.services || {})
-            .filter(([, price]) => price)
-            .map(([key]) => (
-              <span
-                key={key}
-                className="text-xs px-3 py-1 rounded-full bg-gray-100"
-              >
-                {key}
-              </span>
-            ))}
-        </div>
-      </div>
-    </button>
   );
 }
