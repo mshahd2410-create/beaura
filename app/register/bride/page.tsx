@@ -4,13 +4,25 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
+type BrideForm = {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+  password: string;
+  eventDate: string;
+  eventLocation: string;
+  makeupType: string;
+  preferences: string;
+};
+
 export default function RegisterBride() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<BrideForm>({
     firstName: "",
     lastName: "",
     phone: "",
@@ -22,7 +34,7 @@ export default function RegisterBride() {
     preferences: "",
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!agreed) {
@@ -82,7 +94,7 @@ export default function RegisterBride() {
       return;
     }
 
-    router.replace("/dashboard/bride");
+    router.replace("/bride/home");
   };
 
   return (
@@ -92,9 +104,7 @@ export default function RegisterBride() {
         className="mx-auto max-w-lg space-y-20 animate-fade-in-up"
       >
         <header className="text-center space-y-3">
-          <h1 className="text-3xl font-light">
-            Let’s get you glammed ✨
-          </h1>
+          <h1 className="text-3xl font-light">Let’s get you glammed ✨</h1>
           <p className="text-sm text-gray-500">
             Create your account and find your perfect makeup artist
           </p>
@@ -126,7 +136,11 @@ export default function RegisterBride() {
         </Section>
 
         <label className="flex items-center gap-3 text-sm">
-          <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+          />
           I agree to the Terms & Conditions
         </label>
 
@@ -145,7 +159,13 @@ export default function RegisterBride() {
 
 /* ---------- UI ---------- */
 
-function Section({ title, children }: any) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="bg-white rounded-2xl p-8 space-y-6 shadow-sm">
       <h2 className="text-sm tracking-wide text-gray-800">{title}</h2>
@@ -154,7 +174,15 @@ function Section({ title, children }: any) {
   );
 }
 
-function Input({ label, type = "text", onChange }: any) {
+function Input({
+  label,
+  type = "text",
+  onChange,
+}: {
+  label: string;
+  type?: string;
+  onChange: (value: string) => void;
+}) {
   return (
     <div className="space-y-1">
       <label className="text-sm">{label}</label>
@@ -168,7 +196,13 @@ function Input({ label, type = "text", onChange }: any) {
   );
 }
 
-function Textarea({ label, onChange }: any) {
+function Textarea({
+  label,
+  onChange,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+}) {
   return (
     <div className="space-y-1">
       <label className="text-sm">{label}</label>
@@ -180,7 +214,15 @@ function Textarea({ label, onChange }: any) {
   );
 }
 
-function Select({ label, options, onChange }: any) {
+function Select({
+  label,
+  options,
+  onChange,
+}: {
+  label: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
   return (
     <div className="space-y-1">
       <label className="text-sm">{label}</label>
@@ -189,7 +231,7 @@ function Select({ label, options, onChange }: any) {
         className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:border-black transition"
       >
         <option value="">Select</option>
-        {options.map((o: string) => (
+        {options.map((o) => (
           <option key={o}>{o}</option>
         ))}
       </select>

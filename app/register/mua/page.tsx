@@ -65,7 +65,6 @@ export default function RegisterMUA() {
     setLoading(true);
     setError(null);
 
-    // 1️⃣ Sign up
     const { error: signUpError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
@@ -77,13 +76,11 @@ export default function RegisterMUA() {
       return;
     }
 
-    // 2️⃣ Sign in (for RLS)
     await supabase.auth.signInWithPassword({
       email: form.email,
       password: form.password,
     });
 
-    // 3️⃣ Get user
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       setError("Authentication failed");
@@ -91,7 +88,6 @@ export default function RegisterMUA() {
       return;
     }
 
-    // 4️⃣ Insert profile
     const { error: profileError } = await supabase
       .from("mua_profiles")
       .insert({
@@ -113,8 +109,12 @@ export default function RegisterMUA() {
       return;
     }
 
-    // ✅ 4.1 INSERT SERVICES (THIS FIXES THE CALENDAR)
-    const servicesToInsert = [];
+    const servicesToInsert: {
+      mua_id: string;
+      name: string;
+      price: number;
+      duration_minutes: number;
+    }[] = [];
 
     if (form.services.bridal) {
       servicesToInsert.push({
@@ -155,7 +155,6 @@ export default function RegisterMUA() {
       }
     }
 
-    // 5️⃣ Upload portfolio
     for (const file of portfolio) {
       const path = `${user.id}/${crypto.randomUUID()}`;
 
@@ -276,9 +275,15 @@ export default function RegisterMUA() {
   );
 }
 
-/* ---------- UI COMPONENTS ---------- */
+/* ---------- UI COMPONENTS (TYPED, SAME UI) ---------- */
 
-function Section({ title, children }: any) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="bg-white rounded-2xl p-8 space-y-6 shadow-sm">
       <h2 className="text-sm tracking-wide text-gray-800">{title}</h2>
@@ -287,7 +292,15 @@ function Section({ title, children }: any) {
   );
 }
 
-function Input({ label, type = "text", onChange }: any) {
+function Input({
+  label,
+  type = "text",
+  onChange,
+}: {
+  label: string;
+  type?: string;
+  onChange: (value: string) => void;
+}) {
   return (
     <div className="space-y-1">
       <label className="text-sm">{label}</label>
@@ -301,7 +314,13 @@ function Input({ label, type = "text", onChange }: any) {
   );
 }
 
-function Textarea({ label, onChange }: any) {
+function Textarea({
+  label,
+  onChange,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+}) {
   return (
     <div className="space-y-1">
       <label className="text-sm">{label}</label>
@@ -313,7 +332,13 @@ function Textarea({ label, onChange }: any) {
   );
 }
 
-function Price({ label, onChange }: any) {
+function Price({
+  label,
+  onChange,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+}) {
   return (
     <div className="flex items-center gap-4">
       <span className="flex-1 text-sm">{label}</span>
