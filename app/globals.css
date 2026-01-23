@@ -23,4 +23,42 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  @layer components {
+  .slider-btn {
+    @apply absolute top-1/2 -translate-y-1/2 bg-white/80 backdrop-blur w-9 h-9 rounded-full flex items-center justify-center text-lg;
+  }
+}
+@layer base {
+  :root {
+    /* Backgrounds */
+    --bg-main: #fbfaf8;     /* warm luxury off-white */
+    --bg-card: #ffffff;
+
+    /* Text */
+    --text-main: #141414;
+    --text-muted: #6f6f6f;
+
+    /* Accent */
+    --accent-primary: #7b5cff; /* Beaura purple */
+    --accent-soft: #f4f1ff;
+  }
+}
+.filter-pill {
+  @apply px-4 py-2 rounded-full border border-gray-200 text-sm whitespace-nowrap
+  hover:border-purple-500 hover:text-purple-600 transition;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out;
+}
 }

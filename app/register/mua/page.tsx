@@ -94,13 +94,9 @@ export default function RegisterMUA() {
         id: user.id,
         first_name: form.firstName,
         last_name: form.lastName,
-        phone: form.phone,
-        email: form.email,
         instagram: form.instagram,
         bio: form.bio,
-        experience: form.experience,
         cities: form.cities,
-        services: form.services,
       });
 
     if (profileError) {
@@ -174,14 +170,16 @@ export default function RegisterMUA() {
   };
 
   return (
-    <main className="min-h-screen bg-[#faf7f2] px-4 py-24">
+    <main className="min-h-screen bg-white px-4 py-24 text-black">
       <form
         onSubmit={handleSubmit}
-        className="mx-auto max-w-lg space-y-20 animate-fade-in-up"
+        className="mx-auto max-w-lg space-y-20"
       >
         <header className="text-center space-y-3">
-          <h1 className="text-3xl font-light">Join Beaura as an Artist 💄</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-3xl font-medium">
+            Join Beaura as an Artist 💄
+          </h1>
+          <p className="text-sm text-gray-700">
             Elegant bookings. Real protection. More clients.
           </p>
         </header>
@@ -203,8 +201,8 @@ export default function RegisterMUA() {
                 onClick={() => toggleCity(city)}
                 className={`rounded-full px-4 py-2 text-sm border transition ${
                   form.cities.includes(city)
-                    ? "bg-black text-white"
-                    : "border-gray-300"
+                    ? "bg-purple-600 text-white border-purple-600"
+                    : "border-gray-300 text-black"
                 }`}
               >
                 {city}
@@ -225,9 +223,9 @@ export default function RegisterMUA() {
             multiple
             accept="image/*"
             onChange={(e) => setPortfolio(Array.from(e.target.files || []))}
-            className="text-sm"
+            className="text-sm text-black"
           />
-          <p className="text-xs text-gray-500">Upload 5–25 images</p>
+          <p className="text-xs text-gray-700">Upload 5–25 images</p>
         </Section>
 
         <Section title="Your services">
@@ -243,7 +241,7 @@ export default function RegisterMUA() {
                 }
               />
               {form.services[key as keyof typeof form.services] && (
-                <p className="text-xs text-gray-500 ml-auto w-32">
+                <p className="text-xs text-gray-700 ml-auto w-32">
                   You receive EGP{" "}
                   {calculateNet(form.services[key as keyof typeof form.services])}
                 </p>
@@ -252,7 +250,7 @@ export default function RegisterMUA() {
           ))}
         </Section>
 
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-2 text-sm text-black">
           <input
             type="checkbox"
             checked={agreed}
@@ -262,11 +260,11 @@ export default function RegisterMUA() {
           <span>I agree to the Terms & Conditions</span>
         </div>
 
-        {error && <p className="text-red-500 text-center">{error}</p>}
+        {error && <p className="text-red-600 text-center">{error}</p>}
 
         <button
           disabled={loading}
-          className="w-full bg-black text-white py-4 rounded-full tracking-wide hover:opacity-90 transition"
+          className="w-full bg-purple-600 text-white py-4 rounded-full tracking-wide hover:bg-purple-700 transition"
         >
           {loading ? "Creating account..." : "Let’s get your clients ready"}
         </button>
@@ -275,7 +273,7 @@ export default function RegisterMUA() {
   );
 }
 
-/* ---------- UI COMPONENTS (TYPED, SAME UI) ---------- */
+/* ---------- UI COMPONENTS ---------- */
 
 function Section({
   title,
@@ -285,8 +283,10 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="bg-white rounded-2xl p-8 space-y-6 shadow-sm">
-      <h2 className="text-sm tracking-wide text-gray-800">{title}</h2>
+    <section className="bg-white border border-gray-200 rounded-2xl p-8 space-y-6">
+      <h2 className="text-sm font-medium text-black">
+        {title}
+      </h2>
       {children}
     </section>
   );
@@ -303,11 +303,13 @@ function Input({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-sm">{label}</label>
+      <label className="text-sm font-medium text-black">
+        {label}
+      </label>
       <input
         type={type}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:border-black transition"
+        className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-black outline-none focus:border-purple-600 transition"
         required
       />
     </div>
@@ -323,10 +325,12 @@ function Textarea({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-sm">{label}</label>
+      <label className="text-sm font-medium text-black">
+        {label}
+      </label>
       <textarea
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-3 border border-gray-200 rounded-xl h-28 text-sm"
+        className="w-full px-4 py-3 border border-gray-300 rounded-xl h-28 text-sm text-black focus:border-purple-600 transition"
       />
     </div>
   );
@@ -341,11 +345,13 @@ function Price({
 }) {
   return (
     <div className="flex items-center gap-4">
-      <span className="flex-1 text-sm">{label}</span>
+      <span className="flex-1 text-sm text-black">
+        {label}
+      </span>
       <input
         placeholder="EGP"
         onChange={(e) => onChange(e.target.value)}
-        className="w-32 px-3 py-2 border rounded-lg text-sm"
+        className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm text-black focus:border-purple-600 transition"
       />
     </div>
   );

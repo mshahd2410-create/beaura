@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import { useState } from "react";
+import { usePathname } from "next/navigation";
 
 export default function BrideLayout({
   children,
@@ -9,38 +10,80 @@ export default function BrideLayout({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+
+  const navItems = [
+    ["Home", "/bride/home"],
+    ["Favorites", "/bride/favorites"],
+    ["Bookings", "/bride/bookings"],
+    ["Messages", "/bride/messages"],
+    ["Account", "/bride/account"],
+  ];
 
   return (
-    <div className="relative min-h-screen bg-[#faf7f2]">
-      {/* Top Bar */}
-      <header className="sticky top-0 z-40 bg-[#faf7f2] px-5 py-4 flex justify-between items-center">
-        <button onClick={() => setOpen(true)} className="text-2xl">
-          ☰
-        </button>
-        <h1 className="text-lg font-light">Beaura</h1>
-        <div className="flex gap-4">
-          <Link href="/bride/messages">💬</Link>
-          <span>🔔</span>
-        </div>
-      </header>
+    <div className="min-h-screen bg-white text-black overflow-x-hidden relative">
+      {/* HAMBURGER BUTTON (FLOATING, NOT A HEADER) */}
+      <button
+        onClick={() => setOpen(true)}
+        className="fixed top-6 left-6 z-50 text-2xl hover:text-purple-600 transition"
+        aria-label="Open menu"
+      >
+        ☰
+      </button>
 
-      {/* Drawer */}
-      {open && (
-        <div className="fixed inset-0 z-50 bg-black/30">
-          <aside className="absolute left-0 top-0 h-full w-72 bg-white p-6 space-y-6">
-            <button onClick={() => setOpen(false)}>✕</button>
+      {/* SLIDE MENU OVERLAY */}
+      <div
+        className={`fixed inset-0 z-40 transition ${
+          open ? "visible" : "invisible"
+        }`}
+      >
+        {/* Backdrop */}
+        <div
+          onClick={() => setOpen(false)}
+          className={`absolute inset-0 bg-black/30 transition-opacity ${
+            open ? "opacity-100" : "opacity-0"
+          }`}
+        />
 
-            <nav className="space-y-4 text-sm">
-              <Link href="/bride/home">Home</Link>
-              <Link href="/bride/favorites">Favorites</Link>
-              <Link href="/bride/bookings">Bookings</Link>
-              <Link href="/bride/messages">Messages</Link>
-              <Link href="/bride/account">Account</Link>
+        {/* Drawer */}
+        <aside
+          className={`
+            absolute top-0 left-0 h-full w-72 bg-white
+            transform transition-transform duration-300
+            ${open ? "translate-x-0" : "-translate-x-full"}
+          `}
+        >
+          <div className="px-6 py-8 space-y-10">
+            <h2 className="text-lg font-medium">Menu</h2>
+
+            <nav className="space-y-5">
+              {navItems.map(([label, href]) => {
+                const isActive = pathname === href;
+
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={() => setOpen(false)}
+                    className={`
+                      block text-base transition-colors
+                      ${
+                        isActive
+                          ? "text-purple-600 font-semibold"
+                          : "text-black hover:text-purple-600"
+                      }
+                    `}
+                  >
+                    {label}
+                  </Link>
+                );
+              })}
             </nav>
-          </aside>
-        </div>
-      )}
+          </div>
+        </aside>
+      </div>
 
+      {/* PAGE CONTENT (NO HEADER OFFSET) */}
       <main>{children}</main>
     </div>
   );

@@ -1,63 +1,157 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
-  const [role, setRole] = useState<"bride" | "mua">("bride");
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loading) return;
+
+    setLoading(true);
+    setError(null);
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    const user = data.user;
+    if (!user) {
+      setError("Something went wrong. Please try again.");
+      setLoading(false);
+      return;
+    }
+
+    /**
+     * IMPORTANT FIX:
+     * Use maybeSingle() to avoid Supabase throwing + stalling
+     */
+
+    // Check bride
+    const { data: bride } = await supabase
+      .from("bride_profiles")
+      .select("id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (bride) {
+      router.replace("/bride/home");
+      return;
+    }
+
+    // Check MUA
+    const { data: mua } = await supabase
+      .from("mua_profiles")
+      .select("id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (mua) {
+      router.replace("/dashboard/mua");
+      return;
+    }
+
+    setError("Account exists but profile is not set up yet.");
+    setLoading(false);
+  };
 
   return (
-    <div className="min-h-screen bg-[#faf7f2] flex items-center justify-center px-6">
-      <div className="w-full max-w-md bg-white border border-black/10 rounded-2xl p-10">
-        <h1 className="text-3xl font-light text-center mb-8">
-          Welcome back, beautiful
-        </h1>
+    <main className="min-h-screen bg-white flex items-center justify-center px-6">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.9 }}
+        className="w-full max-w-md"
+      >
+        {/* HERO */}
+        <div className="text-center mb-12">
+          <p className="text-xs uppercase tracking-widest text-gray-400">
+            Beaura
+          </p>
 
-        {/* Toggle */}
-        <div className="flex border border-black/10 rounded-full mb-8 overflow-hidden">
-          <button
-            onClick={() => setRole("bride")}
-            className={`flex-1 py-2 text-sm transition ${
-              role === "bride" ? "bg-black text-white" : ""
-            }`}
-          >
-            Bride
-          </button>
-          <button
-            onClick={() => setRole("mua")}
-            className={`flex-1 py-2 text-sm transition ${
-              role === "mua" ? "bg-black text-white" : ""
-            }`}
-          >
-            Makeup Artist
-          </button>
+          <h1 className="mt-4 text-4xl font-light tracking-tight text-black">
+            Welcome back, beautiful
+          </h1>
+
+          <p className="mt-3 text-sm text-gray-500">
+            We’re so happy to see you again.
+          </p>
         </div>
 
-        {/* Form */}
-        <form className="space-y-6">
-          <input
-            type="email"
-            placeholder="Email"
-            className="w-full border border-black/10 rounded-xl px-4 py-3 outline-none"
-          />
+        {/* FORM */}
+        <form
+          onSubmit={handleLogin}
+          className="bg-white border border-gray-200 rounded-3xl p-8 space-y-6"
+        >
+          <div className="space-y-1">
+            <label className="text-sm text-gray-600">
+              Email
+            </label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full h-12 rounded-xl border border-gray-300 px-4 text-sm
+              focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
 
-          <input
-            type="password"
-            placeholder="Password"
-            className="w-full border border-black/10 rounded-xl px-4 py-3 outline-none"
-          />
+          <div className="space-y-1">
+            <label className="text-sm text-gray-600">
+              Password
+            </label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full h-12 rounded-xl border border-gray-300 px-4 text-sm
+              focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          {/* ✅ FORGOT PASSWORD (UI ONLY) */}
+          <div className="text-right">
+            <button
+              type="button"
+              className="text-xs text-gray-500 hover:text-purple-600 transition"
+            >
+              Forgot password?
+            </button>
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-600 text-center">
+              {error}
+            </p>
+          )}
 
           <button
             type="submit"
-            className="w-full bg-black text-white rounded-full py-3 hover:opacity-90 transition"
-          >
-            Log in
+            disabled={loading}
+            className="w-full h-12 rounded-full bg-purple-600 text-white text-sm
+            hover:bg-purple-700 transition disabled:opacity-60"
+            >
+            {loading ? "Signing you in…" : "Continue"}
           </button>
         </form>
-
-        <div className="text-center mt-6 text-sm text-gray-500">
-          Forgot password?
-        </div>
-      </div>
-    </div>
+      </motion.div>
+    </main>
   );
 }

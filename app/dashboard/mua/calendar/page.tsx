@@ -136,7 +136,6 @@ export default function MuaCalendarPage() {
         end.getMinutes() + service.duration_minutes
       );
     } else {
-      // blocked / external default 1 hour
       end.setHours(end.getHours() + 1);
     }
 
@@ -166,8 +165,16 @@ export default function MuaCalendarPage() {
   ============================ */
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm">
-      <h1 className="text-2xl font-light mb-6">
+    <div
+      className="
+        bg-white
+        rounded-3xl
+        p-8
+        border border-black/5
+        shadow-[0_8px_30px_rgba(0,0,0,0.04)]
+      "
+    >
+      <h1 className="text-2xl font-light text-black mb-6">
         Calendar
       </h1>
 
@@ -201,20 +208,36 @@ export default function MuaCalendarPage() {
       ============================ */}
 
       {selectedDate && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-6">
-            <h2 className="text-lg font-light">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div
+            className="
+              bg-white
+              rounded-3xl
+              w-full
+              max-w-md
+              p-8
+              space-y-6
+              shadow-[0_20px_60px_rgba(0,0,0,0.25)]
+            "
+          >
+            <h2 className="text-lg font-light text-black">
               Add to calendar
             </h2>
 
             <select
               value={actionType}
               onChange={(e) =>
-                setActionType(
-                  e.target.value as any
-                )
+                setActionType(e.target.value as any)
               }
-              className="w-full border px-4 py-3 rounded-xl"
+              className="
+                w-full
+                border border-black/10
+                px-4 py-3
+                rounded-xl
+                text-sm
+                focus:border-purple-600
+                outline-none
+              "
             >
               <option value="">
                 Select action
@@ -234,11 +257,17 @@ export default function MuaCalendarPage() {
               <select
                 value={selectedServiceId}
                 onChange={(e) =>
-                  setSelectedServiceId(
-                    e.target.value
-                  )
+                  setSelectedServiceId(e.target.value)
                 }
-                className="w-full border px-4 py-3 rounded-xl"
+                className="
+                  w-full
+                  border border-black/10
+                  px-4 py-3
+                  rounded-xl
+                  text-sm
+                  focus:border-purple-600
+                  outline-none
+                "
               >
                 <option value="">
                   Select service
@@ -254,16 +283,34 @@ export default function MuaCalendarPage() {
               </select>
             )}
 
-            <div className="flex gap-3">
+            <div className="flex gap-3 pt-2">
               <button
                 onClick={handleSave}
-                className="flex-1 bg-black text-white py-3 rounded-full"
+                className="
+                  flex-1
+                  bg-black
+                  text-white
+                  py-3
+                  rounded-full
+                  hover:bg-purple-600
+                  transition
+                "
               >
                 Save
               </button>
+
               <button
                 onClick={resetModal}
-                className="flex-1 border py-3 rounded-full"
+                className="
+                  flex-1
+                  border border-black/10
+                  py-3
+                  rounded-full
+                  text-gray-700
+                  hover:border-purple-600
+                  hover:text-purple-600
+                  transition
+                "
               >
                 Cancel
               </button>

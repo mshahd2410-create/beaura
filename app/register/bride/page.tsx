@@ -45,7 +45,6 @@ export default function RegisterBride() {
     setLoading(true);
     setError(null);
 
-    // 1️⃣ Sign up
     const { error: signUpError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
@@ -57,13 +56,11 @@ export default function RegisterBride() {
       return;
     }
 
-    // 2️⃣ Sign in
     await supabase.auth.signInWithPassword({
       email: form.email,
       password: form.password,
     });
 
-    // 3️⃣ Get user
     const { data } = await supabase.auth.getUser();
     const user = data.user;
 
@@ -73,7 +70,6 @@ export default function RegisterBride() {
       return;
     }
 
-    // 4️⃣ Insert profile
     const { error: profileError } = await supabase
       .from("bride_profiles")
       .insert({
@@ -98,14 +94,16 @@ export default function RegisterBride() {
   };
 
   return (
-    <main className="min-h-screen bg-[#faf7f2] px-4 py-24">
+    <main className="min-h-screen bg-white px-4 py-24 text-black">
       <form
         onSubmit={handleSubmit}
-        className="mx-auto max-w-lg space-y-20 animate-fade-in-up"
+        className="mx-auto max-w-lg space-y-20"
       >
         <header className="text-center space-y-3">
-          <h1 className="text-3xl font-light">Let’s get you glammed ✨</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-3xl font-medium">
+            Let’s get you glammed ✨
+          </h1>
+          <p className="text-sm text-gray-700">
             Create your account and find your perfect makeup artist
           </p>
         </header>
@@ -135,7 +133,7 @@ export default function RegisterBride() {
           />
         </Section>
 
-        <label className="flex items-center gap-3 text-sm">
+        <label className="flex items-center gap-3 text-sm text-black">
           <input
             type="checkbox"
             checked={agreed}
@@ -144,11 +142,11 @@ export default function RegisterBride() {
           I agree to the Terms & Conditions
         </label>
 
-        {error && <p className="text-red-500 text-center">{error}</p>}
+        {error && <p className="text-red-600 text-center">{error}</p>}
 
         <button
           disabled={loading}
-          className="w-full bg-black text-white py-4 rounded-full tracking-wide hover:opacity-90 transition"
+          className="w-full bg-purple-600 text-white py-4 rounded-full tracking-wide hover:bg-purple-700 transition"
         >
           {loading ? "Creating account..." : "Let’s get you ready"}
         </button>
@@ -167,8 +165,10 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="bg-white rounded-2xl p-8 space-y-6 shadow-sm">
-      <h2 className="text-sm tracking-wide text-gray-800">{title}</h2>
+    <section className="bg-white border border-gray-200 rounded-2xl p-8 space-y-6">
+      <h2 className="text-sm font-medium text-black">
+        {title}
+      </h2>
       {children}
     </section>
   );
@@ -185,11 +185,13 @@ function Input({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-sm">{label}</label>
+      <label className="text-sm font-medium text-black">
+        {label}
+      </label>
       <input
         type={type}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:border-black transition"
+        className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-black outline-none focus:border-purple-600 transition"
         required={label.includes("*")}
       />
     </div>
@@ -205,10 +207,12 @@ function Textarea({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-sm">{label}</label>
+      <label className="text-sm font-medium text-black">
+        {label}
+      </label>
       <textarea
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-3 border border-gray-200 rounded-xl h-28 text-sm focus:border-black transition"
+        className="w-full px-4 py-3 border border-gray-300 rounded-xl h-28 text-sm text-black focus:border-purple-600 transition"
       />
     </div>
   );
@@ -225,10 +229,12 @@ function Select({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-sm">{label}</label>
+      <label className="text-sm font-medium text-black">
+        {label}
+      </label>
       <select
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:border-black transition"
+        className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-black focus:border-purple-600 transition"
       >
         <option value="">Select</option>
         {options.map((o) => (

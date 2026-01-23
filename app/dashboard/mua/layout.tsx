@@ -24,15 +24,24 @@ export default function MuaLayout({
 
   const logout = async () => {
     await supabase.auth.signOut();
-    router.push("/");
+    router.push("/login"); // ✅ FIX (was "/")
   };
 
   return (
-    <div className="min-h-screen flex bg-[#faf7f2]">
+    <div className="min-h-screen flex bg-[#f6f6f8]">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r px-6 py-8 space-y-10">
-        <h1 className="text-xl font-light tracking-wide">
-          Beaura ✨
+      <aside
+        className="
+          w-64
+          bg-white
+          border-r border-black/5
+          px-6
+          py-8
+          space-y-12
+        "
+      >
+        <h1 className="text-2xl font-light tracking-wide text-black">
+          Beaura
         </h1>
 
         <nav className="space-y-5 text-sm">
@@ -49,7 +58,15 @@ export default function MuaLayout({
 
         <button
           onClick={logout}
-          className="flex items-center gap-3 text-sm text-gray-500 hover:text-black transition"
+          className="
+            flex
+            items-center
+            gap-3
+            text-sm
+            text-gray-600
+            hover:text-purple-600
+            transition
+          "
         >
           <LogOut size={18} />
           Logout
@@ -57,11 +74,28 @@ export default function MuaLayout({
       </aside>
 
       {/* Main */}
-      <div className="flex-1">
+      <div className="flex-1 flex flex-col">
         {/* Top bar */}
-        <header className="h-16 bg-white border-b flex items-center justify-end px-8 gap-6">
-          <Bell size={20} className="cursor-pointer" />
-          <MessageCircle size={20} className="cursor-pointer" />
+        <header
+          className="
+            h-16
+            bg-white
+            border-b border-black/5
+            flex
+            items-center
+            justify-end
+            px-8
+            gap-6
+          "
+        >
+          <Bell
+            size={20}
+            className="cursor-pointer text-gray-600 hover:text-purple-600 transition"
+          />
+          <MessageCircle
+            size={20}
+            className="cursor-pointer text-gray-600 hover:text-purple-600 transition"
+          />
         </header>
 
         <main className="p-10">{children}</main>
@@ -82,7 +116,14 @@ function NavItem({
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 text-gray-600 hover:text-black transition"
+      className="
+        flex
+        items-center
+        gap-3
+        text-gray-700
+        hover:text-purple-600
+        transition
+      "
     >
       {icon}
       {label}

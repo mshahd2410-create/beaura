@@ -1,23 +1,25 @@
-import Header from "./components/Header";
-import Hero from "./components/Hero";
-import WhyUs from "./components/WhyUs";
-import HowItWorks from "./components/HowItWorks";
-import Guarantee from "./components/Guarantee";
-import Testimonials from "./components/Testimonials";
-import FAQ from "./components/FAQ";
-import Footer from "./components/Footer";
+import Header from "@/components/landing/Header";
+import Hero from "@/components/landing/Hero";
+import WhyBeaura from "@/components/landing/WhyBeaura";
+import HowItWorks from "@/components/landing/HowItWorks";
+import Guarantee from "@/components/landing/Guarantee";
+import Testimonials from "@/components/landing/Testimonials";
+import FAQ from "@/components/landing/FAQ";
+import Footer from "@/components/landing/Footer";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-[#faf7f2] text-[#1f1f1f]">
+    <>
       <Header />
-      <Hero />
-      <WhyUs />
-      <HowItWorks />
-      <Guarantee />
-      <Testimonials />
-      <FAQ />
+      <main>
+        <Hero />
+        <WhyBeaura />
+        <HowItWorks />
+        <Guarantee />
+        <Testimonials />
+        <FAQ />
+      </main>
       <Footer />
-    </div>
+    </>
   );
 }
