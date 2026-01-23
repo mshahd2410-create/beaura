@@ -11,34 +11,108 @@ export default function BookingsPage() {
     fetchBookings();
   }, []);
 
+  // 🔴 REALTIME LISTENER (NO UI CHANGE)
+  useEffect(() => {
+    const setupRealtime = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const channel = supabase
+        .channel("mua-bookings-realtime")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "bookings",
+            filter: `mua_id=eq.${user.id}`,
+          },
+          () => {
+            fetchBookings();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    };
+
+    setupRealtime();
+  }, []);
+
   async function fetchBookings() {
+    setLoading(true);
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
-    const { data, error } = await supabase
+    // 1️⃣ Fetch bookings
+    const { data: bookingsData, error } = await supabase
       .from("bookings")
       .select("*")
       .eq("mua_id", user.id)
-      .order("event_date", { ascending: true });
+      .order("created_at", { ascending: false });
 
-    if (!error) setBookings(data || []);
+    if (error) {
+      console.error("FETCH BOOKINGS ERROR:", error);
+      setBookings([]);
+      setLoading(false);
+      return;
+    }
+
+    if (!bookingsData || bookingsData.length === 0) {
+      setBookings([]);
+      setLoading(false);
+      return;
+    }
+
+    // 2️⃣ Collect IDs
+    const brideIds = [...new Set(bookingsData.map((b) => b.bride_id))];
+    const serviceIds = [...new Set(bookingsData.map((b) => b.service_id))];
+
+    // 3️⃣ Fetch brides
+    const { data: brides } = await supabase
+      .from("bride_profiles")
+      .select("id, first_name, last_name")
+      .in("id", brideIds);
+
+    // 4️⃣ Fetch services
+    const { data: services } = await supabase
+      .from("mua_services")
+      .select("id, name")
+      .in("id", serviceIds);
+
+    // 5️⃣ Merge
+    const enriched = bookingsData.map((b) => ({
+      ...b,
+      bride: brides?.find((br) => br.id === b.bride_id),
+      service: services?.find((s) => s.id === b.service_id),
+    }));
+
+    setBookings(enriched);
     setLoading(false);
   }
 
   async function updateStatus(id: string, status: string) {
-    await supabase.from("bookings").update({ status }).eq("id", id);
-    fetchBookings();
+    await supabase
+      .from("bookings")
+      .update({ status })
+      .eq("id", id);
   }
 
-  if (loading)
-    return (
-      <p className="text-gray-600">
-        Loading bookings…
-      </p>
-    );
+  if (loading) {
+    return <p className="text-gray-600">Loading bookings…</p>;
+  }
 
   return (
     <section
@@ -55,9 +129,7 @@ export default function BookingsPage() {
       </h2>
 
       {bookings.length === 0 && (
-        <p className="text-gray-500">
-          No bookings yet.
-        </p>
+        <p className="text-gray-500">No bookings yet.</p>
       )}
 
       <div className="space-y-4">
@@ -77,11 +149,23 @@ export default function BookingsPage() {
           >
             <div>
               <p className="font-medium text-black">
-                {b.bride_name}
+                {b.bride?.first_name} {b.bride?.last_name}
               </p>
+
               <p className="text-sm text-gray-600">
-                {b.service} · {b.event_date}
+                {b.service?.name} · {b.booking_date} · {b.booking_time}
               </p>
+
+              <p className="text-xs text-gray-500 mt-1">
+                Location: {b.location}
+              </p>
+
+              {b.location_notes && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Notes: {b.location_notes}
+                </p>
+              )}
+
               <p className="text-xs mt-2 text-gray-500">
                 Status:{" "}
                 <strong className="text-black">
@@ -94,9 +178,7 @@ export default function BookingsPage() {
               {b.status === "pending" && (
                 <>
                   <button
-                    onClick={() =>
-                      updateStatus(b.id, "confirmed")
-                    }
+                    onClick={() => updateStatus(b.id, "confirmed")}
                     className="
                       px-4
                       py-1.5
@@ -112,9 +194,7 @@ export default function BookingsPage() {
                   </button>
 
                   <button
-                    onClick={() =>
-                      updateStatus(b.id, "cancelled")
-                    }
+                    onClick={() => updateStatus(b.id, "cancelled")}
                     className="
                       px-4
                       py-1.5

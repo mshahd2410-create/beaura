@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import {
   Calendar,
@@ -21,10 +22,66 @@ export default function MuaLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  // 🔴 FETCH PENDING BOOKINGS COUNT
+  const fetchPendingCount = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    const { count } = await supabase
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("mua_id", user.id)
+      .eq("status", "pending");
+
+    setPendingCount(count || 0);
+  };
+
+  // 🔴 INITIAL LOAD
+  useEffect(() => {
+    fetchPendingCount();
+  }, []);
+
+  // 🔴 REALTIME LISTENER
+  useEffect(() => {
+    const setupRealtime = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const channel = supabase
+        .channel("mua-bookings-layout")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "bookings",
+            filter: `mua_id=eq.${user.id}`,
+          },
+          () => {
+            fetchPendingCount();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    };
+
+    setupRealtime();
+  }, []);
 
   const logout = async () => {
     await supabase.auth.signOut();
-    router.push("/login"); // ✅ FIX (was "/")
+    router.push("/login");
   };
 
   return (
@@ -46,7 +103,44 @@ export default function MuaLayout({
 
         <nav className="space-y-5 text-sm">
           <NavItem href="/dashboard/mua" icon={<Briefcase size={18} />} label="Dashboard" />
-          <NavItem href="/dashboard/mua/bookings" icon={<Calendar size={18} />} label="Bookings" />
+
+          {/* 🔴 BOOKINGS WITH BADGE */}
+          <Link
+            href="/dashboard/mua/bookings"
+            className="
+              flex
+              items-center
+              justify-between
+              text-gray-700
+              hover:text-purple-600
+              transition
+            "
+          >
+            <div className="flex items-center gap-3">
+              <Calendar size={18} />
+              Bookings
+            </div>
+
+            {pendingCount > 0 && (
+              <span
+                className="
+                  min-w-[20px]
+                  h-5
+                  px-2
+                  rounded-full
+                  bg-purple-600
+                  text-white
+                  text-xs
+                  flex
+                  items-center
+                  justify-center
+                "
+              >
+                {pendingCount}
+              </span>
+            )}
+          </Link>
+
           <NavItem href="/dashboard/mua/calendar" icon={<Calendar size={18} />} label="Calendar" />
           <NavItem href="/dashboard/mua/messages" icon={<MessageCircle size={18} />} label="Messages" />
           <NavItem href="/dashboard/mua/reviews" icon={<Star size={18} />} label="Reviews" />

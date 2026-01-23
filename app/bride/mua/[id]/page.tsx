@@ -7,7 +7,9 @@ import { supabase } from "@/lib/supabaseClient";
 import RequestBookingModal from "@/components/booking/RequestBookingModal";
 
 export default function MuaProfilePage() {
-  const { id } = useParams();
+  const params = useParams();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  console.log("MUA ID FROM URL:", id);
 
   const [mua, setMua] = useState<any>(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -16,6 +18,8 @@ export default function MuaProfilePage() {
   const [openBooking, setOpenBooking] = useState(false);
 
   useEffect(() => {
+    if (!id) return;
+
     const loadMua = async () => {
       const { data } = await supabase
         .from("mua_profiles")
@@ -25,7 +29,13 @@ export default function MuaProfilePage() {
           last_name,
           bio,
           cities,
-          mua_portfolio ( image_path )
+          mua_portfolio ( image_path ),
+          mua_services (
+            id,
+            name,
+            price,
+            duration_minutes
+          )
         `)
         .eq("id", id)
         .single();
@@ -39,13 +49,19 @@ export default function MuaProfilePage() {
             .getPublicUrl(p.image_path).data.publicUrl,
         })) || [];
 
-      setMua({ ...data, portfolio });
+      setMua({
+        ...data,
+        portfolio,
+        services: data.mua_services || [],
+      });
     };
 
     loadMua();
   }, [id]);
 
-  if (!mua) return null;
+  if (!mua) {
+    return <main className="min-h-screen bg-white" />;
+  }
 
   const previewImages = mua.portfolio.slice(0, 4);
 
@@ -78,9 +94,7 @@ export default function MuaProfilePage() {
               Book
             </button>
 
-            <button
-              className="h-12 px-6 rounded-full border border-gray-300 text-sm hover:border-purple-600 hover:text-purple-600 transition"
-            >
+            <button className="h-12 px-6 rounded-full border border-gray-300 text-sm hover:border-purple-600 hover:text-purple-600 transition">
               Message
             </button>
           </div>
@@ -248,7 +262,8 @@ export default function MuaProfilePage() {
 
       {/* BOOKING MODAL */}
       <RequestBookingModal
-        muaId={id as string}
+        muaId={mua.id}
+        services={mua.services}
         open={openBooking}
         onClose={() => setOpenBooking(false)}
       />

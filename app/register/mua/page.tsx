@@ -1,17 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 const EGYPT_CITIES = [
-  "Cairo","Giza","Alexandria","Dakahlia","Sharqia","Gharbia",
-  "Monufia","Beheira","Kafr El Sheikh","Fayoum","Beni Suef",
-  "Minya","Asyut","Sohag","Qalyubia",
+  "Cairo",
+  "Giza",
+  "Alexandria",
+  "Dakahlia",
+  "Sharqia",
+  "Gharbia",
+  "Monufia",
+  "Beheira",
+  "Kafr El Sheikh",
+  "Fayoum",
+  "Beni Suef",
+  "Minya",
+  "Asyut",
+  "Sohag",
+  "Qalyubia",
+];
+
+const EXPERIENCE_LEVELS = [
+  "Beginner",
+  "Intermediate",
+  "Experienced",
+  "Advanced",
 ];
 
 export default function RegisterMUA() {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [portfolio, setPortfolio] = useState<File[]>([]);
@@ -28,9 +49,9 @@ export default function RegisterMUA() {
     experience: "",
     cities: [] as string[],
     services: {
-      bridal: "",
-      engagement: "",
-      soiree: "",
+      bridal: { price: "", duration: 90 },
+      engagement: { price: "", duration: 75 },
+      soiree: { price: "", duration: 60 },
     },
   });
 
@@ -81,7 +102,10 @@ export default function RegisterMUA() {
       password: form.password,
     });
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (!user) {
       setError("Authentication failed");
       setLoading(false);
@@ -94,8 +118,10 @@ export default function RegisterMUA() {
         id: user.id,
         first_name: form.firstName,
         last_name: form.lastName,
+        phone: form.phone,
         instagram: form.instagram,
         bio: form.bio,
+        experience: form.experience,
         cities: form.cities,
       });
 
@@ -105,37 +131,32 @@ export default function RegisterMUA() {
       return;
     }
 
-    const servicesToInsert: {
-      mua_id: string;
-      name: string;
-      price: number;
-      duration_minutes: number;
-    }[] = [];
+    const servicesToInsert = [];
 
-    if (form.services.bridal) {
+    if (form.services.bridal.price) {
       servicesToInsert.push({
         mua_id: user.id,
         name: "Bridal makeup",
-        price: Number(form.services.bridal),
-        duration_minutes: 90,
+        price: Number(form.services.bridal.price),
+        duration_minutes: form.services.bridal.duration,
       });
     }
 
-    if (form.services.engagement) {
+    if (form.services.engagement.price) {
       servicesToInsert.push({
         mua_id: user.id,
         name: "Engagement makeup",
-        price: Number(form.services.engagement),
-        duration_minutes: 75,
+        price: Number(form.services.engagement.price),
+        duration_minutes: form.services.engagement.duration,
       });
     }
 
-    if (form.services.soiree) {
+    if (form.services.soiree.price) {
       servicesToInsert.push({
         mua_id: user.id,
         name: "Soiree makeup",
-        price: Number(form.services.soiree),
-        duration_minutes: 60,
+        price: Number(form.services.soiree.price),
+        duration_minutes: form.services.soiree.duration,
       });
     }
 
@@ -171,10 +192,7 @@ export default function RegisterMUA() {
 
   return (
     <main className="min-h-screen bg-white px-4 py-24 text-black">
-      <form
-        onSubmit={handleSubmit}
-        className="mx-auto max-w-lg space-y-20"
-      >
+      <form onSubmit={handleSubmit} className="mx-auto max-w-lg space-y-20">
         <header className="text-center space-y-3">
           <h1 className="text-3xl font-medium">
             Join Beaura as an Artist 💄
@@ -199,11 +217,12 @@ export default function RegisterMUA() {
                 type="button"
                 key={city}
                 onClick={() => toggleCity(city)}
-                className={`rounded-full px-4 py-2 text-sm border transition ${
-                  form.cities.includes(city)
+                className={
+                  "rounded-full px-4 py-2 text-sm border transition " +
+                  (form.cities.includes(city)
                     ? "bg-purple-600 text-white border-purple-600"
-                    : "border-gray-300 text-black"
-                }`}
+                    : "border-gray-300 text-black")
+                }
               >
                 {city}
               </button>
@@ -214,43 +233,113 @@ export default function RegisterMUA() {
         <Section title="About you">
           <Input label="Instagram link *" onChange={(v) => setForm({ ...form, instagram: v })} />
           <Textarea label="Short bio" onChange={(v) => setForm({ ...form, bio: v })} />
-          <Input label="Experience level" onChange={(v) => setForm({ ...form, experience: v })} />
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-black">
+              Experience level
+            </label>
+            <select
+              value={form.experience}
+              onChange={(e) => setForm({ ...form, experience: e.target.value })}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-black focus:border-purple-600 transition"
+              required
+            >
+              <option value="">Select experience level</option>
+              {EXPERIENCE_LEVELS.map((level) => (
+                <option key={level} value={level}>
+                  {level}
+                </option>
+              ))}
+            </select>
+          </div>
         </Section>
 
         <Section title="Show us your amazing work ✨">
           <input
+            ref={fileInputRef}
             type="file"
             multiple
             accept="image/*"
+            hidden
             onChange={(e) => setPortfolio(Array.from(e.target.files || []))}
-            className="text-sm text-black"
           />
-          <p className="text-xs text-gray-700">Upload 5–25 images</p>
+
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full border border-gray-300 rounded-xl py-3 text-sm hover:border-purple-600 transition"
+          >
+            Add photos
+          </button>
+
+          <p className="text-xs text-gray-700">
+            {portfolio.length} selected • Upload 5–25 images
+          </p>
         </Section>
 
         <Section title="Your services">
-          {["bridal", "engagement", "soiree"].map((key) => (
-            <div key={key} className="space-y-1">
-              <Price
-                label={`${key.charAt(0).toUpperCase() + key.slice(1)} makeup`}
-                onChange={(v) =>
-                  setForm({
-                    ...form,
-                    services: { ...form.services, [key]: v },
-                  })
-                }
-              />
-              {form.services[key as keyof typeof form.services] && (
+          {(
+            [
+              ["bridal", "Bridal makeup"],
+              ["engagement", "Engagement makeup"],
+              ["soiree", "Soiree makeup"],
+            ] as const
+          ).map(([key, label]) => (
+            <div key={key} className="space-y-2">
+              <div className="flex items-center gap-3">
+                <span className="flex-1 text-sm">{label}</span>
+
+                <input
+                  placeholder="EGP"
+                  className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      services: {
+                        ...form.services,
+                        [key]: {
+                          ...form.services[key],
+                          price: e.target.value,
+                        },
+                      },
+                    })
+                  }
+                />
+
+                <select
+                  className="w-28 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  value={form.services[key].duration}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      services: {
+                        ...form.services,
+                        [key]: {
+                          ...form.services[key],
+                          duration: Number(e.target.value),
+                        },
+                      },
+                    })
+                  }
+                >
+                  <option value={45}>45 min</option>
+                  <option value={60}>60 min</option>
+                  <option value={75}>75 min</option>
+                  <option value={90}>90 min</option>
+                  <option value={120}>120 min</option>
+                </select>
+              </div>
+
+              {form.services[key].price && (
                 <p className="text-xs text-gray-700 ml-auto w-32">
-                  You receive EGP{" "}
-                  {calculateNet(form.services[key as keyof typeof form.services])}
+                  You receive EGP {calculateNet(form.services[key].price)}
                 </p>
               )}
             </div>
           ))}
         </Section>
 
-        <div className="flex items-center gap-2 text-sm text-black">
+        <div className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
             checked={agreed}
@@ -264,7 +353,7 @@ export default function RegisterMUA() {
 
         <button
           disabled={loading}
-          className="w-full bg-purple-600 text-white py-4 rounded-full tracking-wide hover:bg-purple-700 transition"
+          className="w-full bg-purple-600 text-white py-4 rounded-full hover:bg-purple-700 transition"
         >
           {loading ? "Creating account..." : "Let’s get your clients ready"}
         </button>
@@ -284,9 +373,7 @@ function Section({
 }) {
   return (
     <section className="bg-white border border-gray-200 rounded-2xl p-8 space-y-6">
-      <h2 className="text-sm font-medium text-black">
-        {title}
-      </h2>
+      <h2 className="text-sm font-medium">{title}</h2>
       {children}
     </section>
   );
@@ -303,13 +390,11 @@ function Input({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-sm font-medium text-black">
-        {label}
-      </label>
+      <label className="text-sm font-medium">{label}</label>
       <input
         type={type}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-black outline-none focus:border-purple-600 transition"
+        className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:border-purple-600 transition"
         required
       />
     </div>
@@ -325,33 +410,10 @@ function Textarea({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-sm font-medium text-black">
-        {label}
-      </label>
+      <label className="text-sm font-medium">{label}</label>
       <textarea
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-3 border border-gray-300 rounded-xl h-28 text-sm text-black focus:border-purple-600 transition"
-      />
-    </div>
-  );
-}
-
-function Price({
-  label,
-  onChange,
-}: {
-  label: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="flex items-center gap-4">
-      <span className="flex-1 text-sm text-black">
-        {label}
-      </span>
-      <input
-        placeholder="EGP"
-        onChange={(e) => onChange(e.target.value)}
-        className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm text-black focus:border-purple-600 transition"
+        className="w-full px-4 py-3 border border-gray-300 rounded-xl h-28 text-sm focus:border-purple-600 transition"
       />
     </div>
   );
