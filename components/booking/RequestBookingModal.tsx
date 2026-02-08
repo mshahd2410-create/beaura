@@ -24,7 +24,11 @@ export default function RequestBookingModal({
   const [serviceId, setServiceId] = useState("");
   const [bookingDate, setBookingDate] = useState("");
   const [bookingTime, setBookingTime] = useState("");
-  const [locationNotes, setLocationNotes] = useState("");
+
+  // ✅ SEPARATE STATES (THIS IS THE FIX)
+  const [location, setLocation] = useState("");
+  const [notes, setNotes] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,7 +44,7 @@ export default function RequestBookingModal({
   async function submitBooking() {
     setError(null);
 
-    if (!serviceId || !bookingDate || !bookingTime) {
+    if (!serviceId || !bookingDate || !bookingTime || !location) {
       setError("Please fill all required fields.");
       return;
     }
@@ -66,7 +70,11 @@ export default function RequestBookingModal({
         service_id: serviceId,
         booking_date: bookingDate,
         booking_time: bookingTime,
-        location_notes: locationNotes || null,
+
+        // ✅ MATCH SUPABASE EXACTLY
+        location: location,
+        notes: notes || null,
+
         service_price: servicePrice,
         platform_fee: platformFee,
         tax_fee: taxFee,
@@ -75,8 +83,14 @@ export default function RequestBookingModal({
       });
 
     if (insertError) {
-      console.error("BOOKING INSERT ERROR:", insertError);
-      setError("Something went wrong. Please try again.");
+      console.error("❌ BOOKING INSERT ERROR FULL:", {
+        message: insertError.message,
+        details: insertError.details,
+        hint: insertError.hint,
+        code: insertError.code,
+      });
+
+      setError(insertError.message);
       setLoading(false);
       return;
     }
@@ -154,20 +168,31 @@ export default function RequestBookingModal({
           />
         </div>
 
-        {/* NOTES */}
+        {/* ✅ LOCATION (SEPARATE) */}
         <div>
-          <label className="text-sm text-gray-600">Location notes</label>
+          <label className="text-sm text-gray-600">Location</label>
+          <input
+            type="text"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="Address or venue name"
+            className="w-full mt-1 border border-gray-300 rounded-xl px-3 py-2 text-sm"
+          />
+        </div>
+
+        {/* ✅ NOTES (SEPARATE) */}
+        <div>
+          <label className="text-sm text-gray-600">Notes</label>
           <textarea
-            value={locationNotes}
-            onChange={(e) => setLocationNotes(e.target.value)}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Anything the MUA should know"
             className="w-full mt-1 border border-gray-300 rounded-xl px-3 py-2 text-sm"
             rows={3}
           />
         </div>
 
-        {error && (
-          <p className="text-sm text-red-600">{error}</p>
-        )}
+        {error && <p className="text-sm text-red-600">{error}</p>}
 
         <div className="flex justify-end gap-3 pt-4">
           <button

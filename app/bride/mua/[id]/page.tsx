@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation"; // ✅ ADDED useRouter
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabaseClient";
 import RequestBookingModal from "@/components/booking/RequestBookingModal";
 
 export default function MuaProfilePage() {
   const params = useParams();
+  const router = useRouter(); // ✅ ADDED
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   console.log("MUA ID FROM URL:", id);
 
@@ -59,6 +60,44 @@ export default function MuaProfilePage() {
     loadMua();
   }, [id]);
 
+  // ✅ ADDED FUNCTION — LOGIC ONLY
+  async function handleMessage() {
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (!user || authError || !id) return;
+
+  const { data: existingConversation } = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("bride_id", user.id)
+    .eq("mua_id", id)
+    .maybeSingle();
+
+  if (existingConversation) {
+    router.push(`/bride/messages/${existingConversation.id}`);
+    return;
+  }
+
+  const { data: newConversation, error } = await supabase
+    .from("conversations")
+    .insert({
+      bride_id: user.id,
+      mua_id: id,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("CREATE CONVERSATION ERROR:", error);
+    return;
+  }
+
+  router.push(`/bride/messages/${newConversation.id}`);
+}
+
   if (!mua) {
     return <main className="min-h-screen bg-white" />;
   }
@@ -94,7 +133,10 @@ export default function MuaProfilePage() {
               Book
             </button>
 
-            <button className="h-12 px-6 rounded-full border border-gray-300 text-sm hover:border-purple-600 hover:text-purple-600 transition">
+            <button
+              onClick={handleMessage} // ✅ ADDED
+              className="h-12 px-6 rounded-full border border-gray-300 text-sm hover:border-purple-600 hover:text-purple-600 transition"
+            >
               Message
             </button>
           </div>
