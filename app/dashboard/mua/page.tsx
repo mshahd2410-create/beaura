@@ -1,9 +1,15 @@
+import SupportHelpButton from "@/components/support/SupportHelpButton";
+
 export default function MuaDashboard() {
   return (
     <div className="space-y-10">
-      <h2 className="text-2xl font-light text-black">
-        Welcome back ✨
-      </h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-light text-black">
+          Welcome back ✨
+        </h2>
+
+        <SupportHelpButton userType="mua" />
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard title="Upcoming bookings" value="0" />
@@ -16,7 +22,8 @@ export default function MuaDashboard() {
 
 function StatCard({ title, value }: any) {
   return (
-    <div className="
+    <div
+      className="
       bg-white
       rounded-3xl
       p-6
@@ -24,7 +31,8 @@ function StatCard({ title, value }: any) {
       shadow-[0_8px_30px_rgba(0,0,0,0.04)]
       transition
       hover:shadow-[0_12px_40px_rgba(124,58,237,0.12)]
-    ">
+    "
+    >
       <p className="text-sm text-gray-600">{title}</p>
       <p className="text-xl mt-3 text-black">{value}</p>
     </div>

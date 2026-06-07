@@ -14,6 +14,7 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (loading) return;
 
     setLoading(true);
@@ -31,6 +32,7 @@ export default function LoginPage() {
     }
 
     const user = data.user;
+
     if (!user) {
       setError("Something went wrong. Please try again.");
       setLoading(false);
@@ -38,11 +40,8 @@ export default function LoginPage() {
     }
 
     /**
-     * IMPORTANT FIX:
-     * Use maybeSingle() to avoid Supabase throwing + stalling
+     * Check Bride Profile
      */
-
-    // Check bride
     const { data: bride } = await supabase
       .from("bride_profiles")
       .select("id")
@@ -54,7 +53,9 @@ export default function LoginPage() {
       return;
     }
 
-    // Check MUA
+    /**
+     * Check MUA Profile
+     */
     const { data: mua } = await supabase
       .from("mua_profiles")
       .select("id")
@@ -65,6 +66,24 @@ export default function LoginPage() {
       router.replace("/dashboard/mua");
       return;
     }
+
+    /**
+     * Check Admin
+     */
+    const { data: admin, error: adminError } = await supabase
+  .from("admins")
+  .select("*")
+  .eq("user_id", user.id)
+  .maybeSingle();
+
+console.log("USER ID:", user.id);
+console.log("ADMIN:", admin);
+console.log("ADMIN ERROR:", adminError);
+
+if (admin) {
+  router.replace("/admin");
+  return;
+}
 
     setError("Account exists but profile is not set up yet.");
     setLoading(false);
@@ -102,6 +121,7 @@ export default function LoginPage() {
             <label className="text-sm text-gray-600">
               Email
             </label>
+
             <input
               type="email"
               required
@@ -116,6 +136,7 @@ export default function LoginPage() {
             <label className="text-sm text-gray-600">
               Password
             </label>
+
             <input
               type="password"
               required
@@ -126,7 +147,7 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* ✅ FORGOT PASSWORD (UI ONLY) */}
+          {/* Forgot Password (UI Only) */}
           <div className="text-right">
             <button
               type="button"
@@ -147,7 +168,7 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full h-12 rounded-full bg-purple-600 text-white text-sm
             hover:bg-purple-700 transition disabled:opacity-60"
-            >
+          >
             {loading ? "Signing you in…" : "Continue"}
           </button>
         </form>

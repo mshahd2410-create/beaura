@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
+import TawkChat from "@/components/support/TawkChat";
 import "./globals.css";
 
 export default function RootLayout({
@@ -22,6 +23,8 @@ export default function RootLayout({
             {children}
           </motion.div>
         </AnimatePresence>
+
+        <TawkChat />
       </body>
     </html>
   );

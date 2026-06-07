@@ -1,45 +1,56 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation"; // ✅ ADDED useRouter
+import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabaseClient";
 import RequestBookingModal from "@/components/booking/RequestBookingModal";
 
 export default function MuaProfilePage() {
   const params = useParams();
-  const router = useRouter(); // ✅ ADDED
+  const router = useRouter();
+
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
+
   console.log("MUA ID FROM URL:", id);
 
   const [mua, setMua] = useState<any>(null);
+
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [imageOpen, setImageOpen] = useState<string | null>(null);
   const [reviewsOpen, setReviewsOpen] = useState(false);
   const [openBooking, setOpenBooking] = useState(false);
+
+  // FAVORITES
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
 
     const loadMua = async () => {
       const { data } = await supabase
-        .from("mua_profiles")
-        .select(`
-          id,
-          first_name,
-          last_name,
-          bio,
-          cities,
-          mua_portfolio ( image_path ),
-          mua_services (
-            id,
-            name,
-            price,
-            duration_minutes
-          )
-        `)
-        .eq("id", id)
-        .single();
+  .from("mua_profiles")
+  .select(`
+    id,
+    first_name,
+    last_name,
+    bio,
+    cities,
+    verified,
+    status,
+    mua_portfolio ( image_path ),
+    mua_services (
+      id,
+      name,
+      price,
+      duration_minutes
+    )
+  `)
+  .eq("id", id)
+  .eq("verified", true)
+  .eq("status", "active")
+  .single();
 
       if (!data) return;
 
@@ -55,48 +66,99 @@ export default function MuaProfilePage() {
         portfolio,
         services: data.mua_services || [],
       });
+
+      // CHECK FAVORITE
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        const { data: favorite } = await supabase
+          .from("favorites")
+          .select("id")
+          .eq("bride_id", user.id)
+          .eq("mua_id", id)
+          .maybeSingle();
+
+        setIsFavorite(!!favorite);
+      }
     };
 
     loadMua();
   }, [id]);
 
-  // ✅ ADDED FUNCTION — LOGIC ONLY
+  // MESSAGE LOGIC
   async function handleMessage() {
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-  if (!user || authError || !id) return;
+    if (!user || authError || !id) return;
 
-  const { data: existingConversation } = await supabase
-    .from("conversations")
-    .select("id")
-    .eq("bride_id", user.id)
-    .eq("mua_id", id)
-    .maybeSingle();
+    const { data: existingConversation } = await supabase
+      .from("conversations")
+      .select("id")
+      .eq("bride_id", user.id)
+      .eq("mua_id", id)
+      .maybeSingle();
 
-  if (existingConversation) {
-    router.push(`/bride/messages/${existingConversation.id}`);
-    return;
+    if (existingConversation) {
+      router.push(`/bride/messages/${existingConversation.id}`);
+      return;
+    }
+
+    const { data: newConversation, error } = await supabase
+      .from("conversations")
+      .insert({
+        bride_id: user.id,
+        mua_id: id,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("CREATE CONVERSATION ERROR:", error);
+      return;
+    }
+
+    router.push(`/bride/messages/${newConversation.id}`);
   }
 
-  const { data: newConversation, error } = await supabase
-    .from("conversations")
-    .insert({
-      bride_id: user.id,
-      mua_id: id,
-    })
-    .select()
-    .single();
+  // FAVORITE LOGIC
+  async function toggleFavorite() {
+    if (favoriteLoading) return;
 
-  if (error) {
-    console.error("CREATE CONVERSATION ERROR:", error);
-    return;
+    setFavoriteLoading(true);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setFavoriteLoading(false);
+      return;
+    }
+
+    if (isFavorite) {
+      await supabase
+        .from("favorites")
+        .delete()
+        .eq("bride_id", user.id)
+        .eq("mua_id", id);
+
+      setIsFavorite(false);
+    } else {
+      await supabase.from("favorites").insert({
+        bride_id: user.id,
+        mua_id: id,
+      });
+
+      setIsFavorite(true);
+    }
+
+    setFavoriteLoading(false);
   }
-
-  router.push(`/bride/messages/${newConversation.id}`);
-}
 
   if (!mua) {
     return <main className="min-h-screen bg-white" />;
@@ -118,7 +180,10 @@ export default function MuaProfilePage() {
             <h1 className="text-3xl font-light tracking-tight">
               {mua.first_name} {mua.last_name}
             </h1>
-            <span className="text-sm text-purple-600">★ 4.9</span>
+
+            <span className="text-sm text-purple-600">
+              ★ 4.9
+            </span>
           </div>
 
           <p className="text-sm text-gray-500 max-w-xl">
@@ -134,10 +199,18 @@ export default function MuaProfilePage() {
             </button>
 
             <button
-              onClick={handleMessage} // ✅ ADDED
+              onClick={handleMessage}
               className="h-12 px-6 rounded-full border border-gray-300 text-sm hover:border-purple-600 hover:text-purple-600 transition"
             >
               Message
+            </button>
+
+            {/* FAVORITE BUTTON */}
+            <button
+              onClick={toggleFavorite}
+              className="h-12 w-12 rounded-full border border-gray-300 flex items-center justify-center text-lg hover:border-purple-600 hover:text-purple-600 transition"
+            >
+              {isFavorite ? "♥" : "♡"}
             </button>
           </div>
         </motion.div>
@@ -181,16 +254,20 @@ export default function MuaProfilePage() {
           <div>
             <p className="font-medium">Sara A.</p>
             <p className="text-xs text-gray-400">★★★★★</p>
+
             <p className="text-sm text-gray-600 mt-2">
-              She made me feel calm and confident. Makeup lasted all night.
+              She made me feel calm and confident.
+              Makeup lasted all night.
             </p>
           </div>
 
           <div>
             <p className="font-medium">Nour M.</p>
             <p className="text-xs text-gray-400">★★★★★</p>
+
             <p className="text-sm text-gray-600 mt-2">
-              Very professional and warm. Highly recommend.
+              Very professional and warm.
+              Highly recommend.
             </p>
           </div>
         </div>
@@ -260,6 +337,7 @@ export default function MuaProfilePage() {
           >
             ✕
           </button>
+
           <img
             src={imageOpen}
             className="max-h-[90vh] max-w-[90vw] object-contain"
@@ -279,12 +357,18 @@ export default function MuaProfilePage() {
               ← Back
             </button>
 
-            <h2 className="text-2xl font-light">All reviews</h2>
+            <h2 className="text-2xl font-light">
+              All reviews
+            </h2>
 
             <div className="space-y-10">
               <div>
                 <p className="font-medium">Sara A.</p>
-                <p className="text-xs text-gray-400">★★★★★</p>
+
+                <p className="text-xs text-gray-400">
+                  ★★★★★
+                </p>
+
                 <p className="text-sm text-gray-600 mt-2">
                   She made me feel calm and confident.
                 </p>
@@ -292,7 +376,11 @@ export default function MuaProfilePage() {
 
               <div>
                 <p className="font-medium">Nour M.</p>
-                <p className="text-xs text-gray-400">★★★★★</p>
+
+                <p className="text-xs text-gray-400">
+                  ★★★★★
+                </p>
+
                 <p className="text-sm text-gray-600 mt-2">
                   Beautiful work and very professional.
                 </p>
