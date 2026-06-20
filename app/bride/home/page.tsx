@@ -14,25 +14,25 @@ const SERVICE_SECTIONS = [
     title: "Bridal",
     value: "Bridal makeup",
     text: "Wedding day glam, bridal trials, and long-wear looks.",
-    image: "/landing/bridal.jpg",
+    image: "/Landing/bridal.jpg",
   },
   {
     title: "Engagement",
     value: "Engagement makeup",
     text: "Soft, polished glam for your celebration.",
-    image: "/landing/engagement.jpg",
+    image: "/Landing/engagement.jpg",
   },
   {
     title: "Soiree",
     value: "Soiree makeup",
     text: "Evening makeup for dinners, parties, and special nights.",
-    image: "/landing/soiree.jpg",
+    image: "/Landing/soiree.jpg",
   },
   {
     title: "Photoshoot",
     value: "Photoshoot makeup",
     text: "Camera-ready glam for shoots and content days.",
-    image: "/landing/photoshoot.jpg",
+    image: "/Landing/photoshoot.jpg",
   },
 ];
 
