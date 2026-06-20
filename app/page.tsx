@@ -5,25 +5,25 @@ const occasions = [
     title: "Bridal era",
     label: "For the big day",
     text: "Wedding day glam, trials, and long-wear looks that still feel like you.",
-    image: "/landing/bridal.jpg",
+    image: "/Landing/bridal.jpg",
   },
   {
     title: "Engagement glow",
     label: "For the announcement",
     text: "Soft, romantic glam for engagement celebrations and family photos.",
-    image: "/landing/engagement.jpg",
+    image: "/Landing/engagement.jpg",
   },
   {
     title: "Soirée mood",
     label: "For the night out",
     text: "Evening makeup for dinners, parties, and every dressed-up moment.",
-    image: "/landing/soiree.jpg",
+    image: "/Landing/soiree.jpg",
   },
   {
     title: "Camera ready",
     label: "For shoots",
     text: "Polished looks for photoshoots, content days, and beauty moments.",
-    image: "/landing/photoshoot.jpg",
+    image: "/Landing/photoshoot.jpg",
   },
 ];
 
@@ -43,19 +43,19 @@ const edits = [
     title: "For the girls who saved 500 makeup looks",
     text: "Browse by vibe, city, and occasion instead of getting lost in screenshots.",
     href: "/register/bride",
-    image: "/landing/bridal.jpg",
+    image: "/Landing/bridal.jpg",
   },
   {
     title: "For brides who overthink every detail",
     text: "Save your favorites, compare styles, and keep your booking process calmer.",
     href: "/register/bride",
-    image: "/landing/engagement.jpg",
+    image: "/Landing/engagement.jpg",
   },
   {
     title: "For artists who deserve a prettier profile",
     text: "Show your portfolio, cities, services, and prices in one polished place.",
     href: "/register/mua",
-    image: "/landing/artist.jpg",
+    image: "/Landing/artist.jpg",
   },
 ];
 
@@ -218,7 +218,7 @@ export default function HomePage() {
 
             <div className="float-slow absolute left-0 top-12 w-[68%] rounded-[3rem] border border-white bg-white p-6 shadow-2xl">
               <img
-                src="/landing/hero-bride.jpg"
+                src="/Landing/hero-bride.jpg"
                 alt="Bridal makeup look"
                 className="h-72 w-full rounded-t-full rounded-b-[2.5rem] object-cover"
               />
@@ -477,7 +477,7 @@ export default function HomePage() {
 
           <div className="overflow-hidden rounded-[3.5rem] bg-[#f1e5ff]">
             <img
-              src="/landing/artist.jpg"
+              src="/Landing/artist.jpg"
               alt="Makeup artist"
               className="h-72 w-full object-cover"
             />
