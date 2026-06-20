@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -39,9 +40,17 @@ export default function LoginPage() {
       return;
     }
 
-    /**
-     * Check Bride Profile
-     */
+    const { data: admin } = await supabase
+      .from("admins")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (admin) {
+      router.replace("/admin");
+      return;
+    }
+
     const { data: bride } = await supabase
       .from("bride_profiles")
       .select("id")
@@ -53,9 +62,6 @@ export default function LoginPage() {
       return;
     }
 
-    /**
-     * Check MUA Profile
-     */
     const { data: mua } = await supabase
       .from("mua_profiles")
       .select("id")
@@ -67,112 +73,122 @@ export default function LoginPage() {
       return;
     }
 
-    /**
-     * Check Admin
-     */
-    const { data: admin, error: adminError } = await supabase
-  .from("admins")
-  .select("*")
-  .eq("user_id", user.id)
-  .maybeSingle();
-
-console.log("USER ID:", user.id);
-console.log("ADMIN:", admin);
-console.log("ADMIN ERROR:", adminError);
-
-if (admin) {
-  router.replace("/admin");
-  return;
-}
-
     setError("Account exists but profile is not set up yet.");
     setLoading(false);
   };
 
   return (
-    <main className="min-h-screen bg-white flex items-center justify-center px-6">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.9 }}
-        className="w-full max-w-md"
-      >
-        {/* HERO */}
-        <div className="text-center mb-12">
-          <p className="text-xs uppercase tracking-widest text-gray-400">
+    <main className="min-h-screen bg-[#fffafc] px-4 py-10 text-[#171018]">
+      <div className="mx-auto max-w-md">
+        <div className="mb-8 flex items-center justify-between">
+          <Link href="/" className="text-4xl font-light tracking-[-0.08em]">
             Beaura
-          </p>
+          </Link>
 
-          <h1 className="mt-4 text-4xl font-light tracking-tight text-black">
-            Welcome back, beautiful
-          </h1>
-
-          <p className="mt-3 text-sm text-gray-500">
-            We’re so happy to see you again.
-          </p>
+          <Link
+            href="/register"
+            className="rounded-full border border-[#eadff5] bg-white px-5 py-2 text-sm hover:border-purple-300"
+          >
+            Sign up
+          </Link>
         </div>
 
-        {/* FORM */}
-        <form
+        <motion.form
           onSubmit={handleLogin}
-          className="bg-white border border-gray-200 rounded-3xl p-8 space-y-6"
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55 }}
+          className="rounded-[2rem] border border-[#eadff5] bg-white p-7 shadow-[0_25px_80px_rgba(88,28,135,0.12)] md:p-9"
         >
-          <div className="space-y-1">
-            <label className="text-sm text-gray-600">
-              Email
-            </label>
+          <header className="mb-8 text-center">
+            <p className="mx-auto mb-4 w-fit rounded-full bg-[#f7efff] px-4 py-2 text-xs uppercase tracking-[0.18em] text-purple-700">
+              welcome back
+            </p>
 
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full h-12 rounded-xl border border-gray-300 px-4 text-sm
-              focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
+            <h1 className="text-4xl font-light tracking-[-0.06em]">
+              Back to your glam world.
+            </h1>
 
-          <div className="space-y-1">
-            <label className="text-sm text-gray-600">
-              Password
-            </label>
+            <p className="mx-auto mt-4 max-w-sm text-sm leading-7 text-[#6f6077]">
+              Sign in to manage bookings, browse artists, or keep your Beaura
+              profile glowing.
+            </p>
+          </header>
 
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full h-12 rounded-xl border border-gray-300 px-4 text-sm
-              focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
+          <div className="space-y-5">
+            <div>
+              <label className="mb-2 block text-sm text-[#554a5c]">
+                Email
+              </label>
 
-          {/* Forgot Password (UI Only) */}
-          <div className="text-right">
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 py-3 text-sm outline-none transition focus:border-purple-500"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm text-[#554a5c]">
+                Password
+              </label>
+
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Your password"
+                className="w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 py-3 text-sm outline-none transition focus:border-purple-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-[#8a7d91]">Keep your glam plans close.</span>
+
+              <button
+                type="button"
+                className="text-purple-700 hover:underline"
+              >
+                Forgot password?
+              </button>
+            </div>
+
+            {error && (
+              <p className="rounded-2xl bg-red-50 p-4 text-center text-sm text-red-600">
+                {error}
+              </p>
+            )}
+
             <button
-              type="button"
-              className="text-xs text-gray-500 hover:text-purple-600 transition"
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-full bg-purple-600 py-4 text-sm text-white transition hover:bg-purple-700 disabled:opacity-60"
             >
-              Forgot password?
+              {loading ? "Signing you in..." : "Sign in"}
             </button>
           </div>
 
-          {error && (
-            <p className="text-sm text-red-600 text-center">
-              {error}
-            </p>
-          )}
+          <div className="mt-7 grid grid-cols-2 gap-3 text-center text-xs">
+            <Link
+              href="/register/bride"
+              className="rounded-2xl bg-[#fff7fb] px-4 py-3 text-[#6f6077] hover:text-purple-700"
+            >
+              Need glam?
+            </Link>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full h-12 rounded-full bg-purple-600 text-white text-sm
-            hover:bg-purple-700 transition disabled:opacity-60"
-          >
-            {loading ? "Signing you in…" : "Continue"}
-          </button>
-        </form>
-      </motion.div>
+            <Link
+              href="/register/mua"
+              className="rounded-2xl bg-[#fff7fb] px-4 py-3 text-[#6f6077] hover:text-purple-700"
+            >
+              Are you an artist?
+            </Link>
+          </div>
+        </motion.form>
+      </div>
     </main>
   );
 }

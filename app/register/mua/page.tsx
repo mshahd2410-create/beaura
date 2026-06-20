@@ -1,33 +1,41 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-const EGYPT_CITIES = [
+const EGYPT_GOVERNORATES = [
   "Cairo",
   "Giza",
   "Alexandria",
+  "Qalyubia",
+  "Port Said",
+  "Suez",
+  "Damietta",
   "Dakahlia",
   "Sharqia",
+  "Kafr El Sheikh",
   "Gharbia",
   "Monufia",
   "Beheira",
-  "Kafr El Sheikh",
+  "Ismailia",
   "Fayoum",
   "Beni Suef",
   "Minya",
   "Asyut",
   "Sohag",
-  "Qalyubia",
+  "Qena",
+  "Luxor",
+  "Aswan",
+  "Red Sea",
+  "New Valley",
+  "Matrouh",
+  "North Sinai",
+  "South Sinai",
 ];
 
-const EXPERIENCE_LEVELS = [
-  "Beginner",
-  "Intermediate",
-  "Experienced",
-  "Advanced",
-];
+const EXPERIENCE_LEVELS = ["Beginner", "Intermediate", "Experienced", "Advanced"];
 
 export default function RegisterMUA() {
   const router = useRouter();
@@ -112,18 +120,16 @@ export default function RegisterMUA() {
       return;
     }
 
-    const { error: profileError } = await supabase
-      .from("mua_profiles")
-      .insert({
-        id: user.id,
-        first_name: form.firstName,
-        last_name: form.lastName,
-        phone: form.phone,
-        instagram: form.instagram,
-        bio: form.bio,
-        experience: form.experience,
-        cities: form.cities,
-      });
+    const { error: profileError } = await supabase.from("mua_profiles").insert({
+      id: user.id,
+      first_name: form.firstName,
+      last_name: form.lastName,
+      phone: form.phone,
+      instagram: form.instagram,
+      bio: form.bio,
+      experience: form.experience,
+      cities: form.cities,
+    });
 
     if (profileError) {
       setError(profileError.message);
@@ -173,7 +179,12 @@ export default function RegisterMUA() {
     }
 
     for (const file of portfolio) {
-      const path = `${user.id}/${crypto.randomUUID()}`;
+      const uniqueName =
+  typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+const path = `${user.id}/${uniqueName}-${file.name}`;
 
       const { error: uploadError } = await supabase.storage
         .from("mua-portfolio")
@@ -191,190 +202,216 @@ export default function RegisterMUA() {
   };
 
   return (
-    <main className="min-h-screen bg-white px-4 py-24 text-black">
-      <form onSubmit={handleSubmit} className="mx-auto max-w-lg space-y-20">
-        <header className="text-center space-y-3">
-          <h1 className="text-3xl font-medium">
-            Join Beaura as an Artist 💄
-          </h1>
-          <p className="text-sm text-gray-700">
-            Elegant bookings. Real protection. More clients.
-          </p>
-        </header>
+    <main className="min-h-screen bg-[#fffafc] px-4 py-10 text-[#171018]">
+      <div className="mx-auto max-w-3xl">
+        <div className="mb-8 flex items-center justify-between">
+          <Link href="/" className="text-4xl font-light tracking-[-0.08em]">
+            Beaura
+          </Link>
 
-        <Section title="Personal information">
-          <Input label="First name *" onChange={(v) => setForm({ ...form, firstName: v })} />
-          <Input label="Last name *" onChange={(v) => setForm({ ...form, lastName: v })} />
-          <Input label="Phone number *" onChange={(v) => setForm({ ...form, phone: v })} />
-          <Input label="Email *" type="email" onChange={(v) => setForm({ ...form, email: v })} />
-          <Input label="Password *" type="password" onChange={(v) => setForm({ ...form, password: v })} />
-        </Section>
-
-        <Section title="Where do you work?">
-          <div className="grid grid-cols-2 gap-3">
-            {EGYPT_CITIES.map((city) => (
-              <button
-                type="button"
-                key={city}
-                onClick={() => toggleCity(city)}
-                className={
-                  "rounded-full px-4 py-2 text-sm border transition " +
-                  (form.cities.includes(city)
-                    ? "bg-purple-600 text-white border-purple-600"
-                    : "border-gray-300 text-black")
-                }
-              >
-                {city}
-              </button>
-            ))}
-          </div>
-        </Section>
-
-        <Section title="About you">
-          <Input label="Instagram link *" onChange={(v) => setForm({ ...form, instagram: v })} />
-          <Textarea label="Short bio" onChange={(v) => setForm({ ...form, bio: v })} />
-
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-black">
-              Experience level
-            </label>
-            <select
-              value={form.experience}
-              onChange={(e) => setForm({ ...form, experience: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-black focus:border-purple-600 transition"
-              required
-            >
-              <option value="">Select experience level</option>
-              {EXPERIENCE_LEVELS.map((level) => (
-                <option key={level} value={level}>
-                  {level}
-                </option>
-              ))}
-            </select>
-          </div>
-        </Section>
-
-        <Section title="Show us your amazing work ✨">
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept="image/*"
-            hidden
-            onChange={(e) => setPortfolio(Array.from(e.target.files || []))}
-          />
-
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full border border-gray-300 rounded-xl py-3 text-sm hover:border-purple-600 transition"
+          <Link
+            href="/login"
+            className="rounded-full border border-[#eadff5] bg-white px-5 py-2 text-sm hover:border-purple-300"
           >
-            Add photos
-          </button>
-
-          <p className="text-xs text-gray-700">
-            {portfolio.length} selected • Upload 5–25 images
-          </p>
-        </Section>
-
-        <Section title="Your services">
-          {(
-            [
-              ["bridal", "Bridal makeup"],
-              ["engagement", "Engagement makeup"],
-              ["soiree", "Soiree makeup"],
-            ] as const
-          ).map(([key, label]) => (
-            <div key={key} className="space-y-2">
-              <div className="flex items-center gap-3">
-                <span className="flex-1 text-sm">{label}</span>
-
-                <input
-                  placeholder="EGP"
-                  className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      services: {
-                        ...form.services,
-                        [key]: {
-                          ...form.services[key],
-                          price: e.target.value,
-                        },
-                      },
-                    })
-                  }
-                />
-
-                <select
-                  className="w-28 px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  value={form.services[key].duration}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      services: {
-                        ...form.services,
-                        [key]: {
-                          ...form.services[key],
-                          duration: Number(e.target.value),
-                        },
-                      },
-                    })
-                  }
-                >
-                  <option value={45}>45 min</option>
-                  <option value={60}>60 min</option>
-                  <option value={75}>75 min</option>
-                  <option value={90}>90 min</option>
-                  <option value={120}>120 min</option>
-                </select>
-              </div>
-
-              {form.services[key].price && (
-                <p className="text-xs text-gray-700 ml-auto w-32">
-                  You receive EGP {calculateNet(form.services[key].price)}
-                </p>
-              )}
-            </div>
-          ))}
-        </Section>
-
-        <div className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={agreed}
-            onChange={(e) => setAgreed(e.target.checked)}
-            required
-          />
-          <span>I agree to the Terms & Conditions</span>
+            Sign in
+          </Link>
         </div>
 
-        {error && <p className="text-red-600 text-center">{error}</p>}
-
-        <button
-          disabled={loading}
-          className="w-full bg-purple-600 text-white py-4 rounded-full hover:bg-purple-700 transition"
+        <form
+          onSubmit={handleSubmit}
+          className="rounded-[2rem] border border-[#eadff5] bg-white p-6 shadow-[0_25px_80px_rgba(88,28,135,0.12)] md:p-9"
         >
-          {loading ? "Creating account..." : "Let’s get your clients ready"}
-        </button>
-      </form>
+          <header className="mb-8 text-center">
+            <p className="mx-auto mb-4 w-fit rounded-full bg-[#f7efff] px-4 py-2 text-xs uppercase tracking-[0.18em] text-purple-700">
+              artist signup
+            </p>
+
+            <h1 className="text-4xl font-light tracking-[-0.06em] md:text-5xl">
+              Build your Beaura profile.
+            </h1>
+
+            <p className="mx-auto mt-4 max-w-lg text-sm leading-7 text-[#6f6077]">
+              Show your work, add your services, choose your cities, and apply
+              to become visible to clients on Beaura.
+            </p>
+          </header>
+
+          <Section title="Your details">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Input label="First name *" onChange={(v) => setForm({ ...form, firstName: v })} />
+              <Input label="Last name *" onChange={(v) => setForm({ ...form, lastName: v })} />
+            </div>
+
+            <Input label="Phone number *" onChange={(v) => setForm({ ...form, phone: v })} />
+            <Input label="Email *" type="email" onChange={(v) => setForm({ ...form, email: v })} />
+            <Input label="Password *" type="password" onChange={(v) => setForm({ ...form, password: v })} />
+          </Section>
+
+          <Section title="Where do you work?">
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+              {EGYPT_GOVERNORATES.map((city) => (
+                <button
+                  type="button"
+                  key={city}
+                  onClick={() => toggleCity(city)}
+                  className={
+                    "rounded-full px-3 py-2 text-xs transition " +
+                    (form.cities.includes(city)
+                      ? "bg-purple-600 text-white"
+                      : "border border-[#eadff5] bg-white hover:border-purple-400")
+                  }
+                >
+                  {city}
+                </button>
+              ))}
+            </div>
+          </Section>
+
+          <Section title="About your artistry">
+            <Input label="Instagram link *" onChange={(v) => setForm({ ...form, instagram: v })} />
+            <Textarea label="Short bio" onChange={(v) => setForm({ ...form, bio: v })} />
+
+            <Select
+              label="Experience level"
+              options={EXPERIENCE_LEVELS}
+              onChange={(v) => setForm({ ...form, experience: v })}
+            />
+          </Section>
+
+          <Section title="Portfolio">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*"
+              hidden
+              onChange={(e) => setPortfolio(Array.from(e.target.files || []))}
+            />
+
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full rounded-2xl border border-[#eadff5] bg-white py-4 text-sm transition hover:border-purple-500 hover:bg-[#f7efff]"
+            >
+              Add portfolio photos
+            </button>
+
+            <p className="text-xs text-[#6f6077]">
+              {portfolio.length} selected • Upload 5–25 images
+            </p>
+          </Section>
+
+          <Section title="Services and pricing">
+            {(
+              [
+                ["bridal", "Bridal makeup"],
+                ["engagement", "Engagement makeup"],
+                ["soiree", "Soiree makeup"],
+              ] as const
+            ).map(([key, label]) => (
+              <div key={key} className="rounded-2xl bg-white p-4">
+                <div className="grid gap-3 md:grid-cols-[1fr_110px_130px] md:items-center">
+                  <span className="text-sm">{label}</span>
+
+                  <input
+                    placeholder="EGP"
+                    className="rounded-xl border border-[#eadff5] px-3 py-2 text-sm outline-none focus:border-purple-500"
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        services: {
+                          ...form.services,
+                          [key]: {
+                            ...form.services[key],
+                            price: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                  />
+
+                  <select
+                    className="rounded-xl border border-[#eadff5] px-3 py-2 text-sm outline-none focus:border-purple-500"
+                    value={form.services[key].duration}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        services: {
+                          ...form.services,
+                          [key]: {
+                            ...form.services[key],
+                            duration: Number(e.target.value),
+                          },
+                        },
+                      })
+                    }
+                  >
+                    <option value={45}>45 min</option>
+                    <option value={60}>60 min</option>
+                    <option value={75}>75 min</option>
+                    <option value={90}>90 min</option>
+                    <option value={120}>120 min</option>
+                  </select>
+                </div>
+
+                {form.services[key].price && (
+                  <p className="mt-3 text-xs text-purple-700">
+                    You receive EGP {calculateNet(form.services[key].price)}
+                  </p>
+                )}
+              </div>
+            ))}
+          </Section>
+
+          <label className="mt-6 flex items-center gap-3 rounded-2xl bg-[#fff7fb] p-4 text-sm">
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              required
+            />
+
+            <span>
+              I agree to the{" "}
+              <Link href="/terms" className="text-purple-700 underline">
+                Terms & Conditions
+              </Link>
+            </span>
+          </label>
+
+          {error && (
+            <p className="mt-5 rounded-2xl bg-red-50 p-4 text-center text-sm text-red-600">
+              {error}
+            </p>
+          )}
+
+          <button
+            disabled={loading}
+            className="mt-7 w-full rounded-full bg-purple-600 py-4 text-sm text-white transition hover:bg-purple-700 disabled:opacity-60"
+          >
+            {loading ? "Creating account..." : "Submit artist application"}
+          </button>
+
+          <p className="mt-5 text-center text-sm text-[#6f6077]">
+            Looking for a makeup artist?{" "}
+            <Link href="/register/bride" className="text-purple-700 underline">
+              Create a client account
+            </Link>
+          </p>
+        </form>
+      </div>
     </main>
   );
 }
 
-/* ---------- UI COMPONENTS ---------- */
-
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="bg-white border border-gray-200 rounded-2xl p-8 space-y-6">
-      <h2 className="text-sm font-medium">{title}</h2>
-      {children}
+    <section className="mb-6 rounded-[1.75rem] border border-[#eadff5] bg-[#fffafc] p-5">
+      <h2 className="mb-4 text-xs uppercase tracking-[0.2em] text-purple-700">
+        {title}
+      </h2>
+
+      <div className="space-y-4">{children}</div>
     </section>
   );
 }
@@ -389,13 +426,13 @@ function Input({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="space-y-1">
-      <label className="text-sm font-medium">{label}</label>
+    <div>
+      <label className="mb-2 block text-sm text-[#554a5c]">{label}</label>
       <input
         type={type}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:border-purple-600 transition"
-        required
+        required={label.includes("*")}
+        className="w-full rounded-2xl border border-[#eadff5] bg-white px-4 py-3 text-sm outline-none transition focus:border-purple-500"
       />
     </div>
   );
@@ -409,12 +446,38 @@ function Textarea({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="space-y-1">
-      <label className="text-sm font-medium">{label}</label>
+    <div>
+      <label className="mb-2 block text-sm text-[#554a5c]">{label}</label>
       <textarea
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-3 border border-gray-300 rounded-xl h-28 text-sm focus:border-purple-600 transition"
+        className="h-28 w-full rounded-2xl border border-[#eadff5] bg-white px-4 py-3 text-sm outline-none transition focus:border-purple-500"
       />
+    </div>
+  );
+}
+
+function Select({
+  label,
+  options,
+  onChange,
+}: {
+  label: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm text-[#554a5c]">{label}</label>
+      <select
+        onChange={(e) => onChange(e.target.value)}
+        required
+        className="w-full rounded-2xl border border-[#eadff5] bg-white px-4 py-3 text-sm outline-none transition focus:border-purple-500"
+      >
+        <option value="">Select</option>
+        {options.map((o) => (
+          <option key={o}>{o}</option>
+        ))}
+      </select>
     </div>
   );
 }

@@ -1,11 +1,40 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import SupportHelpButton from "@/components/support/SupportHelpButton";
 import { supabase } from "@/lib/supabaseClient";
 import MasonryGrid from "@/components/MasonryGrid";
 import MuaCard from "@/components/MuaCard";
+
+const CITIES = ["Cairo", "Giza", "Alexandria", "Mansoura", "Tanta", "Sohag"];
+
+const SERVICE_SECTIONS = [
+  {
+    title: "Bridal",
+    value: "Bridal makeup",
+    text: "Wedding day glam, bridal trials, and long-wear looks.",
+    image: "/landing/bridal.jpg",
+  },
+  {
+    title: "Engagement",
+    value: "Engagement makeup",
+    text: "Soft, polished glam for your celebration.",
+    image: "/landing/engagement.jpg",
+  },
+  {
+    title: "Soiree",
+    value: "Soiree makeup",
+    text: "Evening makeup for dinners, parties, and special nights.",
+    image: "/landing/soiree.jpg",
+  },
+  {
+    title: "Photoshoot",
+    value: "Photoshoot makeup",
+    text: "Camera-ready glam for shoots and content days.",
+    image: "/landing/photoshoot.jpg",
+  },
+];
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -22,11 +51,10 @@ export default function BrideHome() {
   const [name, setName] = useState("Beautiful");
   const [showPopup, setShowPopup] = useState(false);
 
-  // SEARCH + FILTER STATES
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCity, setSelectedCity] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
 
-  // Get user name
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (data?.user?.user_metadata?.first_name) {
@@ -35,7 +63,6 @@ export default function BrideHome() {
     });
   }, []);
 
-  // Show welcome popup once
   useEffect(() => {
     const seen = sessionStorage.getItem("beaura_welcome_seen");
 
@@ -45,24 +72,31 @@ export default function BrideHome() {
     }
   }, []);
 
-  // Load MUAs
   useEffect(() => {
-    const loadMuas = async () => {
+    async function loadMuas() {
       const { data, error } = await supabase
-  .from("mua_profiles")
-  .select(`
-    id,
-    first_name,
-    last_name,
-    cities,
-    verified,
-    status,
-    mua_portfolio (
-      image_path
-    )
-  `)
-  .eq("verified", true)
-  .eq("status", "active");
+        .from("mua_profiles")
+        .select(
+          `
+          id,
+          first_name,
+          last_name,
+          cities,
+          verified,
+          status,
+          beaura_tier,
+          mua_portfolio (
+            image_path
+          ),
+          mua_services (
+            name,
+            price
+          )
+        `
+        )
+        .eq("verified", true)
+        .eq("status", "active");
+
       if (!error && data) {
         const enriched = data.map((mua: any) => ({
           ...mua,
@@ -77,176 +111,282 @@ export default function BrideHome() {
       }
 
       setLoading(false);
-    };
+    }
 
     loadMuas();
   }, []);
 
-  // FILTER LOGIC
-  const filteredMuas = muas.filter((mua) => {
-    const fullName =
-      `${mua.first_name || ""} ${mua.last_name || ""}`.toLowerCase();
+  const filteredMuas = useMemo(() => {
+    return muas.filter((mua) => {
+      const fullName =
+        `${mua.first_name || ""} ${mua.last_name || ""}`.toLowerCase();
 
-    const cityText = (mua.cities || []).join(" ").toLowerCase();
+      const cityText = (mua.cities || []).join(" ").toLowerCase();
 
-    const query = searchQuery.toLowerCase();
+      const servicesText = (mua.mua_services || [])
+        .map((service: any) => service.name)
+        .join(" ")
+        .toLowerCase();
 
-    const matchesSearch =
-      fullName.includes(query) || cityText.includes(query);
+      const query = searchQuery.toLowerCase();
 
-    const matchesCity =
-      selectedCity === "" ||
-      (mua.cities || []).includes(selectedCity);
+      const matchesSearch =
+        fullName.includes(query) ||
+        cityText.includes(query) ||
+        servicesText.includes(query);
 
-    return matchesSearch && matchesCity;
-  });
+      const matchesCity =
+        selectedCity === "" || (mua.cities || []).includes(selectedCity);
+
+      const matchesCategory =
+        selectedCategory === "All" ||
+        servicesText.includes(selectedCategory.toLowerCase());
+
+      return matchesSearch && matchesCity && matchesCategory;
+    });
+  }, [muas, searchQuery, selectedCity, selectedCategory]);
+
+  const handleServiceClick = (service: string) => {
+    setSelectedCategory(service);
+
+    setTimeout(() => {
+      document.getElementById("artists")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
+  };
 
   return (
-    <main className="min-h-screen bg-white px-6 pb-28 relative">
-      {/* WELCOME POPUP */}
+    <main className="min-h-screen bg-[#fffafc] px-5 pb-28 pt-24 text-[#171018] sm:px-8">
+      <style>{`
+        @keyframes beauraMarquee {
+          from { transform: translateX(0); }
+          to { transform: translateX(-50%); }
+        }
+
+        .beaura-marquee {
+          animation: beauraMarquee 28s linear infinite;
+        }
+      `}</style>
+
       <AnimatePresence>
         {showPopup && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 backdrop-blur-sm"
           >
             <motion.div
-              initial={{ scale: 0.96, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.96, opacity: 0 }}
-              transition={{ duration: 0.35, ease: "easeOut" }}
-              className="bg-white rounded-3xl px-10 py-12 text-center max-w-sm w-full"
+              initial={{ scale: 0.96, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.96, opacity: 0, y: 10 }}
+              className="w-full max-w-sm rounded-[2rem] border border-[#eadff5] bg-white p-8 text-center shadow-2xl"
             >
-              <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">
-                Welcome, {name}
+              <p className="text-xs uppercase tracking-[0.22em] text-purple-700">
+                welcome back
               </p>
 
-              <h2 className="text-3xl font-extrabold tracking-tight mb-3">
-                Beaura ✨
+              <h2 className="mt-4 text-4xl font-light tracking-[-0.06em]">
+                A little glam treat.
               </h2>
 
-              <p className="text-sm text-gray-600 mb-5">
-                Enjoy{" "}
-                <span className="font-semibold text-black">
-                  15% off
-                </span>{" "}
-                your first booking
+              <p className="mt-3 text-sm leading-6 text-[#6f6077]">
+                Use this code on your first booking.
               </p>
 
-              <div className="mb-8">
-                <span className="inline-block px-4 py-2 rounded-full bg-purple-50 text-purple-700 text-sm font-medium">
-                  Code: <span className="tracking-widest">BEAURA15</span>
-                </span>
+              <div className="my-6 rounded-2xl bg-[#f7efff] p-5">
+                <p className="text-xs uppercase tracking-[0.18em] text-[#8a7d91]">
+                  promo code
+                </p>
+                <p className="mt-2 text-2xl tracking-[0.2em] text-purple-700">
+                  BEAURA15
+                </p>
               </div>
 
               <button
                 onClick={() => setShowPopup(false)}
-                className="px-6 py-2 rounded-full text-sm font-medium
-                bg-purple-600 text-white hover:bg-purple-700 transition"
+                className="w-full rounded-full bg-purple-600 py-3 text-sm text-white transition hover:bg-purple-700"
               >
-                Enjoy ✨
+                Start browsing
               </button>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* HERO */}
-      <motion.div
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.9 }}
-        className="pt-24 text-center"
-      >
-        <p className="text-xs uppercase tracking-wide text-gray-400">
-          {getGreeting()}
-        </p>
-
-        <h1 className="mt-3 text-6xl font-extrabold tracking-tight">
-          Beaura
-        </h1>
-
-        <p className="mt-3 text-sm text-gray-500">
-          Hand-picked beauty artists, just for you.
-        </p>
-      </motion.div>
-
-      {/* SEARCH */}
-<div className="max-w-xl mx-auto mt-12">
-  <input
-    placeholder="Search by artist name or city"
-    value={searchQuery}
-    onChange={(e) => setSearchQuery(e.target.value)}
-    className="w-full h-14 rounded-2xl border border-gray-200 px-5 text-sm
-    focus:outline-none focus:ring-2 focus:ring-purple-500"
-  />
-</div>
-
-<div className="mt-4 flex justify-center">
-  <SupportHelpButton userType="bride" />
-</div>
-
-      {/* FILTERS */}
-      <div className="max-w-6xl mx-auto mt-8 flex items-center gap-3 overflow-x-auto pb-2">
-        {/* CITY */}
-        <select
-          value={selectedCity}
-          onChange={(e) => setSelectedCity(e.target.value)}
-          className="h-11 px-4 rounded-xl border border-gray-200 text-sm bg-white
-          focus:outline-none focus:ring-2 focus:ring-purple-500"
+      <section className="mx-auto max-w-7xl">
+        {/* HERO */}
+        <motion.section
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55 }}
+          className="rounded-[2.5rem] border border-[#eadff5] bg-white p-7 shadow-sm sm:p-10"
         >
-          <option value="">All Cities</option>
-          <option value="Cairo">Cairo</option>
-          <option value="Giza">Giza</option>
-          <option value="Alexandria">Alexandria</option>
-        </select>
-
-        {/* SORT */}
-        <select
-          className="h-11 px-4 rounded-xl border border-gray-200 text-sm bg-white
-          focus:outline-none focus:ring-2 focus:ring-purple-500"
-        >
-          <option>Recommended</option>
-          <option>Lowest Price</option>
-          <option>Highest Price</option>
-          <option>Top Rated</option>
-        </select>
-
-        {/* CLEAR */}
-        <button
-          onClick={() => {
-            setSelectedCity("");
-            setSearchQuery("");
-          }}
-          className="h-11 px-4 rounded-xl border border-gray-200 text-sm
-          hover:bg-gray-50 transition"
-        >
-          Clear
-        </button>
-      </div>
-
-      {/* GRID */}
-      <div className="max-w-6xl mx-auto mt-14">
-        {loading && (
-          <p className="text-sm text-gray-400 text-center">
-            Finding artists for you…
+          <p className="text-xs uppercase tracking-[0.22em] text-purple-700">
+            {getGreeting()}, {name}
           </p>
-        )}
 
-        {!loading && filteredMuas.length === 0 && (
-          <p className="text-sm text-gray-400 text-center">
-            No artists found.
-          </p>
-        )}
+          <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h1 className="max-w-3xl text-5xl font-light leading-[0.95] tracking-[-0.08em] sm:text-7xl">
+                Find your next glam artist.
+              </h1>
 
-        <MasonryGrid>
-          {filteredMuas.map((mua) => (
-            <MuaCard key={mua.id} mua={mua} />
+              <p className="mt-5 max-w-xl text-sm leading-7 text-[#6f6077]">
+                Browse verified makeup artists by city, service, or portfolio.
+                Save your favorites and book without the DM chaos.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <a
+                href="#artists"
+                className="rounded-full bg-purple-600 px-6 py-3 text-sm text-white hover:bg-purple-700"
+              >
+                Browse artists
+              </a>
+
+              <SupportHelpButton userType="bride" />
+            </div>
+          </div>
+        </motion.section>
+
+        {/* MOVING STRIP */}
+        <div className="mt-5 overflow-hidden rounded-full bg-[#171018] py-3 text-xs uppercase tracking-[0.2em] text-white">
+          <div className="beaura-marquee flex w-max gap-10 whitespace-nowrap">
+            {[1, 2].map((item) => (
+              <div key={item} className="flex gap-10">
+                <span>soft glam approved</span>
+                <span>bridal artists</span>
+                <span>engagement glow</span>
+                <span>save your favorites</span>
+                <span>browse by city</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* SERVICE SECTIONS */}
+        <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {SERVICE_SECTIONS.map((item) => (
+            <button
+              key={item.title}
+              onClick={() => handleServiceClick(item.value)}
+              className={`group overflow-hidden rounded-[2rem] border bg-white text-left shadow-sm transition hover:-translate-y-1 hover:shadow-xl ${
+                selectedCategory === item.value
+                  ? "border-purple-500"
+                  : "border-[#eadff5]"
+              }`}
+            >
+              <div className="relative aspect-[5/6] overflow-hidden">
+                <img
+                  src={item.image}
+                  alt={item.title}
+                  className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.04]"
+                />
+
+                <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent" />
+
+                <div className="absolute inset-x-0 bottom-0 p-5">
+                  <p className="text-xs uppercase tracking-[0.18em] text-white/85">
+                    {item.title}
+                  </p>
+
+                  <h3 className="mt-2 text-3xl font-light tracking-[-0.05em] text-white">
+                    {item.title} makeup
+                  </h3>
+
+                  <p className="mt-2 max-w-[18rem] text-sm leading-6 text-white/85">
+                    {item.text}
+                  </p>
+                </div>
+              </div>
+            </button>
           ))}
-        </MasonryGrid>
-      </div>
+        </section>
+
+        {/* FILTERS */}
+        <section className="mt-8 rounded-[2rem] border border-[#eadff5] bg-white p-5 shadow-sm">
+          <div className="grid gap-4 lg:grid-cols-[1fr_220px_120px]">
+            <input
+              placeholder="Search artist name, city, or service"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="rounded-2xl border border-[#eadff5] bg-[#fffafc] px-5 py-4 text-sm outline-none focus:border-purple-500"
+            />
+
+            <select
+              value={selectedCity}
+              onChange={(e) => setSelectedCity(e.target.value)}
+              className="rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 py-4 text-sm outline-none focus:border-purple-500"
+            >
+              <option value="">All cities</option>
+              {CITIES.map((city) => (
+                <option key={city}>{city}</option>
+              ))}
+            </select>
+
+            <button
+              onClick={() => {
+                setSearchQuery("");
+                setSelectedCity("");
+                setSelectedCategory("All");
+              }}
+              className="rounded-2xl border border-[#eadff5] bg-white px-5 py-4 text-sm hover:bg-[#f7efff]"
+            >
+              Clear
+            </button>
+          </div>
+        </section>
+
+        {/* ALL ARTISTS */}
+        <section id="artists" className="mt-12">
+          <div className="mb-7 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-purple-700">
+                discover artists
+              </p>
+
+              <h2 className="mt-2 text-4xl font-light tracking-[-0.06em]">
+                {selectedCategory === "All"
+                  ? "All makeup artists"
+                  : selectedCategory.replace(" makeup", "") + " artists"}
+              </h2>
+            </div>
+
+            <p className="rounded-full bg-white px-5 py-3 text-sm text-[#6f6077] shadow-sm">
+              {filteredMuas.length} found
+            </p>
+          </div>
+
+          {loading && (
+            <div className="rounded-[2rem] border border-[#eadff5] bg-white p-10 text-center text-sm text-[#8a7d91]">
+              Finding artists for you...
+            </div>
+          )}
+
+          {!loading && filteredMuas.length === 0 && (
+            <div className="rounded-[2rem] border border-[#eadff5] bg-white p-10 text-center">
+              <h3 className="text-3xl font-light tracking-[-0.05em]">
+                No artists found.
+              </h3>
+              <p className="mt-3 text-sm text-[#6f6077]">
+                Try another city, service, or clear your search.
+              </p>
+            </div>
+          )}
+
+          {!loading && filteredMuas.length > 0 && (
+            <MasonryGrid>
+              {filteredMuas.map((mua) => (
+                <MuaCard key={mua.id} mua={mua} />
+              ))}
+            </MasonryGrid>
+          )}
+        </section>
+      </section>
     </main>
   );
 }

@@ -7,109 +7,147 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { supabase } from "@/lib/supabaseClient";
 
-/* ============================
-   TYPES
-============================ */
-
-type Service = {
-  id: string;
-  name: string;
-  duration_minutes: number;
-  price: number;
-};
-
 type CalendarEvent = {
   id: string;
   title: string;
   start: string;
   end: string;
-  backgroundColor: string;
+  backgroundColor?: string;
+  borderColor?: string;
+  textColor?: string;
 };
 
-/* ============================
-   PAGE
-============================ */
+type ManualEventType = "blocked" | "external";
 
 export default function MuaCalendarPage() {
-  const [services, setServices] = useState<Service[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [actionType, setActionType] = useState<
-    "service" | "blocked" | "external" | ""
-  >("");
-  const [selectedServiceId, setSelectedServiceId] = useState("");
+  const [actionType, setActionType] = useState<ManualEventType | "">("");
+  const [customTitle, setCustomTitle] = useState("");
+  const [durationHours, setDurationHours] = useState(1);
   const [loading, setLoading] = useState(true);
-
-  /* ============================
-     LOAD DATA
-  ============================ */
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadAll();
+    loadCalendar();
+
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const setupRealtime = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      channel = supabase
+        .channel("mua-calendar-realtime")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "bookings",
+            filter: `mua_id=eq.${user.id}`,
+          },
+          () => loadCalendar()
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "mua_calendar_events",
+            filter: `mua_id=eq.${user.id}`,
+          },
+          () => loadCalendar()
+        )
+        .subscribe();
+    };
+
+    setupRealtime();
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
   }, []);
 
-  async function loadAll() {
+  async function loadCalendar() {
     setLoading(true);
-    await Promise.all([fetchServices(), fetchBookings()]);
-    setLoading(false);
-  }
 
-  async function fetchServices() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from("mua_services")
-      .select("*")
-      .eq("mua_id", user.id);
-
-    if (!error) {
-      setServices(data || []);
+    if (!user) {
+      setLoading(false);
+      return;
     }
-  }
 
-  async function fetchBookings() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const [{ data: bookings }, { data: manualEvents }] = await Promise.all([
+      supabase
+        .from("bookings")
+        .select(`
+          id,
+          booking_date,
+          booking_time,
+          status,
+          service_id,
+          mua_services(name, duration_minutes)
+        `)
+        .eq("mua_id", user.id)
+        .in("status", ["pending", "confirmed"]),
+      supabase
+        .from("mua_calendar_events")
+        .select("*")
+        .eq("mua_id", user.id),
+    ]);
 
-    if (!user) return;
+    const bookingEvents: CalendarEvent[] =
+      bookings?.flatMap((b: any) => {
+        if (!b.booking_date || !b.booking_time) return [];
 
-    const { data, error } = await supabase
-      .from("bookings")
-      .select("*")
-      .eq("mua_id", user.id);
+        const service = Array.isArray(b.mua_services)
+          ? b.mua_services[0]
+          : b.mua_services;
 
-    if (error) return;
+        const duration = service?.duration_minutes || 120;
 
-    const formatted: CalendarEvent[] =
-      data?.map((b) => ({
-        id: b.id,
-        title:
-          b.type === "service"
-            ? b.service_name
-            : b.type === "blocked"
-            ? "Blocked"
-            : "External Booking",
-        start: b.start_time,
-        end: b.end_time,
+        const start = new Date(`${b.booking_date}T${b.booking_time}`);
+        const end = new Date(start);
+        end.setMinutes(end.getMinutes() + duration);
+
+        return [
+          {
+            id: `booking-${b.id}`,
+            title: service?.name
+              ? `${service.name}${b.status === "pending" ? " • Pending" : ""}`
+              : `Booking${b.status === "pending" ? " • Pending" : ""}`,
+            start: start.toISOString(),
+            end: end.toISOString(),
+            backgroundColor: b.status === "pending" ? "#3a3a3a" : "#000000",
+            borderColor: b.status === "pending" ? "#3a3a3a" : "#000000",
+            textColor: "#ffffff",
+          },
+        ];
+      }) || [];
+
+    const extraEvents: CalendarEvent[] =
+      manualEvents?.map((e: any) => ({
+        id: `manual-${e.id}`,
+        title: e.title,
+        start: e.start_time,
+        end: e.end_time,
         backgroundColor:
-          b.type === "service"
-            ? "#000000"
-            : b.type === "blocked"
-            ? "#9ca3af"
-            : "#6b7280",
+          e.event_type === "blocked" ? "#e7d8de" : "#ddd6fe",
+        borderColor:
+          e.event_type === "blocked" ? "#d4b8c2" : "#c4b5fd",
+        textColor: "#111111",
       })) || [];
 
-    setEvents(formatted);
+    setEvents([...bookingEvents, ...extraEvents]);
+    setLoading(false);
   }
-
-  /* ============================
-     ACTION HANDLER
-  ============================ */
 
   async function handleSave() {
     if (!selectedDate || !actionType) return;
@@ -120,197 +158,152 @@ export default function MuaCalendarPage() {
 
     if (!user) return;
 
+    setSaving(true);
+
     const start = new Date(selectedDate);
-    let end = new Date(start);
+    const end = new Date(start);
+    end.setHours(end.getHours() + durationHours);
 
-    let service: Service | undefined;
+    const title =
+      actionType === "blocked"
+        ? "Blocked time"
+        : customTitle.trim() || "External booking";
 
-    if (actionType === "service") {
-      service = services.find(
-        (s) => s.id === selectedServiceId
-      );
-
-      if (!service) return;
-
-      end.setMinutes(
-        end.getMinutes() + service.duration_minutes
-      );
-    } else {
-      end.setHours(end.getHours() + 1);
-    }
-
-    await supabase.from("bookings").insert({
+    const { error } = await supabase.from("mua_calendar_events").insert({
       mua_id: user.id,
-      type: actionType,
-      service_name:
-        actionType === "service"
-          ? service?.name
-          : null,
+      title,
+      event_type: actionType,
       start_time: start.toISOString(),
       end_time: end.toISOString(),
     });
 
+    if (error) {
+      console.error("CALENDAR INSERT ERROR:", error);
+    }
+
+    setSaving(false);
     resetModal();
-    fetchBookings();
+    await loadCalendar();
   }
 
   function resetModal() {
     setSelectedDate(null);
     setActionType("");
-    setSelectedServiceId("");
+    setCustomTitle("");
+    setDurationHours(1);
   }
 
-  /* ============================
-     RENDER
-  ============================ */
-
   return (
-    <div
-      className="
-        bg-white
-        rounded-3xl
-        p-8
-        border border-black/5
-        shadow-[0_8px_30px_rgba(0,0,0,0.04)]
-      "
-    >
-      <h1 className="text-2xl font-light text-black mb-6">
-        Calendar
-      </h1>
+    <div className="rounded-[28px] border border-black/10 bg-white p-8 shadow-[0_10px_35px_rgba(0,0,0,0.05)]">
+      <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+            Beaura MUA Dashboard
+          </p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-black">
+            Calendar
+          </h1>
+          <p className="mt-2 text-sm text-gray-500">
+            Your confirmed and pending bookings appear here automatically. You can also block time or add external bookings.
+          </p>
+        </div>
+      </div>
 
-      <FullCalendar
-        plugins={[
-          dayGridPlugin,
-          timeGridPlugin,
-          interactionPlugin,
-        ]}
-        initialView="timeGridWeek"
-        headerToolbar={{
-          left: "prev,next today",
-          center: "title",
-          right:
-            "dayGridMonth,timeGridWeek,timeGridDay",
-        }}
-        height="auto"
-        slotMinTime="08:00:00"
-        slotMaxTime="23:00:00"
-        allDaySlot={false}
-        nowIndicator
-        selectable
-        events={events}
-        dateClick={(info) => {
-          setSelectedDate(info.date);
-        }}
-      />
+      <div className="mb-6 flex flex-wrap gap-3">
+        <Legend label="Confirmed booking" color="bg-black" />
+        <Legend label="Pending booking" color="bg-[#3a3a3a]" />
+        <Legend label="Blocked time" color="bg-[#e7d8de]" darkText />
+        <Legend label="External booking" color="bg-[#ddd6fe]" darkText />
+      </div>
 
-      {/* ============================
-         ACTION MODAL
-      ============================ */}
+      <div className="calendar-shell">
+        <FullCalendar
+          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+          initialView="timeGridWeek"
+          headerToolbar={{
+            left: "prev,next today",
+            center: "title",
+            right: "dayGridMonth,timeGridWeek,timeGridDay",
+          }}
+          height="auto"
+          slotMinTime="08:00:00"
+          slotMaxTime="23:00:00"
+          allDaySlot={false}
+          nowIndicator
+          selectable
+          events={events}
+          dateClick={(info) => {
+            setSelectedDate(info.date);
+          }}
+        />
+      </div>
+
+      {loading && (
+        <p className="mt-4 text-sm text-gray-500">Loading calendar…</p>
+      )}
 
       {selectedDate && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div
-            className="
-              bg-white
-              rounded-3xl
-              w-full
-              max-w-md
-              p-8
-              space-y-6
-              shadow-[0_20px_60px_rgba(0,0,0,0.25)]
-            "
-          >
-            <h2 className="text-lg font-light text-black">
-              Add to calendar
-            </h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4">
+          <div className="w-full max-w-md rounded-[28px] border border-black/10 bg-white p-7 shadow-[0_24px_70px_rgba(0,0,0,0.25)]">
+            <div className="mb-6">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+                Add calendar item
+              </p>
+              <h2 className="mt-2 text-xl font-semibold text-black">
+                Add to calendar
+              </h2>
+              <p className="mt-2 text-sm text-gray-500">
+                Choose whether you want to block time or add an external booking.
+              </p>
+            </div>
 
-            <select
-              value={actionType}
-              onChange={(e) =>
-                setActionType(e.target.value as any)
-              }
-              className="
-                w-full
-                border border-black/10
-                px-4 py-3
-                rounded-xl
-                text-sm
-                focus:border-purple-600
-                outline-none
-              "
-            >
-              <option value="">
-                Select action
-              </option>
-              <option value="service">
-                Service booking
-              </option>
-              <option value="blocked">
-                Block time
-              </option>
-              <option value="external">
-                External booking
-              </option>
-            </select>
-
-            {actionType === "service" && (
+            <div className="space-y-4">
               <select
-                value={selectedServiceId}
-                onChange={(e) =>
-                  setSelectedServiceId(e.target.value)
-                }
-                className="
-                  w-full
-                  border border-black/10
-                  px-4 py-3
-                  rounded-xl
-                  text-sm
-                  focus:border-purple-600
-                  outline-none
-                "
+                value={actionType}
+                onChange={(e) => setActionType(e.target.value as ManualEventType | "")}
+                className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-black"
               >
-                <option value="">
-                  Select service
-                </option>
-                {services.map((s) => (
-                  <option
-                    key={s.id}
-                    value={s.id}
-                  >
-                    {s.name} ({s.duration_minutes} min)
-                  </option>
-                ))}
+                <option value="">Select action</option>
+                <option value="blocked">Block time</option>
+                <option value="external">External booking</option>
               </select>
-            )}
 
-            <div className="flex gap-3 pt-2">
+              {actionType === "external" && (
+                <input
+                  value={customTitle}
+                  onChange={(e) => setCustomTitle(e.target.value)}
+                  placeholder="Example: Salon client / private booking"
+                  className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-black"
+                />
+              )}
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-black">
+                  Duration (hours)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={durationHours}
+                  onChange={(e) => setDurationHours(Number(e.target.value))}
+                  className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-black"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-3">
               <button
                 onClick={handleSave}
-                className="
-                  flex-1
-                  bg-black
-                  text-white
-                  py-3
-                  rounded-full
-                  hover:bg-purple-600
-                  transition
-                "
+                disabled={saving}
+                className="flex-1 rounded-full bg-black px-5 py-3 text-sm font-medium text-white transition hover:bg-[#1a1a1a] disabled:opacity-60"
               >
-                Save
+                {saving ? "Saving..." : "Save"}
               </button>
 
               <button
                 onClick={resetModal}
-                className="
-                  flex-1
-                  border border-black/10
-                  py-3
-                  rounded-full
-                  text-gray-700
-                  hover:border-purple-600
-                  hover:text-purple-600
-                  transition
-                "
+                className="flex-1 rounded-full border border-black/10 px-5 py-3 text-sm font-medium text-gray-700 transition hover:border-black hover:text-black"
               >
                 Cancel
               </button>
@@ -318,6 +311,70 @@ export default function MuaCalendarPage() {
           </div>
         </div>
       )}
+
+      <style jsx global>{`
+        .calendar-shell .fc {
+          font-family: inherit;
+        }
+
+        .calendar-shell .fc-toolbar-title {
+          font-size: 1.1rem;
+          font-weight: 600;
+          color: #111;
+        }
+
+        .calendar-shell .fc-button {
+          background: #000 !important;
+          border: none !important;
+          box-shadow: none !important;
+          border-radius: 9999px !important;
+          padding: 0.45rem 0.9rem !important;
+          font-size: 0.85rem !important;
+        }
+
+        .calendar-shell .fc-button:hover {
+          background: #1b1b1b !important;
+        }
+
+        .calendar-shell .fc-theme-standard td,
+        .calendar-shell .fc-theme-standard th,
+        .calendar-shell .fc-theme-standard .fc-scrollgrid {
+          border-color: rgba(0, 0, 0, 0.08) !important;
+        }
+
+        .calendar-shell .fc-col-header-cell {
+          background: #fafafa;
+        }
+
+        .calendar-shell .fc-timegrid-slot-label,
+        .calendar-shell .fc-col-header-cell-cushion {
+          color: #444;
+          font-size: 0.82rem;
+        }
+
+        .calendar-shell .fc-event {
+          border-radius: 14px;
+          padding: 2px 4px;
+          font-size: 0.8rem;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function Legend({
+  label,
+  color,
+  darkText = false,
+}: {
+  label: string;
+  color: string;
+  darkText?: boolean;
+}) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-3 py-2 text-xs text-gray-700">
+      <span className={`h-3 w-3 rounded-full ${color}`} />
+      <span className={darkText ? "text-black" : ""}>{label}</span>
     </div>
   );
 }
