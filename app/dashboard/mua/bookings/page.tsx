@@ -24,6 +24,12 @@ type Booking = {
   total_price?: number | null;
   total_amount?: number | null;
 
+  promo_code_id?: string | null;
+  discount_amount?: number | null;
+  bride_total_before_discount?: number | null;
+  bride_total_after_discount?: number | null;
+  mua_payout?: number | null;
+
   payment_method?: "card" | "credit_balance" | string | null;
   use_wallet_credit?: boolean | null;
   wallet_credit_amount?: number | null;
@@ -284,6 +290,19 @@ export default function BookingsPage() {
         if (error) {
           throw new Error(error.message);
         }
+
+        if (booking.promo_code_id && Number(booking.discount_amount || 0) > 0) {
+          const { error: promoError } = await supabase.rpc(
+            "finalize_booking_promo_usage",
+            {
+              p_booking_id: booking.id,
+            }
+          );
+
+          if (promoError) {
+            throw new Error(promoError.message);
+          }
+        }
       }
 
       if (status === "cancelled") {
@@ -392,9 +411,11 @@ export default function BookingsPage() {
   }
 
   function getMuaEarning(booking: Booking) {
-    const servicePrice = Number(
-      booking.service_price || booking.total_amount || booking.total_price || 0
-    );
+    if (booking.mua_payout !== null && booking.mua_payout !== undefined) {
+      return Number(booking.mua_payout || 0);
+    }
+
+    const servicePrice = Number(booking.service_price || 0);
     const platformFee = Number(
       booking.platform_fee || Math.round(servicePrice * 0.1)
     );
@@ -544,6 +565,7 @@ export default function BookingsPage() {
                         label="Location"
                         value={b.location || "Not provided"}
                       />
+
                       <InfoCard
                         label="Notes"
                         value={
@@ -552,22 +574,41 @@ export default function BookingsPage() {
                           "No additional notes"
                         }
                       />
+
                       <InfoCard
                         label="MUA earning"
                         value={formatMoney(getMuaEarning(b))}
                       />
+
                       <InfoCard
                         label="Payment method"
                         value={getPaymentMethodLabel(b)}
                       />
+
                       <InfoCard
                         label="Payment status"
                         value={getPaymentStatusLabel(b)}
                       />
+
                       <InfoCard
                         label="Total booking"
                         value={formatMoney(b.total_price)}
                       />
+
+                      {Number(b.discount_amount || 0) > 0 && (
+                        <InfoCard
+                          label="Bride promo discount"
+                          value={formatMoney(b.discount_amount)}
+                        />
+                      )}
+
+                      {Number(b.bride_total_before_discount || 0) > 0 &&
+                        Number(b.discount_amount || 0) > 0 && (
+                          <InfoCard
+                            label="Before promo"
+                            value={formatMoney(b.bride_total_before_discount)}
+                          />
+                        )}
 
                       {b.refund_processed && (
                         <InfoCard
@@ -576,6 +617,14 @@ export default function BookingsPage() {
                         />
                       )}
                     </div>
+
+                    {Number(b.discount_amount || 0) > 0 && (
+                      <p className="mt-4 rounded-2xl border border-purple-100 bg-purple-50 p-4 text-sm text-purple-700">
+                        Bride used a promo discount of{" "}
+                        {formatMoney(b.discount_amount)}. Your MUA earning is
+                        not reduced by this promotion.
+                      </p>
+                    )}
 
                     {b.completed_by_mua && !b.completed_by_bride && (
                       <p className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-700">

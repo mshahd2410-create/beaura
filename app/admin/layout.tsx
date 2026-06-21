@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   Wallet,
+  Tag,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { href: "/admin/brides", label: "Brides", icon: Users },
   { href: "/admin/bookings", label: "Bookings", icon: CalendarCheck },
   { href: "/admin/wallet-requests", label: "Money Requests", icon: Wallet },
+  { href: "/admin/promotions", label: "Promotions", icon: Tag },
   { href: "/admin/support", label: "Support", icon: MessageSquare },
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },
   { href: "/admin/settings", label: "Settings", icon: Settings },
@@ -81,8 +83,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     Beaura admin
                   </p>
                   <p className="text-sm text-[#6f6077]">
-                    Manage approvals, users, bookings, money requests, and
-                    support.
+                    Manage approvals, users, bookings, money requests,
+                    promotions, and support.
                   </p>
                 </div>
               </div>

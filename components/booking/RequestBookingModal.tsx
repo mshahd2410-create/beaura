@@ -17,6 +17,18 @@ type Props = {
 
 type PaymentMethod = "card" | "credit_balance";
 
+type PromoCode = {
+  id: string;
+  code: string;
+  description: string | null;
+  discount_type: "percentage" | "fixed";
+  discount_value: number;
+  max_uses: number | null;
+  used_count: number;
+  expires_at: string | null;
+  is_active: boolean;
+};
+
 export default function RequestBookingModal({
   open,
   onClose,
@@ -32,21 +44,40 @@ export default function RequestBookingModal({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [walletBalance, setWalletBalance] = useState(0);
 
+  const [promoCodeInput, setPromoCodeInput] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState<PromoCode | null>(null);
+  const [promoDiscount, setPromoDiscount] = useState(0);
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoSuccess, setPromoSuccess] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [walletLoading, setWalletLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selectedService = services.find((s) => s.id === serviceId);
+
   const servicePrice = selectedService?.price ?? 0;
   const platformFee = Math.round(servicePrice * 0.1);
   const taxFee = Math.round(servicePrice * 0.01);
-  const totalPrice = servicePrice + platformFee + taxFee;
 
-  const canPayWithCredit = walletBalance >= totalPrice && totalPrice > 0;
+  // This is the original amount before promo.
+  const totalBeforeDiscount = servicePrice + platformFee + taxFee;
+
+  // IMPORTANT: Promo affects bride total only.
+  // It does NOT affect MUA payout.
+  const totalAfterDiscount = Math.max(totalBeforeDiscount - promoDiscount, 0);
+
+  // Keep MUA payout calculated from service price only.
+  // Promo discount does not reduce this.
+  const muaPayout = Math.round(servicePrice * 0.9);
+
+  const canPayWithCredit =
+    walletBalance >= totalAfterDiscount && totalAfterDiscount > 0;
 
   const useWalletCredit = paymentMethod === "credit_balance";
-  const walletCreditAmount = useWalletCredit ? totalPrice : 0;
-  const amountDueAfterWallet = useWalletCredit ? 0 : totalPrice;
+  const walletCreditAmount = useWalletCredit ? totalAfterDiscount : 0;
+  const amountDueAfterWallet = useWalletCredit ? 0 : totalAfterDiscount;
 
   useEffect(() => {
     if (!open) return;
@@ -56,13 +87,21 @@ export default function RequestBookingModal({
   useEffect(() => {
     if (!selectedService) {
       setPaymentMethod("card");
+      removePromo();
       return;
     }
 
     if (paymentMethod === "credit_balance" && !canPayWithCredit) {
       setPaymentMethod("card");
     }
-  }, [selectedService, totalPrice, walletBalance]);
+  }, [selectedService, totalAfterDiscount, walletBalance]);
+
+  useEffect(() => {
+    if (!appliedPromo || totalBeforeDiscount <= 0) return;
+
+    const newDiscount = calculatePromoDiscount(appliedPromo, totalBeforeDiscount);
+    setPromoDiscount(newDiscount);
+  }, [appliedPromo, totalBeforeDiscount]);
 
   if (!open) return null;
 
@@ -98,6 +137,100 @@ export default function RequestBookingModal({
 
   function addMinutes(date: Date, minutes: number) {
     return new Date(date.getTime() + minutes * 60000);
+  }
+
+  function calculatePromoDiscount(promo: PromoCode, baseTotal: number) {
+    let discount = 0;
+
+    if (promo.discount_type === "percentage") {
+      discount = Math.round(baseTotal * (Number(promo.discount_value) / 100));
+    }
+
+    if (promo.discount_type === "fixed") {
+      discount = Math.round(Number(promo.discount_value));
+    }
+
+    return Math.min(discount, baseTotal);
+  }
+
+  async function applyPromoCode() {
+    setPromoError(null);
+    setPromoSuccess(null);
+
+    if (!selectedService) {
+      setPromoError("Please select a service before applying a promo code.");
+      return;
+    }
+
+    const normalizedCode = promoCodeInput.trim().toUpperCase();
+
+    if (!normalizedCode) {
+      setPromoError("Please enter a promo code.");
+      return;
+    }
+
+    setPromoLoading(true);
+
+    const { data, error } = await supabase
+      .from("promo_codes")
+      .select("*")
+      .eq("code", normalizedCode)
+      .maybeSingle();
+
+    if (error) {
+      setPromoError(error.message);
+      setPromoLoading(false);
+      return;
+    }
+
+    if (!data) {
+      setPromoError("This promo code does not exist.");
+      setPromoLoading(false);
+      return;
+    }
+
+    const promo = data as PromoCode;
+
+    if (!promo.is_active) {
+      setPromoError("This promo code is not active.");
+      setPromoLoading(false);
+      return;
+    }
+
+    if (promo.expires_at && new Date(promo.expires_at) < new Date()) {
+      setPromoError("This promo code has expired.");
+      setPromoLoading(false);
+      return;
+    }
+
+    if (promo.max_uses !== null && promo.used_count >= promo.max_uses) {
+      setPromoError("This promo code has reached its usage limit.");
+      setPromoLoading(false);
+      return;
+    }
+
+    const discount = calculatePromoDiscount(promo, totalBeforeDiscount);
+
+    if (discount <= 0) {
+      setPromoError("This promo code cannot be applied to this booking.");
+      setPromoLoading(false);
+      return;
+    }
+
+    setAppliedPromo(promo);
+    setPromoDiscount(discount);
+    setPromoSuccess(
+      `Promo ${promo.code} applied. You saved EGP ${discount.toLocaleString()}.`
+    );
+    setPromoLoading(false);
+  }
+
+  function removePromo() {
+    setPromoCodeInput("");
+    setAppliedPromo(null);
+    setPromoDiscount(0);
+    setPromoError(null);
+    setPromoSuccess(null);
   }
 
   async function submitBooking() {
@@ -181,7 +314,18 @@ export default function RequestBookingModal({
       service_price: servicePrice,
       platform_fee: platformFee,
       tax_fee: taxFee,
-      total_price: totalPrice,
+
+      // Existing total_price should now be the amount the bride will actually pay.
+      total_price: totalAfterDiscount,
+
+      // Promo tracking
+      promo_code_id: appliedPromo?.id || null,
+      discount_amount: promoDiscount,
+      bride_total_before_discount: totalBeforeDiscount,
+      bride_total_after_discount: totalAfterDiscount,
+
+      // MUA payout is not affected by promo.
+      mua_payout: muaPayout,
 
       payment_method: paymentMethod,
 
@@ -200,6 +344,11 @@ export default function RequestBookingModal({
       return;
     }
 
+    // IMPORTANT:
+    // Do not increase promo_codes.used_count here yet.
+    // Payment is not taken until the MUA confirms.
+    // Increase used_count later only after confirmed/payment success.
+
     setLoading(false);
     resetForm();
     onClose();
@@ -212,6 +361,7 @@ export default function RequestBookingModal({
     setLocation("");
     setNotes("");
     setPaymentMethod("card");
+    removePromo();
     setError(null);
   }
 
@@ -258,10 +408,74 @@ export default function RequestBookingModal({
               <PriceRow label="Platform fee" value={platformFee} />
               <PriceRow label="Tax" value={taxFee} />
 
+              {promoDiscount > 0 && (
+                <PriceRow label="Promo discount" value={-promoDiscount} />
+              )}
+
               <div className="mt-3 flex justify-between border-t border-[#eadff5] pt-3 font-semibold text-[#171018]">
                 <span>Total</span>
-                <span>EGP {totalPrice.toLocaleString()}</span>
+                <span>EGP {totalAfterDiscount.toLocaleString()}</span>
               </div>
+
+              {promoDiscount > 0 && (
+                <p className="mt-2 text-xs leading-5 text-[#6f6077]">
+                  Original total: EGP {totalBeforeDiscount.toLocaleString()}.
+                  MUA payout is not affected by this discount.
+                </p>
+              )}
+            </div>
+          )}
+
+          {selectedService && (
+            <div className="rounded-[1.5rem] border border-[#eadff5] bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-[#8a7d91]">
+                Promo code
+              </p>
+
+              <div className="mt-3 flex gap-2">
+                <input
+                  value={promoCodeInput}
+                  onChange={(e) => {
+                    setPromoCodeInput(e.target.value.toUpperCase());
+                    setPromoError(null);
+                    setPromoSuccess(null);
+                  }}
+                  placeholder="BEAURA10"
+                  disabled={!!appliedPromo}
+                  className="input flex-1"
+                />
+
+                {appliedPromo ? (
+                  <button
+                    type="button"
+                    onClick={removePromo}
+                    className="h-12 rounded-full border border-[#eadff5] px-4 text-sm font-medium text-[#171018]"
+                  >
+                    Remove
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={applyPromoCode}
+                    disabled={promoLoading}
+                    className="h-12 rounded-full bg-[#171018] px-5 text-sm font-medium text-white disabled:opacity-60"
+                  >
+                    {promoLoading ? "Checking..." : "Apply"}
+                  </button>
+                )}
+              </div>
+
+              {promoError && (
+                <p className="mt-3 rounded-2xl bg-red-50 p-3 text-xs leading-5 text-red-600">
+                  {promoError}
+                </p>
+              )}
+
+              {promoSuccess && (
+                <p className="mt-3 rounded-2xl bg-green-50 p-3 text-xs leading-5 text-green-700">
+                  {promoSuccess}
+                </p>
+              )}
             </div>
           )}
 
@@ -357,7 +571,7 @@ export default function RequestBookingModal({
                   value={
                     paymentMethod === "credit_balance"
                       ? walletCreditAmount
-                      : totalPrice
+                      : totalAfterDiscount
                   }
                 />
 
@@ -476,11 +690,14 @@ function Field({
 }
 
 function PriceRow({ label, value }: { label: string; value: number }) {
+  const isNegative = value < 0;
+
   return (
     <div className="flex justify-between py-1 text-[#6f6077]">
       <span>{label}</span>
-      <span className="text-[#171018]">
-        EGP {Number(value || 0).toLocaleString()}
+      <span className={isNegative ? "text-green-700" : "text-[#171018]"}>
+        {isNegative ? "- " : ""}
+        EGP {Math.abs(Number(value || 0)).toLocaleString()}
       </span>
     </div>
   );
