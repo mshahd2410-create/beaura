@@ -3,12 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-type BookingStatus =
-  | "pending"
-  | "confirmed"
-  | "cancelled"
-  | "completed"
-  | "disputed";
+type BookingStatus = "pending" | "confirmed" | "completed" | "disputed" | "cancelled";
 
 const STATUSES: BookingStatus[] = [
   "pending",
@@ -32,6 +27,10 @@ export default function BrideBookings() {
     loadBookings();
   }, []);
 
+  function normalizeStatus(status: string | null | undefined) {
+    return (status || "").toLowerCase().trim();
+  }
+
   async function loadBookings() {
     setLoading(true);
 
@@ -44,22 +43,16 @@ export default function BrideBookings() {
       return;
     }
 
-    const { data: bookingsData, error } = await supabase
+    const { data: bookingsData } = await supabase
       .from("bookings")
       .select("*")
       .eq("bride_id", user.id)
       .order("created_at", { ascending: false });
 
-    if (error || !bookingsData) {
-      setBookings([]);
-      setLoading(false);
-      return;
-    }
+    const rows = bookingsData || [];
 
-    await autoCompleteExpiredBookings(bookingsData);
-
-    const muaIds = [...new Set(bookingsData.map((b) => b.mua_id).filter(Boolean))];
-    const serviceIds = [...new Set(bookingsData.map((b) => b.service_id).filter(Boolean))];
+    const muaIds = [...new Set(rows.map((b) => b.mua_id).filter(Boolean))];
+    const serviceIds = [...new Set(rows.map((b) => b.service_id).filter(Boolean))];
 
     const [{ data: muas }, { data: services }] = await Promise.all([
       muaIds.length
@@ -70,71 +63,16 @@ export default function BrideBookings() {
         : Promise.resolve({ data: [] as any[] }),
     ]);
 
-    const refreshed = await supabase
-      .from("bookings")
-      .select("*")
-      .eq("bride_id", user.id)
-      .order("created_at", { ascending: false });
+    setBookings(
+      rows.map((b) => ({
+        ...b,
+        status: normalizeStatus(b.status || "pending"),
+        mua: muas?.find((m) => m.id === b.mua_id),
+        service: services?.find((s) => s.id === b.service_id),
+      }))
+    );
 
-    const source = refreshed.data || bookingsData;
-
-    const enriched = source.map((b) => ({
-      ...b,
-      mua: muas?.find((m) => m.id === b.mua_id),
-      service: services?.find((s) => s.id === b.service_id),
-    }));
-
-    setBookings(enriched);
     setLoading(false);
-  }
-
-  async function autoCompleteExpiredBookings(rows: any[]) {
-    const expired = rows.filter((b) => {
-      if (b.status !== "confirmed") return false;
-      if (!b.booking_date || !b.booking_time) return false;
-
-      const end = getEventDate(b);
-      const deadline = new Date(end.getTime() + 48 * 60 * 60 * 1000);
-
-      return new Date() > deadline;
-    });
-
-    for (const booking of expired) {
-      await supabase
-        .from("bookings")
-        .update({
-          status: "completed",
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", booking.id);
-    }
-  }
-
-  function getEventDate(b: any) {
-    return new Date(`${b.booking_date}T${b.booking_time || "00:00"}`);
-  }
-
-  function canTakeAfterEventAction(b: any) {
-    if (b.status !== "confirmed") return false;
-    if (!b.booking_date || !b.booking_time) return false;
-
-    const eventDate = getEventDate(b);
-    const deadline = new Date(eventDate.getTime() + 48 * 60 * 60 * 1000);
-    const now = new Date();
-
-    return now >= eventDate && now <= deadline;
-  }
-
-  function getWindowText(b: any) {
-    if (!b.booking_date || !b.booking_time) return "Available after the event.";
-
-    const eventDate = getEventDate(b);
-    const deadline = new Date(eventDate.getTime() + 48 * 60 * 60 * 1000);
-
-    if (new Date() < eventDate) return "Available after the event.";
-    if (new Date() > deadline) return "48-hour window closed.";
-
-    return `Issue window closes ${deadline.toLocaleString()}`;
   }
 
   async function uploadCompletionPhoto(bookingId: string) {
@@ -148,9 +86,7 @@ export default function BrideBookings() {
 
     if (error) return null;
 
-    const { data } = supabase.storage
-      .from("booking-completion")
-      .getPublicUrl(path);
+    const { data } = supabase.storage.from("booking-completion").getPublicUrl(path);
 
     return data.publicUrl;
   }
@@ -182,12 +118,16 @@ export default function BrideBookings() {
 
     setSaving(true);
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     await supabase
       .from("bookings")
       .update({
         status: "disputed",
         issue_reported_at: new Date().toISOString(),
-        issue_reported_by: selectedBooking.bride_id,
+        issue_reported_by: user?.id || selectedBooking.bride_id,
         issue_reason: issueReason.trim(),
       })
       .eq("id", selectedBooking.id);
@@ -209,31 +149,28 @@ export default function BrideBookings() {
     setPhoto(null);
   }
 
-  const filtered = bookings.filter((b) => b.status === activeStatus);
+  const filtered = bookings.filter((b) => normalizeStatus(b.status) === activeStatus);
 
   if (loading) {
     return (
-      <div className="flex justify-center py-24 text-[#6f6077]">
-        Loading your bookings…
-      </div>
+      <main className="min-h-screen bg-[#fffafc] px-4 pt-28 text-[#6f6077]">
+        Loading bookings…
+      </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#fffafc] px-5 pb-32 pt-24 text-[#171018] sm:px-8">
-      <section className="mx-auto max-w-5xl space-y-6">
-        <div className="rounded-[2.5rem] border border-[#eadff5] bg-white p-7 shadow-sm">
+    <main className="min-h-screen overflow-x-hidden bg-[#fffafc] px-4 pb-28 pt-24 text-[#171018] sm:px-6 lg:px-8">
+      <section className="mx-auto max-w-5xl space-y-5">
+        <div className="rounded-[2rem] border border-[#eadff5] bg-white p-6 shadow-sm sm:p-8">
           <p className="text-xs uppercase tracking-[0.22em] text-purple-700">
             your bookings
           </p>
-
-          <h1 className="mt-3 text-5xl font-light tracking-[-0.08em]">
+          <h1 className="mt-3 text-5xl font-light leading-[0.9] tracking-[-0.08em] sm:text-7xl">
             Your glam plans.
           </h1>
-
           <p className="mt-4 max-w-2xl text-sm leading-7 text-[#6f6077]">
-            Confirm completed bookings or report an issue within 48 hours after
-            the appointment.
+            Tap “I got my makeup done” when everything is complete, or report an issue if something went wrong.
           </p>
         </div>
 
@@ -254,83 +191,71 @@ export default function BrideBookings() {
         </div>
 
         {filtered.length === 0 ? (
-          <div className="rounded-[2rem] border border-dashed border-[#eadff5] bg-white p-12 text-center">
-            <h2 className="text-2xl font-light tracking-[-0.05em]">
-              No {activeStatus} bookings.
-            </h2>
-            <p className="mt-3 text-sm text-[#6f6077]">
-              Your bookings will appear here when their status changes.
-            </p>
-          </div>
+          <EmptyState status={activeStatus} />
         ) : (
           <div className="space-y-4">
-            {filtered.map((b) => (
-              <div
-                key={b.id}
-                className="rounded-[2rem] border border-[#eadff5] bg-white p-6 shadow-sm"
-              >
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-3">
+            {filtered.map((b) => {
+              const muaName =
+                `${b.mua?.first_name || ""} ${b.mua?.last_name || ""}`.trim() ||
+                "Your makeup artist";
+
+              return (
+                <article
+                  key={b.id}
+                  className="rounded-[2rem] border border-[#eadff5] bg-white p-5 shadow-sm sm:p-6"
+                >
+                  <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
                       <span className="rounded-full bg-[#f7efff] px-3 py-1 text-xs font-medium text-purple-700 capitalize">
                         {b.status}
                       </span>
 
-                      {b.status === "confirmed" && (
-                        <span className="text-xs text-[#8a7d91]">
-                          {getWindowText(b)}
-                        </span>
+                      <h2 className="mt-4 text-3xl font-light tracking-[-0.06em] text-[#171018]">
+                        {b.service?.name || "Makeup service"}
+                      </h2>
+
+                      <p className="mt-2 text-sm text-[#6f6077]">
+                        With <span className="font-medium text-[#171018]">{muaName}</span>
+                      </p>
+
+                      <p className="mt-1 text-sm text-[#6f6077]">
+                        {b.booking_date || "No date"} · {b.booking_time || "No time"}
+                      </p>
+
+                      {b.location_notes && (
+                        <p className="mt-4 rounded-2xl bg-[#fffafc] p-4 text-sm italic text-[#6f6077]">
+                          “{b.location_notes}”
+                        </p>
+                      )}
+
+                      {b.issue_reason && (
+                        <p className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
+                          Issue reported: {b.issue_reason}
+                        </p>
                       )}
                     </div>
 
-                    <h2 className="mt-3 text-2xl font-light tracking-[-0.05em]">
-                      {b.service?.name || "Makeup service"}
-                    </h2>
+                    {b.status === "confirmed" && (
+                      <div className="flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
+                        <button
+                          onClick={() => openModal("complete", b)}
+                          className="rounded-full bg-[#171018] px-5 py-3 text-sm font-medium text-white transition hover:opacity-90"
+                        >
+                          I got my makeup done
+                        </button>
 
-                    <p className="mt-2 text-sm text-[#6f6077]">
-                      With{" "}
-                      <span className="font-medium text-[#171018]">
-                        {b.mua?.first_name} {b.mua?.last_name}
-                      </span>
-                    </p>
-
-                    <p className="mt-1 text-sm text-[#6f6077]">
-                      {b.booking_date || "No date"} · {b.booking_time || "No time"}
-                    </p>
-
-                    {b.location_notes && (
-                      <p className="mt-3 rounded-2xl bg-[#fffafc] p-4 text-sm italic text-[#6f6077]">
-                        “{b.location_notes}”
-                      </p>
-                    )}
-
-                    {b.issue_reason && (
-                      <p className="mt-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
-                        Issue reported: {b.issue_reason}
-                      </p>
+                        <button
+                          onClick={() => openModal("issue", b)}
+                          className="rounded-full border border-[#eadff5] bg-white px-5 py-3 text-sm font-medium text-[#171018] transition hover:border-red-200 hover:text-red-600"
+                        >
+                          Report issue
+                        </button>
+                      </div>
                     )}
                   </div>
-
-                  {canTakeAfterEventAction(b) && (
-                    <div className="flex flex-wrap gap-3">
-                      <button
-                        onClick={() => openModal("complete", b)}
-                        className="rounded-full bg-[#171018] px-5 py-3 text-sm font-medium text-white transition hover:opacity-90"
-                      >
-                        Complete booking
-                      </button>
-
-                      <button
-                        onClick={() => openModal("issue", b)}
-                        className="rounded-full border border-[#eadff5] bg-white px-5 py-3 text-sm font-medium text-[#171018] transition hover:border-red-200 hover:text-red-600"
-                      >
-                        Report issue
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+                </article>
+              );
+            })}
           </div>
         )}
       </section>
@@ -351,6 +276,19 @@ export default function BrideBookings() {
   );
 }
 
+function EmptyState({ status }: { status: string }) {
+  return (
+    <div className="rounded-[2rem] border border-dashed border-[#eadff5] bg-white p-10 text-center shadow-sm">
+      <h2 className="text-2xl font-light tracking-[-0.05em]">
+        No {status} bookings.
+      </h2>
+      <p className="mt-3 text-sm text-[#6f6077]">
+        Your bookings will appear here once their status changes.
+      </p>
+    </div>
+  );
+}
+
 function ActionModal({
   type,
   saving,
@@ -363,13 +301,13 @@ function ActionModal({
 }: any) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-[2rem] border border-[#eadff5] bg-white p-7 shadow-2xl">
+      <div className="w-full max-w-md rounded-[2rem] border border-[#eadff5] bg-white p-6 shadow-2xl sm:p-7">
         <p className="text-xs uppercase tracking-[0.22em] text-purple-700">
           {type === "complete" ? "complete booking" : "report issue"}
         </p>
 
         <h2 className="mt-3 text-3xl font-light tracking-[-0.06em]">
-          {type === "complete" ? "Mark this booking complete?" : "Tell us what happened"}
+          {type === "complete" ? "Got your makeup done?" : "Tell us what happened"}
         </h2>
 
         {type === "complete" ? (
@@ -377,7 +315,6 @@ function ActionModal({
             <p className="text-sm leading-6 text-[#6f6077]">
               You can optionally upload a photo from the appointment.
             </p>
-
             <input
               type="file"
               accept="image/*"
@@ -395,7 +332,7 @@ function ActionModal({
           />
         )}
 
-        <div className="mt-6 flex gap-3">
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <button
             onClick={type === "complete" ? onComplete : onReport}
             disabled={saving}
