@@ -73,10 +73,11 @@ export default function RegisterClient() {
     setLoading(true);
     setError(null);
 
-    const { error: signUpError } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-    });
+    const { data: signUpData, error: signUpError } =
+      await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+      });
 
     if (signUpError) {
       setError(signUpError.message);
@@ -84,31 +85,44 @@ export default function RegisterClient() {
       return;
     }
 
-    await supabase.auth.signInWithPassword({
-      email: form.email,
-      password: form.password,
-    });
-
-    const { data } = await supabase.auth.getUser();
-    const user = data.user;
+    let user = signUpData.user;
 
     if (!user) {
-      setError("Authentication failed");
+      const { data: signInData, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email: form.email,
+          password: form.password,
+        });
+
+      if (signInError) {
+        setError(signInError.message);
+        setLoading(false);
+        return;
+      }
+
+      user = signInData.user;
+    }
+
+    if (!user) {
+      setError("Authentication failed. Please try logging in.");
       setLoading(false);
       return;
     }
 
-    const { error: profileError } = await supabase.from("bride_profiles").insert({
-      id: user.id,
-      first_name: form.firstName,
-      last_name: form.lastName,
-      phone: form.phone,
-      email: form.email,
-      event_date: form.eventDate || null,
-      event_location: form.eventLocation || null,
-      makeup_type: form.makeupType || null,
-      preferences: form.preferences || null,
-    });
+    const { error: profileError } = await supabase
+      .from("bride_profiles")
+      .insert({
+        id: user.id,
+        first_name: form.firstName,
+        last_name: form.lastName,
+        phone: form.phone,
+        email: form.email,
+        event_date: form.eventDate || null,
+        event_location: form.eventLocation || null,
+        makeup_type: form.makeupType || null,
+        preferences: form.preferences || null,
+        status: "active",
+      });
 
     if (profileError) {
       setError(profileError.message);
@@ -156,23 +170,59 @@ export default function RegisterClient() {
 
           <Section title="About you">
             <div className="grid gap-4 md:grid-cols-2">
-              <Input label="First name *" onChange={(v) => setForm({ ...form, firstName: v })} />
-              <Input label="Last name *" onChange={(v) => setForm({ ...form, lastName: v })} />
+              <Input
+                label="First name *"
+                value={form.firstName}
+                onChange={(v) => setForm({ ...form, firstName: v })}
+              />
+
+              <Input
+                label="Last name *"
+                value={form.lastName}
+                onChange={(v) => setForm({ ...form, lastName: v })}
+              />
             </div>
 
-            <Input label="Phone number *" onChange={(v) => setForm({ ...form, phone: v })} />
-            <Input label="Email address *" type="email" onChange={(v) => setForm({ ...form, email: v })} />
-            <Input label="Password *" type="password" onChange={(v) => setForm({ ...form, password: v })} />
+            <Input
+              label="Phone number *"
+              value={form.phone}
+              onChange={(v) => setForm({ ...form, phone: v })}
+            />
+
+            <Input
+              label="Email address *"
+              type="email"
+              value={form.email}
+              onChange={(v) => setForm({ ...form, email: v })}
+            />
+
+            <Input
+              label="Password *"
+              type="password"
+              value={form.password}
+              onChange={(v) => setForm({ ...form, password: v })}
+            />
           </Section>
 
           <Section title="Your glam details">
             <div className="grid gap-4 md:grid-cols-2">
-              <Input label="Event date" type="date" onChange={(v) => setForm({ ...form, eventDate: v })} />
-              <Input label="Event location" onChange={(v) => setForm({ ...form, eventLocation: v })} />
+              <Input
+                label="Event date"
+                type="date"
+                value={form.eventDate}
+                onChange={(v) => setForm({ ...form, eventDate: v })}
+              />
+
+              <Input
+                label="Event location"
+                value={form.eventLocation}
+                onChange={(v) => setForm({ ...form, eventLocation: v })}
+              />
             </div>
 
             <Select
               label="Makeup type"
+              value={form.makeupType}
               options={MAKEUP_TYPES}
               onChange={(v) => setForm({ ...form, makeupType: v })}
             />
@@ -240,7 +290,13 @@ export default function RegisterClient() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="mb-6 rounded-[1.75rem] border border-[#eadff5] bg-[#fffafc] p-5">
       <h2 className="mb-4 text-xs uppercase tracking-[0.2em] text-purple-700">
@@ -255,17 +311,21 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Input({
   label,
   type = "text",
+  value,
   onChange,
 }: {
   label: string;
   type?: string;
+  value: string;
   onChange: (value: string) => void;
 }) {
   return (
     <div>
       <label className="mb-2 block text-sm text-[#554a5c]">{label}</label>
+
       <input
         type={type}
+        value={value}
         onChange={(e) => onChange(e.target.value)}
         required={label.includes("*")}
         className="w-full rounded-2xl border border-[#eadff5] bg-white px-4 py-3 text-sm outline-none transition focus:border-purple-500"
@@ -288,6 +348,7 @@ function Textarea({
   return (
     <div>
       <label className="mb-2 block text-sm text-[#554a5c]">{label}</label>
+
       <textarea
         value={value}
         placeholder={placeholder}
@@ -300,23 +361,30 @@ function Textarea({
 
 function Select({
   label,
+  value,
   options,
   onChange,
 }: {
   label: string;
+  value: string;
   options: string[];
   onChange: (value: string) => void;
 }) {
   return (
     <div>
       <label className="mb-2 block text-sm text-[#554a5c]">{label}</label>
+
       <select
+        value={value}
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-2xl border border-[#eadff5] bg-white px-4 py-3 text-sm outline-none transition focus:border-purple-500"
       >
         <option value="">Select</option>
-        {options.map((o) => (
-          <option key={o}>{o}</option>
+
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
         ))}
       </select>
     </div>

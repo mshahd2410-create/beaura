@@ -9,6 +9,8 @@ import {
   MessageSquare,
   CalendarCheck,
   AlertCircle,
+  ArrowRight,
+  RefreshCw,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -35,18 +37,13 @@ export default function AdminDashboardPage() {
     fetchStats();
   }, []);
 
-  async function getCount(
-    table: string,
-    filters?: (query: any) => any
-  ): Promise<number> {
+  async function getCount(table: string, filters?: (query: any) => any) {
     let query = supabase.from(table).select("*", {
       count: "exact",
       head: true,
     });
 
-    if (filters) {
-      query = filters(query);
-    }
+    if (filters) query = filters(query);
 
     const { count, error } = await query;
 
@@ -61,23 +58,18 @@ export default function AdminDashboardPage() {
   async function fetchStats() {
     setLoading(true);
 
-    const [
-      pendingMuas,
-      approvedMuas,
-      brides,
-      supportTickets,
-      bookings,
-    ] = await Promise.all([
-      getCount("mua_profiles", (q) =>
-        q.eq("verified", false).eq("status", "active")
-      ),
-      getCount("mua_profiles", (q) =>
-        q.eq("verified", true).eq("status", "active")
-      ),
-      getCount("bride_profiles"),
-      getCount("support_tickets", (q) => q.eq("status", "open")),
-      getCount("bookings"),
-    ]);
+    const [pendingMuas, approvedMuas, brides, supportTickets, bookings] =
+      await Promise.all([
+        getCount("mua_profiles", (q) =>
+          q.eq("verified", false).eq("status", "active")
+        ),
+        getCount("mua_profiles", (q) =>
+          q.eq("verified", true).eq("status", "active")
+        ),
+        getCount("bride_profiles"),
+        getCount("support_tickets", (q) => q.eq("status", "open")),
+        getCount("bookings"),
+      ]);
 
     setStats({
       pendingMuas,
@@ -94,28 +86,28 @@ export default function AdminDashboardPage() {
     {
       title: "Pending approvals",
       value: stats.pendingMuas,
-      description: "New MUAs waiting for verification",
+      description: "New artists waiting for review",
       icon: Clock,
       href: "/admin/approvals",
     },
     {
       title: "Approved MUAs",
       value: stats.approvedMuas,
-      description: "Makeup artists visible to brides",
+      description: "Artists visible to clients",
       icon: UserCheck,
       href: "/admin/muas",
     },
     {
-      title: "Brides",
+      title: "Clients",
       value: stats.brides,
-      description: "Registered bride accounts",
+      description: "Registered client accounts",
       icon: Users,
       href: "/admin/brides",
     },
     {
       title: "Support tickets",
       value: stats.supportTickets,
-      description: "Open messages needing admin help",
+      description: "Open messages needing help",
       icon: MessageSquare,
       href: "/admin/support",
     },
@@ -129,186 +121,187 @@ export default function AdminDashboardPage() {
   ];
 
   return (
-    <main className="min-h-screen bg-[#FAF8FF] px-6 py-8 text-gray-900">
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <section className="space-y-6">
+      <div className="rounded-[2rem] border border-[#eadff5] bg-white p-6 shadow-sm sm:p-8">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-purple-600">
-              Beaura Admin
+            <p className="text-xs uppercase tracking-[0.22em] text-purple-700">
+              Beaura admin
             </p>
 
-            <h1 className="mt-2 text-3xl font-bold text-gray-900">
-              Dashboard Overview
+            <h1 className="mt-3 text-5xl font-light leading-[0.9] tracking-[-0.08em] text-[#171018] sm:text-7xl">
+              Dashboard
             </h1>
 
-            <p className="mt-2 max-w-2xl text-sm text-gray-500">
-              Monitor approvals, support, brides, bookings, and platform activity.
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-[#6f6077]">
+              Monitor approvals, clients, artists, bookings, and support in one clean place.
             </p>
           </div>
 
           <button
             onClick={fetchStats}
-            className="rounded-2xl bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-purple-700"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#171018] px-6 text-sm font-medium text-white transition hover:opacity-90"
           >
+            <RefreshCw size={16} />
             Refresh
           </button>
         </div>
-
-        {loading ? (
-          <div className="rounded-3xl border border-gray-100 bg-white p-8 text-sm text-gray-500 shadow-sm">
-            Loading dashboard stats...
-          </div>
-        ) : (
-          <>
-            <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {cards.map((card) => {
-                const Icon = card.icon;
-
-                return (
-                  <Link
-                    key={card.title}
-                    href={card.href}
-                    className="group rounded-3xl border border-gray-100 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">
-                          {card.title}
-                        </p>
-
-                        <p className="mt-4 text-4xl font-bold text-purple-600">
-                          {card.value}
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl bg-purple-50 p-3 text-purple-600 transition group-hover:bg-purple-600 group-hover:text-white">
-                        <Icon size={24} />
-                      </div>
-                    </div>
-
-                    <p className="mt-4 text-sm text-gray-500">
-                      {card.description}
-                    </p>
-                  </Link>
-                );
-              })}
-            </section>
-
-            <section className="mt-8 grid gap-5 lg:grid-cols-2">
-              <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-2xl bg-amber-50 p-3 text-amber-700">
-                    <AlertCircle size={22} />
-                  </div>
-
-                  <div>
-                    <h2 className="text-lg font-bold text-gray-900">
-                      Needs attention
-                    </h2>
-                    <p className="text-sm text-gray-500">
-                      Items admins should review first.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-5 space-y-3 text-sm">
-                  {stats.pendingMuas > 0 ? (
-                    <Link
-                      href="/admin/approvals"
-                      className="block rounded-2xl bg-gray-50 p-4 transition hover:bg-purple-50"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="font-semibold text-gray-900">
-                          {stats.pendingMuas} MUA approval
-                          {stats.pendingMuas === 1 ? "" : "s"} pending
-                        </span>
-
-                        <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-                          Pending
-                        </span>
-                      </div>
-
-                      <p className="mt-1 text-gray-500">
-                        Review new makeup artists before they become visible.
-                      </p>
-                    </Link>
-                  ) : (
-                    <div className="rounded-2xl bg-gray-50 p-4 text-gray-500">
-                      No pending MUA approvals.
-                    </div>
-                  )}
-
-                  {stats.supportTickets > 0 ? (
-                    <Link
-                      href="/admin/support"
-                      className="block rounded-2xl bg-gray-50 p-4 transition hover:bg-purple-50"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="font-semibold text-gray-900">
-                          {stats.supportTickets} open support ticket
-                          {stats.supportTickets === 1 ? "" : "s"}
-                        </span>
-
-                        <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-                          Open
-                        </span>
-                      </div>
-
-                      <p className="mt-1 text-gray-500">
-                        Reply to bride or MUA issues from the support inbox.
-                      </p>
-                    </Link>
-                  ) : (
-                    <div className="rounded-2xl bg-gray-50 p-4 text-gray-500">
-                      No open support tickets.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
-                <h2 className="text-lg font-bold text-gray-900">
-                  Admin shortcuts
-                </h2>
-
-                <p className="mt-1 text-sm text-gray-500">
-                  Jump to the main dashboard sections.
-                </p>
-
-                <div className="mt-5 grid gap-3 text-sm">
-                  <Link
-                    href="/admin/approvals"
-                    className="rounded-2xl border border-gray-100 bg-gray-50 p-4 font-semibold text-gray-800 transition hover:border-purple-100 hover:bg-purple-50 hover:text-purple-700"
-                  >
-                    MUA Approval Queue
-                  </Link>
-
-                  <Link
-                    href="/admin/support"
-                    className="rounded-2xl border border-gray-100 bg-gray-50 p-4 font-semibold text-gray-800 transition hover:border-purple-100 hover:bg-purple-50 hover:text-purple-700"
-                  >
-                    Support Inbox
-                  </Link>
-
-                  <Link
-                    href="/admin/muas"
-                    className="rounded-2xl border border-gray-100 bg-gray-50 p-4 font-semibold text-gray-800 transition hover:border-purple-100 hover:bg-purple-50 hover:text-purple-700"
-                  >
-                    Manage MUAs
-                  </Link>
-
-                  <Link
-                    href="/admin/bookings"
-                    className="rounded-2xl border border-gray-100 bg-gray-50 p-4 font-semibold text-gray-800 transition hover:border-purple-100 hover:bg-purple-50 hover:text-purple-700"
-                  >
-                    Bookings
-                  </Link>
-                </div>
-              </div>
-            </section>
-          </>
-        )}
       </div>
-    </main>
+
+      {loading ? (
+        <div className="rounded-[2rem] border border-[#eadff5] bg-white p-8 text-sm text-[#6f6077] shadow-sm">
+          Loading dashboard stats...
+        </div>
+      ) : (
+        <>
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            {cards.map((card) => {
+              const Icon = card.icon;
+
+              return (
+                <Link
+                  key={card.title}
+                  href={card.href}
+                  className="group rounded-[2rem] border border-[#eadff5] bg-white p-5 shadow-sm transition hover:-translate-y-[2px] hover:shadow-md"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.16em] text-[#8a7d91]">
+                        {card.title}
+                      </p>
+
+                      <p className="mt-4 text-4xl font-light tracking-[-0.06em] text-[#171018]">
+                        {card.value}
+                      </p>
+                    </div>
+
+                    <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#f7efff] text-purple-700 transition group-hover:bg-[#171018] group-hover:text-white">
+                      <Icon size={21} />
+                    </div>
+                  </div>
+
+                  <p className="mt-4 text-sm leading-6 text-[#6f6077]">
+                    {card.description}
+                  </p>
+                </Link>
+              );
+            })}
+          </section>
+
+          <section className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="rounded-[2rem] border border-[#eadff5] bg-white p-6 shadow-sm sm:p-7">
+              <div className="flex items-center gap-3">
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#fff4d8] text-amber-700">
+                  <AlertCircle size={22} />
+                </div>
+
+                <div>
+                  <h2 className="text-3xl font-light tracking-[-0.06em] text-[#171018]">
+                    Needs attention
+                  </h2>
+                  <p className="text-sm text-[#6f6077]">
+                    Review these first.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-3">
+                <AttentionItem
+                  show={stats.pendingMuas > 0}
+                  emptyText="No pending MUA approvals."
+                  title={`${stats.pendingMuas} pending MUA approval${
+                    stats.pendingMuas === 1 ? "" : "s"
+                  }`}
+                  text="Review new makeup artists before they become visible."
+                  href="/admin/approvals"
+                  badge="Pending"
+                />
+
+                <AttentionItem
+                  show={stats.supportTickets > 0}
+                  emptyText="No open support tickets."
+                  title={`${stats.supportTickets} open support ticket${
+                    stats.supportTickets === 1 ? "" : "s"
+                  }`}
+                  text="Reply to client or artist issues from support."
+                  href="/admin/support"
+                  badge="Open"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-[#eadff5] bg-white p-6 shadow-sm sm:p-7">
+              <h2 className="text-3xl font-light tracking-[-0.06em] text-[#171018]">
+                Admin shortcuts
+              </h2>
+
+              <p className="mt-2 text-sm leading-6 text-[#6f6077]">
+                Jump to the most used sections.
+              </p>
+
+              <div className="mt-6 grid gap-3">
+                <Shortcut href="/admin/approvals" label="MUA Approval Queue" />
+                <Shortcut href="/admin/brides" label="Manage Clients" />
+                <Shortcut href="/admin/muas" label="Manage MUAs" />
+                <Shortcut href="/admin/bookings" label="Bookings" />
+                <Shortcut href="/admin/support" label="Support Inbox" />
+              </div>
+            </div>
+          </section>
+        </>
+      )}
+    </section>
+  );
+}
+
+function AttentionItem({
+  show,
+  emptyText,
+  title,
+  text,
+  href,
+  badge,
+}: {
+  show: boolean;
+  emptyText: string;
+  title: string;
+  text: string;
+  href: string;
+  badge: string;
+}) {
+  if (!show) {
+    return (
+      <div className="rounded-[1.5rem] border border-[#eadff5] bg-[#fffafc] p-4 text-sm text-[#6f6077]">
+        {emptyText}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      className="block rounded-[1.5rem] border border-[#eadff5] bg-[#fffafc] p-4 transition hover:border-purple-300"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span className="font-medium text-[#171018]">{title}</span>
+        <span className="rounded-full bg-[#fff4d8] px-3 py-1 text-xs font-medium text-amber-700">
+          {badge}
+        </span>
+      </div>
+
+      <p className="mt-2 text-sm leading-6 text-[#6f6077]">{text}</p>
+    </Link>
+  );
+}
+
+function Shortcut({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center justify-between rounded-[1.5rem] border border-[#eadff5] bg-[#fffafc] p-4 text-sm font-medium text-[#171018] transition hover:border-purple-300 hover:text-purple-700"
+    >
+      {label}
+      <ArrowRight size={16} />
+    </Link>
   );
 }

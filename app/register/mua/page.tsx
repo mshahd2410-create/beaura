@@ -126,6 +126,7 @@ export default function RegisterMUA() {
       last_name: form.lastName,
       phone: form.phone,
       instagram: form.instagram,
+      email: form.email,
       bio: form.bio,
       experience: form.experience,
       cities: form.cities,

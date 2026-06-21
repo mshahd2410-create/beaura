@@ -9,30 +9,79 @@ type Booking = {
   service_id: string | null;
   booking_date: string | null;
   booking_time: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  service_duration_minutes?: number | null;
   location: string | null;
   location_notes: string | null;
+  notes?: string | null;
   status: string;
   created_at: string;
+
+  service_price?: number | null;
+  platform_fee?: number | null;
+  tax_fee?: number | null;
+  total_price?: number | null;
+  total_amount?: number | null;
+
+  payment_method?: "card" | "credit_balance" | string | null;
+  use_wallet_credit?: boolean | null;
+  wallet_credit_amount?: number | null;
+  amount_due_after_wallet?: number | null;
+  wallet_charged?: boolean | null;
+  wallet_charged_at?: string | null;
+
+  card_paid?: boolean | null;
+  card_paid_at?: string | null;
+  payment_status?: string | null;
+
+  refund_processed?: boolean | null;
+  refund_amount?: number | null;
+  refund_processed_at?: string | null;
+  cancelled_at?: string | null;
+  cancelled_by?: string | null;
+  cancellation_reason?: string | null;
+
+  completed_by_bride?: boolean | null;
+  completed_by_mua?: boolean | null;
+  bride_completed_at?: string | null;
+  mua_completed_at?: string | null;
+  completed_at?: string | null;
+
   completion_photo_url?: string | null;
+
+  issue_reported_at?: string | null;
+  issue_reported_by?: string | null;
   issue_reason?: string | null;
+
   bride?: {
     id: string;
     first_name: string | null;
     last_name: string | null;
   } | null;
+
   service?: {
     id: string;
     name: string;
+    duration_minutes?: number | null;
   } | null;
 };
 
-const STATUSES = ["pending", "confirmed", "completed", "disputed", "cancelled"];
+const STATUSES = [
+  "pending",
+  "confirmed",
+  "confirmed_payment_pending",
+  "completed",
+  "disputed",
+  "cancelled",
+];
 
 export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeStatus, setActiveStatus] = useState("pending");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
 
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [modalType, setModalType] = useState<"complete" | "issue" | null>(null);
@@ -79,8 +128,13 @@ export default function BookingsPage() {
     return (status || "").toLowerCase().trim();
   }
 
+  function cleanStatus(status: string) {
+    return status.replaceAll("_", " ");
+  }
+
   async function fetchBookings() {
     setLoading(true);
+    setPageError(null);
 
     const {
       data: { user },
@@ -99,6 +153,7 @@ export default function BookingsPage() {
 
     if (error || !bookingsData) {
       console.error("FETCH BOOKINGS ERROR:", error);
+      setPageError(error?.message || "Could not load bookings.");
       setBookings([]);
       setLoading(false);
       return;
@@ -123,7 +178,7 @@ export default function BookingsPage() {
       serviceIds.length
         ? supabase
             .from("mua_services")
-            .select("id, name")
+            .select("id, name, duration_minutes")
             .in("id", serviceIds)
         : Promise.resolve({ data: [] as any[] }),
     ]);
@@ -139,12 +194,120 @@ export default function BookingsPage() {
     setLoading(false);
   }
 
-  async function updateStatus(id: string, status: "confirmed" | "cancelled") {
-    setUpdatingId(id);
+  function getBookingStartEnd(booking: Booking) {
+    let start: Date | null = null;
+    let end: Date | null = null;
 
-    await supabase.from("bookings").update({ status }).eq("id", id);
+    if (booking.start_time && booking.end_time) {
+      start = new Date(booking.start_time);
+      end = new Date(booking.end_time);
+    } else if (booking.booking_date && booking.booking_time) {
+      const duration =
+        booking.service_duration_minutes ||
+        booking.service?.duration_minutes ||
+        120;
 
-    await fetchBookings();
+      start = new Date(`${booking.booking_date}T${booking.booking_time}`);
+      end = new Date(start);
+      end.setMinutes(end.getMinutes() + duration);
+    }
+
+    if (
+      !start ||
+      !end ||
+      Number.isNaN(start.getTime()) ||
+      Number.isNaN(end.getTime())
+    ) {
+      return null;
+    }
+
+    return { start, end };
+  }
+
+  async function checkBeforeConfirm(booking: Booking) {
+    const range = getBookingStartEnd(booking);
+
+    if (!range) {
+      throw new Error("This booking has an invalid date or time.");
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      throw new Error("You must be logged in.");
+    }
+
+    const { data: conflicts, error } = await supabase.rpc(
+      "check_mua_time_conflict",
+      {
+        p_mua_id: user.id,
+        p_start_time: range.start.toISOString(),
+        p_end_time: range.end.toISOString(),
+      }
+    );
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const realConflicts =
+      conflicts?.filter((conflict: any) => conflict.conflict_id !== booking.id) ||
+      [];
+
+    if (realConflicts.length > 0) {
+      throw new Error(
+        "This booking overlaps with another booking or blocked time. Please cancel or reschedule one of them."
+      );
+    }
+  }
+
+  async function updateStatus(
+    booking: Booking,
+    status: "confirmed" | "cancelled"
+  ) {
+    setUpdatingId(booking.id);
+    setPageError(null);
+
+    try {
+      if (status === "confirmed") {
+        await checkBeforeConfirm(booking);
+
+        const { error } = await supabase.rpc(
+          "confirm_booking_and_handle_payment",
+          {
+            p_booking_id: booking.id,
+          }
+        );
+
+        if (error) {
+          throw new Error(error.message);
+        }
+      }
+
+      if (status === "cancelled") {
+        const { error } = await supabase.rpc(
+          "mua_cancel_booking_and_refund_bride",
+          {
+            p_booking_id: booking.id,
+            p_reason:
+              normalizeStatus(booking.status) === "pending"
+                ? "Booking declined by MUA"
+                : "Booking cancelled by MUA",
+          }
+        );
+
+        if (error) {
+          throw new Error(error.message);
+        }
+      }
+
+      await fetchBookings();
+    } catch (err: any) {
+      setPageError(err.message || "Could not update booking.");
+    }
+
     setUpdatingId(null);
   }
 
@@ -173,19 +336,21 @@ export default function BookingsPage() {
     if (!selectedBooking) return;
 
     setUpdatingId(selectedBooking.id);
+    setPageError(null);
 
     const photoUrl = await uploadCompletionPhoto(selectedBooking.id);
 
-    await supabase
-      .from("bookings")
-      .update({
-        status: "completed",
-        completed_by_mua: true,
-        completed_at: new Date().toISOString(),
-        completion_photo_url:
-          photoUrl || selectedBooking.completion_photo_url || null,
-      })
-      .eq("id", selectedBooking.id);
+    const { error } = await supabase.rpc("complete_booking_and_credit_mua", {
+      p_booking_id: selectedBooking.id,
+      p_completion_photo_url:
+        photoUrl || selectedBooking.completion_photo_url || null,
+    });
+
+    if (error) {
+      setPageError(error.message);
+      setUpdatingId(null);
+      return;
+    }
 
     closeModal();
     await fetchBookings();
@@ -196,20 +361,18 @@ export default function BookingsPage() {
     if (!selectedBooking || !issueReason.trim()) return;
 
     setUpdatingId(selectedBooking.id);
+    setPageError(null);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { error } = await supabase.rpc("report_booking_issue", {
+      p_booking_id: selectedBooking.id,
+      p_reason: issueReason.trim(),
+    });
 
-    await supabase
-      .from("bookings")
-      .update({
-        status: "disputed",
-        issue_reported_at: new Date().toISOString(),
-        issue_reported_by: user?.id || null,
-        issue_reason: issueReason.trim(),
-      })
-      .eq("id", selectedBooking.id);
+    if (error) {
+      setPageError(error.message);
+      setUpdatingId(null);
+      return;
+    }
 
     closeModal();
     await fetchBookings();
@@ -228,9 +391,57 @@ export default function BookingsPage() {
     setIssueReason("");
   }
 
-  const filtered = bookings.filter(
-    (b) => normalizeStatus(b.status) === activeStatus
-  );
+  function getMuaEarning(booking: Booking) {
+    const servicePrice = Number(
+      booking.service_price || booking.total_amount || booking.total_price || 0
+    );
+    const platformFee = Number(
+      booking.platform_fee || Math.round(servicePrice * 0.1)
+    );
+
+    return Math.max(servicePrice - platformFee, 0);
+  }
+
+  function getPaymentMethodLabel(booking: Booking) {
+    if (booking.payment_method === "credit_balance") return "Credit balance";
+    return "Card";
+  }
+
+  function getPaymentStatusLabel(booking: Booking) {
+    const status = normalizeStatus(booking.status);
+
+    if (booking.payment_method === "credit_balance") {
+      return booking.wallet_charged ? "Credit charged" : "Credit pending";
+    }
+
+    if (status === "confirmed_payment_pending") {
+      return "Card payment pending";
+    }
+
+    if (booking.card_paid || booking.payment_status === "paid") {
+      return "Card paid";
+    }
+
+    if (status === "confirmed" || status === "completed") {
+      return "Payment confirmed";
+    }
+
+    return "Payment pending";
+  }
+
+  function formatMoney(value: number | string | null | undefined) {
+    return `EGP ${Number(value || 0).toLocaleString()}`;
+  }
+
+  const filtered = bookings.filter((b) => {
+    const status = normalizeStatus(b.status);
+
+    if (activeStatus === "cancelled") {
+      return status.includes("cancelled");
+    }
+
+    return status === activeStatus;
+  });
 
   if (loading) {
     return (
@@ -253,8 +464,16 @@ export default function BookingsPage() {
 
         <p className="mt-3 max-w-2xl text-sm leading-7 text-[#6f6077]">
           Confirm, decline, complete finished bookings, or report a problem.
+          Payout is released only after both you and the bride confirm
+          completion.
         </p>
       </div>
+
+      {pageError && (
+        <div className="rounded-[2rem] border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+          {pageError}
+        </div>
+      )}
 
       <div className="flex gap-2 overflow-x-auto rounded-full border border-[#eadff5] bg-white p-2 shadow-sm">
         {STATUSES.map((status) => (
@@ -267,7 +486,7 @@ export default function BookingsPage() {
                 : "text-[#6f6077] hover:bg-[#f7efff] hover:text-purple-700"
             }`}
           >
-            {status}
+            {cleanStatus(status)}
           </button>
         ))}
       </div>
@@ -275,7 +494,7 @@ export default function BookingsPage() {
       {filtered.length === 0 ? (
         <div className="rounded-[2rem] border border-dashed border-[#eadff5] bg-white p-12 text-center shadow-sm">
           <h2 className="text-2xl font-light tracking-[-0.05em]">
-            No {activeStatus} bookings.
+            No {cleanStatus(activeStatus)} bookings.
           </h2>
           <p className="mt-3 text-sm text-[#6f6077]">
             Once bookings move to this status, they’ll appear here.
@@ -285,8 +504,9 @@ export default function BookingsPage() {
         <div className="space-y-4">
           {filtered.map((b) => {
             const brideName =
-              `${b.bride?.first_name || ""} ${b.bride?.last_name || ""}`.trim() ||
-              "Bride";
+              `${b.bride?.first_name || ""} ${
+                b.bride?.last_name || ""
+              }`.trim() || "Bride";
 
             const status = normalizeStatus(b.status);
 
@@ -315,20 +535,74 @@ export default function BookingsPage() {
                       </div>
 
                       <span className="rounded-full bg-[#f7efff] px-3 py-1 text-xs font-medium text-purple-700 capitalize">
-                        {status}
+                        {cleanStatus(status)}
                       </span>
                     </div>
 
-                    <div className="mt-5 grid gap-3 md:grid-cols-2">
+                    <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                       <InfoCard
                         label="Location"
                         value={b.location || "Not provided"}
                       />
                       <InfoCard
                         label="Notes"
-                        value={b.location_notes || "No additional notes"}
+                        value={
+                          b.location_notes ||
+                          b.notes ||
+                          "No additional notes"
+                        }
                       />
+                      <InfoCard
+                        label="MUA earning"
+                        value={formatMoney(getMuaEarning(b))}
+                      />
+                      <InfoCard
+                        label="Payment method"
+                        value={getPaymentMethodLabel(b)}
+                      />
+                      <InfoCard
+                        label="Payment status"
+                        value={getPaymentStatusLabel(b)}
+                      />
+                      <InfoCard
+                        label="Total booking"
+                        value={formatMoney(b.total_price)}
+                      />
+
+                      {b.refund_processed && (
+                        <InfoCard
+                          label="Bride refund"
+                          value={formatMoney(b.refund_amount)}
+                        />
+                      )}
                     </div>
+
+                    {b.completed_by_mua && !b.completed_by_bride && (
+                      <p className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-700">
+                        You confirmed completion. Waiting for the bride to
+                        confirm before payout is released.
+                      </p>
+                    )}
+
+                    {b.completed_by_bride && !b.completed_by_mua && (
+                      <p className="mt-4 rounded-2xl border border-purple-100 bg-purple-50 p-4 text-sm text-purple-700">
+                        The bride confirmed completion. Confirm completion to
+                        release your payout.
+                      </p>
+                    )}
+
+                    {b.refund_processed && (
+                      <p className="mt-4 rounded-2xl border border-green-100 bg-green-50 p-4 text-sm text-green-700">
+                        Refund processed for bride:{" "}
+                        {formatMoney(b.refund_amount)}
+                      </p>
+                    )}
+
+                    {b.cancellation_reason && (
+                      <p className="mt-3 rounded-2xl border border-[#eadff5] bg-[#fffafc] p-4 text-sm text-[#6f6077]">
+                        Cancellation reason: {b.cancellation_reason}
+                      </p>
+                    )}
 
                     {b.issue_reason && (
                       <p className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
@@ -341,15 +615,19 @@ export default function BookingsPage() {
                     {status === "pending" && (
                       <>
                         <button
-                          onClick={() => updateStatus(b.id, "confirmed")}
+                          onClick={() => updateStatus(b, "confirmed")}
                           disabled={updatingId === b.id}
                           className="rounded-full bg-[#171018] px-5 py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60"
                         >
-                          {updatingId === b.id ? "Saving..." : "Confirm"}
+                          {updatingId === b.id
+                            ? "Saving..."
+                            : b.payment_method === "credit_balance"
+                            ? "Confirm & charge credit"
+                            : "Confirm booking"}
                         </button>
 
                         <button
-                          onClick={() => updateStatus(b.id, "cancelled")}
+                          onClick={() => updateStatus(b, "cancelled")}
                           disabled={updatingId === b.id}
                           className="rounded-full border border-[#eadff5] px-5 py-3 text-sm font-medium transition hover:border-red-200 hover:text-red-600 disabled:opacity-60"
                         >
@@ -360,12 +638,14 @@ export default function BookingsPage() {
 
                     {status === "confirmed" && (
                       <>
-                        <button
-                          onClick={() => openModal("complete", b)}
-                          className="rounded-full bg-[#171018] px-5 py-3 text-sm font-medium text-white transition hover:opacity-90"
-                        >
-                          Complete booking
-                        </button>
+                        {!b.completed_by_mua && (
+                          <button
+                            onClick={() => openModal("complete", b)}
+                            className="rounded-full bg-[#171018] px-5 py-3 text-sm font-medium text-white transition hover:opacity-90"
+                          >
+                            Confirm completion
+                          </button>
+                        )}
 
                         <button
                           onClick={() => openModal("issue", b)}
@@ -375,13 +655,54 @@ export default function BookingsPage() {
                         </button>
 
                         <button
-                          onClick={() => updateStatus(b.id, "cancelled")}
+                          onClick={() => updateStatus(b, "cancelled")}
                           disabled={updatingId === b.id}
                           className="rounded-full border border-[#eadff5] px-5 py-3 text-sm font-medium transition hover:border-red-200 hover:text-red-600 disabled:opacity-60"
                         >
                           Cancel booking
                         </button>
                       </>
+                    )}
+
+                    {status === "confirmed_payment_pending" && (
+                      <>
+                        <span className="rounded-full border border-amber-200 bg-amber-50 px-5 py-3 text-sm font-medium text-amber-700">
+                          Waiting for bride card payment
+                        </span>
+
+                        <button
+                          onClick={() => openModal("issue", b)}
+                          className="rounded-full border border-[#eadff5] px-5 py-3 text-sm font-medium transition hover:border-red-200 hover:text-red-600"
+                        >
+                          Report a problem
+                        </button>
+
+                        <button
+                          onClick={() => updateStatus(b, "cancelled")}
+                          disabled={updatingId === b.id}
+                          className="rounded-full border border-[#eadff5] px-5 py-3 text-sm font-medium transition hover:border-red-200 hover:text-red-600 disabled:opacity-60"
+                        >
+                          Cancel booking
+                        </button>
+                      </>
+                    )}
+
+                    {status.includes("cancelled") && (
+                      <span className="rounded-full border border-red-200 bg-red-50 px-5 py-3 text-sm font-medium text-red-700">
+                        Cancelled
+                      </span>
+                    )}
+
+                    {status === "completed" && (
+                      <span className="rounded-full border border-green-200 bg-green-50 px-5 py-3 text-sm font-medium text-green-700">
+                        Completed
+                      </span>
+                    )}
+
+                    {status === "disputed" && (
+                      <span className="rounded-full border border-red-200 bg-red-50 px-5 py-3 text-sm font-medium text-red-700">
+                        Under review
+                      </span>
                     )}
                   </div>
                 </div>
@@ -413,7 +734,7 @@ function InfoCard({ label, value }: { label: string; value: string }) {
       <p className="text-xs uppercase tracking-[0.16em] text-[#8a7d91]">
         {label}
       </p>
-      <p className="mt-1 text-sm text-[#171018]">{value}</p>
+      <p className="mt-1 text-sm capitalize text-[#171018]">{value}</p>
     </div>
   );
 }
@@ -432,19 +753,21 @@ function ActionModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-[2rem] border border-[#eadff5] bg-white p-7 shadow-2xl">
         <p className="text-xs uppercase tracking-[0.22em] text-purple-700">
-          {type === "complete" ? "complete booking" : "report problem"}
+          {type === "complete" ? "confirm completion" : "report problem"}
         </p>
 
         <h2 className="mt-3 text-3xl font-light tracking-[-0.06em]">
           {type === "complete"
-            ? "Mark this booking complete?"
+            ? "Confirm this booking is done?"
             : "Tell us what happened"}
         </h2>
 
         {type === "complete" ? (
           <div className="mt-6 space-y-4">
             <p className="text-sm leading-6 text-[#6f6077]">
-              Uploading a photo is optional.
+              Once you confirm completion, Beaura will wait for the bride’s
+              confirmation too. Your wallet is credited only after both sides
+              confirm.
             </p>
 
             <input
@@ -473,7 +796,7 @@ function ActionModal({
             {saving
               ? "Saving..."
               : type === "complete"
-              ? "Complete"
+              ? "Confirm completion"
               : "Submit problem"}
           </button>
 

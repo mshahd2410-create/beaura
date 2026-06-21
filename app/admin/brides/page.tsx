@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { Eye, Search, X } from "lucide-react";
 
 type Bride = {
   id: string;
@@ -12,7 +13,7 @@ type Bride = {
   event_date: string | null;
   event_location: string | null;
   makeup_type: string | null;
-  preference: string | null;
+  preferences: string | null;
   created_at: string;
   status: string | null;
 };
@@ -22,6 +23,7 @@ type StatusFilter = "all" | "active" | "suspended";
 export default function AdminBridesPage() {
   const [brides, setBrides] = useState<Bride[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [selectedBride, setSelectedBride] = useState<Bride | null>(null);
@@ -32,15 +34,21 @@ export default function AdminBridesPage() {
 
   async function loadBrides() {
     setLoading(true);
+    setLoadError(null);
 
     const { data, error } = await supabase
       .from("bride_profiles")
-      .select("*")
+      .select(
+        "id, first_name, last_name, phone, email, event_date, event_location, makeup_type, preferences, created_at, status"
+      )
       .order("created_at", { ascending: false });
 
     if (error) {
       console.error("BRIDES LOAD ERROR:", error);
+      setLoadError(error.message);
+      setBrides([]);
     } else {
+      console.log("BRIDES DATA:", data);
       setBrides((data as Bride[]) || []);
     }
 
@@ -56,7 +64,6 @@ export default function AdminBridesPage() {
       .eq("id", id);
 
     if (error) {
-      console.error("BRIDE STATUS UPDATE ERROR:", error);
       alert(error.message);
       return;
     }
@@ -73,325 +80,354 @@ export default function AdminBridesPage() {
   }
 
   const filteredBrides = useMemo(() => {
+    const query = search.toLowerCase();
+
     return brides.filter((bride) => {
       const fullName = `${bride.first_name || ""} ${
         bride.last_name || ""
       }`.toLowerCase();
 
-      const query = search.toLowerCase();
+      const status = bride.status || "active";
 
       const matchesSearch =
         fullName.includes(query) ||
         (bride.email || "").toLowerCase().includes(query) ||
         (bride.phone || "").toLowerCase().includes(query) ||
-        (bride.event_location || "").toLowerCase().includes(query);
+        (bride.event_location || "").toLowerCase().includes(query) ||
+        (bride.makeup_type || "").toLowerCase().includes(query);
 
-      const status = bride.status || "active";
-
-      const matchesFilter = filter === "all" || status === filter;
-
-      return matchesSearch && matchesFilter;
+      return matchesSearch && (filter === "all" || status === filter);
     });
   }, [brides, search, filter]);
 
   const totalBrides = brides.length;
-  const activeCount = brides.filter((b) => (b.status || "active") === "active").length;
-  const suspendedCount = brides.filter((b) => b.status === "suspended").length;
-  const eventCount = brides.filter((b) => b.event_date).length;
+  const activeCount = brides.filter(
+    (bride) => (bride.status || "active") === "active"
+  ).length;
+  const suspendedCount = brides.filter(
+    (bride) => bride.status === "suspended"
+  ).length;
+  const eventCount = brides.filter((bride) => bride.event_date).length;
 
   function formatDate(date: string | null) {
     if (!date) return "—";
     return new Date(date).toLocaleDateString();
   }
 
+  function getPrefs(bride: Bride) {
+    return bride.preferences || "No preferences provided.";
+  }
+
   return (
-    <main className="min-h-screen bg-[#FAF8FF] p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold text-gray-900">Brides</h1>
-        <p className="mt-2 text-sm text-gray-500">
-          Manage bride accounts, event details, and account status.
+    <section className="space-y-6">
+      <div className="rounded-[2rem] border border-[#eadff5] bg-white p-6 shadow-sm sm:p-8">
+        <p className="text-xs uppercase tracking-[0.22em] text-purple-700">
+          client management
+        </p>
+
+        <h1 className="mt-3 text-5xl font-light leading-[0.9] tracking-[-0.08em] text-[#171018] sm:text-7xl">
+          Clients
+        </h1>
+
+        <p className="mt-4 max-w-2xl text-sm leading-7 text-[#6f6077]">
+          View client accounts, contact details, event preferences, and account
+          status.
         </p>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-4 mb-8">
-        <div className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
-          <p className="text-sm text-gray-500">Total Brides</p>
-          <h2 className="mt-3 text-3xl font-semibold">{totalBrides}</h2>
-        </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat label="Total clients" value={totalBrides} />
+        <Stat label="Active" value={activeCount} />
+        <Stat label="Suspended" value={suspendedCount} />
+        <Stat label="With event date" value={eventCount} />
+      </div>
 
-        <div className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
-          <p className="text-sm text-gray-500">Active</p>
-          <h2 className="mt-3 text-3xl font-semibold text-green-600">
-            {activeCount}
-          </h2>
+      {loadError && (
+        <div className="rounded-[2rem] border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+          <p className="font-medium">Could not load bride profiles.</p>
+          <p className="mt-1">{loadError}</p>
         </div>
+      )}
 
-        <div className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
-          <p className="text-sm text-gray-500">Suspended</p>
-          <h2 className="mt-3 text-3xl font-semibold text-red-500">
-            {suspendedCount}
-          </h2>
-        </div>
+      <div className="rounded-[2rem] border border-[#eadff5] bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative w-full lg:max-w-md">
+            <Search
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8a7d91]"
+              size={17}
+            />
 
-        <div className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
-          <p className="text-sm text-gray-500">With Event Date</p>
-          <h2 className="mt-3 text-3xl font-semibold text-purple-600">
-            {eventCount}
-          </h2>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, email, phone, or location..."
+              className="h-12 w-full rounded-full border border-[#eadff5] bg-[#fffafc] pl-11 pr-4 text-sm outline-none focus:border-purple-500"
+            />
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto rounded-full border border-[#eadff5] bg-[#fffafc] p-2">
+            {(["all", "active", "suspended"] as StatusFilter[]).map(
+              (value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setFilter(value)}
+                  className={`whitespace-nowrap rounded-full px-4 py-2 text-sm capitalize ${
+                    filter === value
+                      ? "bg-[#171018] text-white"
+                      : "text-[#6f6077] hover:bg-[#f7efff]"
+                  }`}
+                >
+                  {value}
+                </button>
+              )
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="rounded-3xl bg-white border border-gray-100 shadow-sm p-6 mb-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, email, phone, or location..."
-            className="w-full md:max-w-md h-12 rounded-2xl border border-gray-200 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
+      {loading ? (
+        <div className="rounded-[2rem] border border-[#eadff5] bg-white p-10 text-center text-sm text-[#6f6077]">
+          Loading clients...
+        </div>
+      ) : filteredBrides.length === 0 ? (
+        <div className="rounded-[2rem] border border-dashed border-[#eadff5] bg-white p-12 text-center">
+          <h2 className="text-2xl font-light tracking-[-0.05em]">
+            No clients found.
+          </h2>
 
-          <div className="flex flex-wrap gap-2">
-            {["all", "active", "suspended"].map((value) => (
-              <button
-                key={value}
-                onClick={() => setFilter(value as StatusFilter)}
-                className={`px-4 py-2 rounded-full text-sm capitalize transition ${
-                  filter === value
-                    ? "bg-purple-600 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
+          <p className="mt-3 text-sm text-[#6f6077]">
+            If you registered a bride and still see this, check Supabase table
+            data and RLS policies.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-5 lg:grid-cols-2">
+          {filteredBrides.map((bride) => {
+            const fullName =
+              `${bride.first_name || ""} ${bride.last_name || ""}`.trim() ||
+              "Unnamed client";
+
+            const status = bride.status || "active";
+
+            return (
+              <article
+                key={bride.id}
+                className="rounded-[2rem] border border-[#eadff5] bg-white p-5 shadow-sm"
               >
-                {value}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-light tracking-[-0.05em]">
+                      {fullName}
+                    </h2>
 
-      <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm">
-        {loading ? (
-          <div className="p-12 text-center text-gray-500">
-            Loading brides...
-          </div>
-        ) : filteredBrides.length === 0 ? (
-          <div className="p-12 text-center">
-            <p className="text-lg font-medium text-gray-700">
-              No brides found
-            </p>
-            <p className="mt-2 text-sm text-gray-500">
-              Try changing your search or filters.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead className="border-b border-gray-100 bg-gray-50">
-                <tr className="text-left text-sm text-gray-500">
-                  <th className="px-6 py-4 font-medium">Bride</th>
-                  <th className="px-6 py-4 font-medium">Contact</th>
-                  <th className="px-6 py-4 font-medium">Event</th>
-                  <th className="px-6 py-4 font-medium">Makeup Type</th>
-                  <th className="px-6 py-4 font-medium">Status</th>
-                  <th className="px-6 py-4 font-medium">Joined</th>
-                  <th className="px-6 py-4 font-medium">Actions</th>
-                </tr>
-              </thead>
+                    <p className="mt-1 text-sm text-[#6f6077]">
+                      Joined {formatDate(bride.created_at)}
+                    </p>
+                  </div>
 
-              <tbody>
-                {filteredBrides.map((bride) => (
-                  <tr
-                    key={bride.id}
-                    className="border-b border-gray-100 last:border-0"
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${
+                      status === "suspended"
+                        ? "bg-red-50 text-red-700"
+                        : "bg-green-50 text-green-700"
+                    }`}
                   >
-                    <td className="px-6 py-5">
-                      <p className="font-medium text-gray-900">
-                        {bride.first_name} {bride.last_name}
-                      </p>
-                      <p className="mt-1 text-xs text-gray-400">
-                        #{bride.id.slice(0, 8)}
-                      </p>
-                    </td>
+                    {status}
+                  </span>
+                </div>
 
-                    <td className="px-6 py-5 text-sm text-gray-700">
-                      <p>{bride.email || "—"}</p>
-                      <p className="mt-1 text-xs text-gray-400">
-                        {bride.phone || "—"}
-                      </p>
-                    </td>
+                <div className="mt-5 grid gap-3 text-sm text-[#6f6077] sm:grid-cols-2">
+                  <Info label="Email" value={bride.email || "—"} />
+                  <Info label="Phone" value={bride.phone || "—"} />
+                  <Info label="Event" value={formatDate(bride.event_date)} />
+                  <Info label="Makeup type" value={bride.makeup_type || "—"} />
+                </div>
 
-                    <td className="px-6 py-5 text-sm text-gray-700">
-                      <p>{formatDate(bride.event_date)}</p>
-                      <p className="mt-1 text-xs text-gray-400">
-                        {bride.event_location || "—"}
-                      </p>
-                    </td>
+                <p className="mt-5 rounded-2xl bg-[#fffafc] p-4 text-sm leading-6 text-[#6f6077]">
+                  {getPrefs(bride)}
+                </p>
 
-                    <td className="px-6 py-5 text-sm text-gray-700">
-                      {bride.makeup_type || "—"}
-                    </td>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedBride(bride)}
+                    className="inline-flex items-center gap-2 rounded-full border border-[#eadff5] px-4 py-2 text-sm"
+                  >
+                    <Eye size={15} />
+                    View
+                  </button>
 
-                    <td className="px-6 py-5">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${
-                          bride.status === "suspended"
-                            ? "bg-red-50 text-red-700"
-                            : "bg-green-50 text-green-700"
-                        }`}
-                      >
-                        {bride.status || "active"}
-                      </span>
-                    </td>
-
-                    <td className="px-6 py-5 text-sm text-gray-600">
-                      {formatDate(bride.created_at)}
-                    </td>
-
-                    <td className="px-6 py-5">
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          onClick={() => setSelectedBride(bride)}
-                          className="rounded-full border border-gray-200 px-3 py-1 text-xs hover:bg-gray-50"
-                        >
-                          View
-                        </button>
-
-                        <button
-                          onClick={() => toggleStatus(bride.id, bride.status)}
-                          className="rounded-full border border-red-200 px-3 py-1 text-xs text-red-600 hover:bg-red-50"
-                        >
-                          {bride.status === "suspended"
-                            ? "Reactivate"
-                            : "Suspend"}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleStatus(bride.id, bride.status)}
+                    className="rounded-full border border-red-200 px-4 py-2 text-sm text-red-600"
+                  >
+                    {status === "suspended" ? "Reactivate" : "Suspend"}
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
 
       {selectedBride && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          <div
-            className="absolute inset-0 bg-black/30"
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/35 backdrop-blur-sm"
             onClick={() => setSelectedBride(null)}
           />
 
-          <div className="relative h-full w-full max-w-lg overflow-y-auto bg-white shadow-2xl">
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-5">
+          <aside className="relative h-full w-full max-w-2xl overflow-y-auto bg-white shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[#eadff5] bg-white px-5 py-5">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Bride Details
-                </h2>
-                <p className="mt-1 text-sm text-gray-500">
-                  #{selectedBride.id.slice(0, 8)}
+                <p className="text-xs uppercase tracking-[0.2em] text-purple-700">
+                  client details
                 </p>
+
+                <h2 className="mt-1 text-2xl font-light tracking-[-0.05em]">
+                  {`${selectedBride.first_name || ""} ${
+                    selectedBride.last_name || ""
+                  }`.trim() || "Unnamed client"}
+                </h2>
               </div>
 
               <button
+                type="button"
                 onClick={() => setSelectedBride(null)}
-                className="rounded-full p-2 text-gray-500 transition hover:bg-gray-100"
+                className="grid h-10 w-10 place-items-center rounded-full border border-[#eadff5]"
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 
-            <div className="space-y-8 p-6">
-              <section>
-                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">
-                  Personal Information
-                </h3>
+            <div className="space-y-5 p-5">
+              <Section title="Personal information">
+                <Detail
+                  label="Full name"
+                  value={
+                    `${selectedBride.first_name || ""} ${
+                      selectedBride.last_name || ""
+                    }`.trim() || "Unnamed"
+                  }
+                />
+                <Detail label="Email" value={selectedBride.email || "—"} />
+                <Detail label="Phone" value={selectedBride.phone || "—"} />
+                <Detail
+                  label="Status"
+                  value={selectedBride.status || "active"}
+                />
+              </Section>
 
-                <div className="space-y-4 rounded-3xl border border-gray-100 bg-gray-50 p-5">
-                  <div>
-                    <p className="text-xs text-gray-400">Full Name</p>
-                    <p className="mt-1 font-medium text-gray-900">
-                      {selectedBride.first_name} {selectedBride.last_name}
-                    </p>
-                  </div>
+              <Section title="Event information">
+                <Detail
+                  label="Event date"
+                  value={formatDate(selectedBride.event_date)}
+                />
+                <Detail
+                  label="Event location"
+                  value={selectedBride.event_location || "—"}
+                />
+                <Detail
+                  label="Makeup type"
+                  value={selectedBride.makeup_type || "—"}
+                />
+                <Detail
+                  label="Preferences"
+                  value={getPrefs(selectedBride)}
+                  large
+                />
+              </Section>
 
-                  <div>
-                    <p className="text-xs text-gray-400">Email</p>
-                    <p className="mt-1 text-gray-700">
-                      {selectedBride.email || "—"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-gray-400">Phone</p>
-                    <p className="mt-1 text-gray-700">
-                      {selectedBride.phone || "—"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-gray-400">Status</p>
-                    <p className="mt-1 capitalize text-gray-700">
-                      {selectedBride.status || "active"}
-                    </p>
-                  </div>
-                </div>
-              </section>
-
-              <section>
-                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">
-                  Event Information
-                </h3>
-
-                <div className="space-y-4 rounded-3xl border border-gray-100 bg-gray-50 p-5">
-                  <div>
-                    <p className="text-xs text-gray-400">Event Date</p>
-                    <p className="mt-1 text-gray-700">
-                      {formatDate(selectedBride.event_date)}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-gray-400">Event Location</p>
-                    <p className="mt-1 text-gray-700">
-                      {selectedBride.event_location || "—"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-gray-400">Makeup Type</p>
-                    <p className="mt-1 text-gray-700">
-                      {selectedBride.makeup_type || "—"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-gray-400">Preferences</p>
-                    <p className="mt-1 leading-relaxed text-gray-700">
-                      {selectedBride.preference || "No preferences provided."}
-                    </p>
-                  </div>
-                </div>
-              </section>
-
-              <section>
-                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">
-                  Admin Actions
-                </h3>
-
+              <div className="pb-6">
                 <button
+                  type="button"
                   onClick={() =>
                     toggleStatus(selectedBride.id, selectedBride.status)
                   }
-                  className="rounded-full border border-red-200 px-4 py-2 text-sm text-red-600 transition hover:bg-red-50"
+                  className="rounded-full border border-red-200 px-5 py-3 text-sm font-medium text-red-600"
                 >
                   {selectedBride.status === "suspended"
-                    ? "Reactivate Bride"
-                    : "Suspend Bride"}
+                    ? "Reactivate client"
+                    : "Suspend client"}
                 </button>
-              </section>
+              </div>
             </div>
-          </div>
+          </aside>
         </div>
       )}
-    </main>
+    </section>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-[2rem] border border-[#eadff5] bg-white p-5 shadow-sm">
+      <p className="text-xs uppercase tracking-[0.16em] text-[#8a7d91]">
+        {label}
+      </p>
+
+      <h2 className="mt-3 text-4xl font-light tracking-[-0.06em] text-[#171018]">
+        {value}
+      </h2>
+    </div>
+  );
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[#eadff5] bg-[#fffafc] p-4">
+      <p className="text-xs uppercase tracking-[0.16em] text-[#8a7d91]">
+        {label}
+      </p>
+
+      <p className="mt-1 break-all text-sm text-[#171018]">{value}</p>
+    </div>
+  );
+}
+
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-[2rem] border border-[#eadff5] bg-[#fffafc] p-5">
+      <h3 className="mb-4 text-xs uppercase tracking-[0.2em] text-purple-700">
+        {title}
+      </h3>
+
+      {children}
+    </section>
+  );
+}
+
+function Detail({
+  label,
+  value,
+  large = false,
+}: {
+  label: string;
+  value: string;
+  large?: boolean;
+}) {
+  return (
+    <div className="mb-4 last:mb-0">
+      <p className="text-xs uppercase tracking-[0.16em] text-[#8a7d91]">
+        {label}
+      </p>
+
+      <p
+        className={`mt-1 text-sm leading-7 text-[#171018] ${
+          large ? "" : "break-all"
+        }`}
+      >
+        {value}
+      </p>
+    </div>
   );
 }

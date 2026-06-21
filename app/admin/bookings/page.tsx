@@ -2,28 +2,43 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { Eye, Search, X } from "lucide-react";
 
 type Booking = {
   id: string;
-  booking_date: string;
-  booking_time: string;
-  status: string;
+  booking_date: string | null;
+  booking_time: string | null;
+  status: string | null;
   bride_id: string | null;
   mua_id: string | null;
   service_id: string | null;
   location: string | null;
   notes: string | null;
   created_at: string;
+
   service_price: number | null;
   platform_fee: number | null;
   tax_fee: number | null;
   total_price: number | null;
-  deposit_amount: number | null;
-  deposit_held: boolean;
-  deposit_released: boolean;
-  remaining_amount: number | null;
-  remaining_paid: boolean;
-  mua_photo_url: string | null;
+
+  payment_method?: string | null;
+  payment_status?: string | null;
+  card_paid?: boolean | null;
+  card_paid_at?: string | null;
+  wallet_charged?: boolean | null;
+  wallet_charged_at?: string | null;
+  wallet_credit_amount?: number | null;
+  amount_due_after_wallet?: number | null;
+
+  refund_processed?: boolean | null;
+  refund_amount?: number | null;
+  refund_processed_at?: string | null;
+  cancelled_at?: string | null;
+  cancelled_by?: string | null;
+  cancellation_reason?: string | null;
+
+  completion_photo_url?: string | null;
+  issue_reason?: string | null;
 
   bride?: {
     id: string;
@@ -48,9 +63,21 @@ type Booking = {
 type StatusFilter =
   | "all"
   | "pending"
+  | "confirmed_payment_pending"
   | "confirmed"
   | "completed"
+  | "disputed"
   | "cancelled";
+
+const FILTERS: StatusFilter[] = [
+  "all",
+  "pending",
+  "confirmed_payment_pending",
+  "confirmed",
+  "completed",
+  "disputed",
+  "cancelled",
+];
 
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -58,13 +85,40 @@ export default function AdminBookingsPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
+
+  const [cancelBooking, setCancelBooking] = useState<Booking | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
 
   useEffect(() => {
     loadBookings();
+
+    const channel = supabase
+      .channel("admin-bookings-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bookings" },
+        () => loadBookings()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
+
+  function normalizeStatus(status: string | null | undefined) {
+    return (status || "pending").toLowerCase().trim();
+  }
+
+  function cleanText(value: string | null | undefined) {
+    return (value || "—").replaceAll("_", " ");
+  }
 
   async function loadBookings() {
     setLoading(true);
+    setPageError(null);
 
     const { data: bookingsData, error } = await supabase
       .from("bookings")
@@ -73,22 +127,23 @@ export default function AdminBookingsPage() {
 
     if (error) {
       console.error("BOOKINGS LOAD ERROR:", error);
+      setPageError(error.message);
       setLoading(false);
       return;
     }
 
-    const rawBookings = (bookingsData || []) as Booking[];
+    const raw = (bookingsData || []) as Booking[];
 
     const brideIds = Array.from(
-      new Set(rawBookings.map((b) => b.bride_id).filter(Boolean))
+      new Set(raw.map((b) => b.bride_id).filter(Boolean))
     ) as string[];
 
     const muaIds = Array.from(
-      new Set(rawBookings.map((b) => b.mua_id).filter(Boolean))
+      new Set(raw.map((b) => b.mua_id).filter(Boolean))
     ) as string[];
 
     const serviceIds = Array.from(
-      new Set(rawBookings.map((b) => b.service_id).filter(Boolean))
+      new Set(raw.map((b) => b.service_id).filter(Boolean))
     ) as string[];
 
     const [bridesRes, muasRes, servicesRes] = await Promise.all([
@@ -97,610 +152,680 @@ export default function AdminBookingsPage() {
             .from("bride_profiles")
             .select("id, first_name, last_name")
             .in("id", brideIds)
-        : Promise.resolve({ data: [], error: null }),
+        : Promise.resolve({ data: [] as any[] }),
 
       muaIds.length
         ? supabase
             .from("mua_profiles")
             .select("id, first_name, last_name")
             .in("id", muaIds)
-        : Promise.resolve({ data: [], error: null }),
+        : Promise.resolve({ data: [] as any[] }),
 
       serviceIds.length
         ? supabase
             .from("mua_services")
             .select("id, name, price, duration_minutes")
             .in("id", serviceIds)
-        : Promise.resolve({ data: [], error: null }),
+        : Promise.resolve({ data: [] as any[] }),
     ]);
 
-    if (bridesRes.error) console.error("BRIDES LOAD ERROR:", bridesRes.error);
-    if (muasRes.error) console.error("MUAS LOAD ERROR:", muasRes.error);
-    if (servicesRes.error) console.error("SERVICES LOAD ERROR:", servicesRes.error);
+    setBookings(
+      raw.map((booking) => ({
+        ...booking,
+        status: normalizeStatus(booking.status),
+        bride:
+          bridesRes.data?.find((b: any) => b.id === booking.bride_id) || null,
+        mua: muasRes.data?.find((m: any) => m.id === booking.mua_id) || null,
+        service:
+          servicesRes.data?.find((s: any) => s.id === booking.service_id) ||
+          null,
+      }))
+    );
 
-    const brides = (bridesRes.data || []) as Booking["bride"][];
-    const muas = (muasRes.data || []) as Booking["mua"][];
-    const services = (servicesRes.data || []) as Booking["service"][];
-
-    const enriched = rawBookings.map((booking) => ({
-      ...booking,
-      bride: brides.find((b) => b?.id === booking.bride_id) || null,
-      mua: muas.find((m) => m?.id === booking.mua_id) || null,
-      service: services.find((s) => s?.id === booking.service_id) || null,
-    }));
-
-    setBookings(enriched);
     setLoading(false);
   }
 
   async function updateBookingStatus(id: string, status: string) {
+    setUpdatingId(id);
+    setPageError(null);
+
     const { error } = await supabase
       .from("bookings")
       .update({ status })
       .eq("id", id);
 
     if (error) {
-      console.error("UPDATE BOOKING STATUS ERROR:", error);
-      alert(error.message);
+      setPageError(error.message);
+      setUpdatingId(null);
       return;
     }
 
     setBookings((prev) =>
-      prev.map((booking) =>
-        booking.id === id ? { ...booking, status } : booking
-      )
+      prev.map((b) => (b.id === id ? { ...b, status } : b))
     );
 
     if (selectedBooking?.id === id) {
-      setSelectedBooking({
-        ...selectedBooking,
-        status,
-      });
+      setSelectedBooking({ ...selectedBooking, status });
     }
+
+    setUpdatingId(null);
+  }
+
+  function openCancelModal(booking: Booking) {
+    setCancelBooking(booking);
+    setCancelReason(
+      "Booking cancelled by Beaura admin. Refund added to bride wallet if payment was already collected."
+    );
+  }
+
+  function closeCancelModal() {
+    setCancelBooking(null);
+    setCancelReason("");
+  }
+
+  async function confirmCancelAndRefund() {
+    if (!cancelBooking) return;
+
+    setUpdatingId(cancelBooking.id);
+    setPageError(null);
+
+    const { error } = await supabase.rpc(
+      "admin_cancel_booking_and_refund_bride",
+      {
+        p_booking_id: cancelBooking.id,
+        p_reason: cancelReason.trim() || "Cancelled by Beaura admin",
+      }
+    );
+
+    if (error) {
+      setPageError(error.message);
+      setUpdatingId(null);
+      return;
+    }
+
+    closeCancelModal();
+    setSelectedBooking(null);
+    await loadBookings();
+    setUpdatingId(null);
   }
 
   const filteredBookings = useMemo(() => {
-    return bookings.filter((booking) => {
-      const brideName = `${booking.bride?.first_name || ""} ${
-        booking.bride?.last_name || ""
-      }`.toLowerCase();
+    const query = search.toLowerCase();
 
-      const muaName = `${booking.mua?.first_name || ""} ${
-        booking.mua?.last_name || ""
-      }`.toLowerCase();
+    return bookings.filter((booking) => {
+      const brideName =
+        `${booking.bride?.first_name || ""} ${
+          booking.bride?.last_name || ""
+        }`.toLowerCase();
+
+      const muaName =
+        `${booking.mua?.first_name || ""} ${
+          booking.mua?.last_name || ""
+        }`.toLowerCase();
 
       const serviceName = booking.service?.name?.toLowerCase() || "";
-      const bookingId = booking.id.toLowerCase();
-      const query = search.toLowerCase();
+      const id = booking.id.toLowerCase();
+      const status = normalizeStatus(booking.status);
+
+      const paymentMethod = booking.payment_method?.toLowerCase() || "";
+      const paymentStatus = booking.payment_status?.toLowerCase() || "";
 
       const matchesSearch =
         brideName.includes(query) ||
         muaName.includes(query) ||
         serviceName.includes(query) ||
-        bookingId.includes(query);
+        id.includes(query) ||
+        paymentMethod.includes(query) ||
+        paymentStatus.includes(query);
 
-      let matchesFilter = true;
-
-      if (filter !== "all") {
-        if (filter === "cancelled") {
-          matchesFilter = booking.status?.includes("cancelled");
-        } else {
-          matchesFilter = booking.status === filter;
-        }
-      }
+      const matchesFilter =
+        filter === "all" ||
+        (filter === "cancelled"
+          ? status.includes("cancelled")
+          : status === filter);
 
       return matchesSearch && matchesFilter;
     });
   }, [bookings, search, filter]);
 
-  const totalBookings = bookings.length;
-  const pendingCount = bookings.filter((b) => b.status === "pending").length;
-  const confirmedCount = bookings.filter((b) => b.status === "confirmed").length;
-  const completedCount = bookings.filter((b) => b.status === "completed").length;
-  const cancelledCount = bookings.filter((b) =>
-    b.status?.includes("cancelled")
-  ).length;
+  const counts = {
+    total: bookings.length,
+    pending: bookings.filter((b) => normalizeStatus(b.status) === "pending")
+      .length,
+    cardPending: bookings.filter(
+      (b) => normalizeStatus(b.status) === "confirmed_payment_pending"
+    ).length,
+    confirmed: bookings.filter((b) => normalizeStatus(b.status) === "confirmed")
+      .length,
+    completed: bookings.filter((b) => normalizeStatus(b.status) === "completed")
+      .length,
+    disputed: bookings.filter((b) => normalizeStatus(b.status) === "disputed")
+      .length,
+  };
 
-  function formatMoney(value: number | null) {
+  function formatMoney(value: number | null | undefined) {
     if (value === null || value === undefined) return "EGP 0";
     return `EGP ${Number(value).toLocaleString()}`;
   }
 
-  function formatDate(date: string) {
+  function formatDate(date: string | null | undefined) {
     if (!date) return "—";
-    return new Date(date).toLocaleDateString();
+    return new Date(date).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  }
+
+  function getBrideName(booking: Booking) {
+    return (
+      `${booking.bride?.first_name || ""} ${
+        booking.bride?.last_name || ""
+      }`.trim() || "Unknown client"
+    );
+  }
+
+  function getMuaName(booking: Booking) {
+    return (
+      `${booking.mua?.first_name || ""} ${
+        booking.mua?.last_name || ""
+      }`.trim() || "Unknown MUA"
+    );
+  }
+
+  function getPaymentMethod(booking: Booking) {
+    if (booking.payment_method === "credit_balance") return "Credit balance";
+    return "Card";
+  }
+
+  function getPaymentStatus(booking: Booking) {
+    const status = normalizeStatus(booking.status);
+
+    if (booking.payment_method === "credit_balance") {
+      return booking.wallet_charged ? "Credit charged" : "Credit pending";
+    }
+
+    if (status === "confirmed_payment_pending") return "Card payment pending";
+
+    if (booking.card_paid || booking.payment_status === "paid") {
+      return "Card paid";
+    }
+
+    if (status === "confirmed" || status === "completed") {
+      return "Payment confirmed";
+    }
+
+    return "Payment pending";
+  }
+
+  function canCancel(booking: Booking) {
+    const status = normalizeStatus(booking.status);
+    return (
+      !status.includes("cancelled") &&
+      status !== "completed" &&
+      !booking.refund_processed
+    );
   }
 
   return (
-    <main className="min-h-screen bg-[#FAF8FF] p-8">
-      {/* HEADER */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold text-gray-900">
+    <section className="space-y-6">
+      <div className="rounded-[2rem] border border-[#eadff5] bg-white p-6 shadow-sm sm:p-8">
+        <p className="text-xs uppercase tracking-[0.22em] text-purple-700">
+          booking control
+        </p>
+
+        <h1 className="mt-3 text-5xl font-light leading-[0.9] tracking-[-0.08em] text-[#171018] sm:text-7xl">
           Bookings
         </h1>
 
-        <p className="mt-2 text-sm text-gray-500">
-          Monitor, manage, and resolve all Beaura bookings.
+        <p className="mt-4 max-w-2xl text-sm leading-7 text-[#6f6077]">
+          Monitor bookings, review payments, and cancel bookings with automatic
+          bride wallet refund when payment was already collected.
         </p>
       </div>
 
-      {/* STATS */}
-      <div className="grid gap-5 md:grid-cols-5 mb-8">
-        <div className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
-          <p className="text-sm text-gray-500">Total</p>
-          <h2 className="mt-3 text-3xl font-semibold">{totalBookings}</h2>
+      {pageError && (
+        <div className="rounded-[2rem] border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+          {pageError}
         </div>
+      )}
 
-        <div className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
-          <p className="text-sm text-gray-500">Pending</p>
-          <h2 className="mt-3 text-3xl font-semibold text-amber-500">
-            {pendingCount}
-          </h2>
-        </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+        <Stat label="Total" value={counts.total} />
+        <Stat label="Pending" value={counts.pending} />
+        <Stat label="Card pending" value={counts.cardPending} />
+        <Stat label="Confirmed" value={counts.confirmed} />
+        <Stat label="Completed" value={counts.completed} />
+        <Stat label="Disputed" value={counts.disputed} />
+      </div>
 
-        <div className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
-          <p className="text-sm text-gray-500">Confirmed</p>
-          <h2 className="mt-3 text-3xl font-semibold text-purple-600">
-            {confirmedCount}
-          </h2>
-        </div>
+      <div className="rounded-[2rem] border border-[#eadff5] bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="relative w-full xl:max-w-md">
+            <Search
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8a7d91]"
+              size={17}
+            />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search bride, MUA, service, booking ID, payment..."
+              className="h-12 w-full rounded-full border border-[#eadff5] bg-[#fffafc] pl-11 pr-4 text-sm outline-none focus:border-purple-500"
+            />
+          </div>
 
-        <div className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
-          <p className="text-sm text-gray-500">Completed</p>
-          <h2 className="mt-3 text-3xl font-semibold text-green-600">
-            {completedCount}
-          </h2>
-        </div>
-
-        <div className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
-          <p className="text-sm text-gray-500">Cancelled</p>
-          <h2 className="mt-3 text-3xl font-semibold text-red-500">
-            {cancelledCount}
-          </h2>
+          <div className="flex gap-2 overflow-x-auto rounded-full border border-[#eadff5] bg-[#fffafc] p-2">
+            {FILTERS.map((value) => (
+              <button
+                key={value}
+                onClick={() => setFilter(value)}
+                className={`whitespace-nowrap rounded-full px-4 py-2 text-sm capitalize ${
+                  filter === value
+                    ? "bg-[#171018] text-white"
+                    : "text-[#6f6077] hover:bg-[#f7efff]"
+                }`}
+              >
+                {cleanText(value)}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* SEARCH + FILTERS */}
-      <div className="rounded-3xl bg-white border border-gray-100 shadow-sm p-6 mb-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by bride, MUA, service, or booking ID..."
-            className="w-full md:max-w-md h-12 rounded-2xl border border-gray-200 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-
-          <div className="flex flex-wrap gap-2">
-            {["all", "pending", "confirmed", "completed", "cancelled"].map(
-              (value) => (
-                <button
-                  key={value}
-                  onClick={() => setFilter(value as StatusFilter)}
-                  className={`px-4 py-2 rounded-full text-sm capitalize transition ${
-                    filter === value
-                      ? "bg-purple-600 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  {value}
-                </button>
-              )
-            )}
-          </div>
+      {loading ? (
+        <div className="rounded-[2rem] border border-[#eadff5] bg-white p-10 text-center text-sm text-[#6f6077]">
+          Loading bookings...
         </div>
-      </div>
-            {/* TABLE */}
-      <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm">
-        {loading ? (
-          <div className="p-12 text-center text-gray-500">
-            Loading bookings...
-          </div>
-        ) : filteredBookings.length === 0 ? (
-          <div className="p-12 text-center">
-            <p className="text-lg font-medium text-gray-700">
-              No bookings found
-            </p>
+      ) : filteredBookings.length === 0 ? (
+        <div className="rounded-[2rem] border border-dashed border-[#eadff5] bg-white p-12 text-center">
+          <h2 className="text-2xl font-light tracking-[-0.05em]">
+            No bookings found.
+          </h2>
+          <p className="mt-3 text-sm text-[#6f6077]">
+            Try changing your search or filters.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredBookings.map((booking) => (
+            <article
+              key={booking.id}
+              className="rounded-[2rem] border border-[#eadff5] bg-white p-5 shadow-sm"
+            >
+              <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="rounded-full bg-[#f7efff] px-3 py-1 text-xs font-medium capitalize text-purple-700">
+                      {cleanText(booking.status)}
+                    </span>
+                    <span className="rounded-full border border-[#eadff5] bg-[#fffafc] px-3 py-1 text-xs text-[#6f6077]">
+                      {getPaymentMethod(booking)}
+                    </span>
+                    <span className="rounded-full border border-[#eadff5] bg-white px-3 py-1 text-xs text-[#6f6077]">
+                      {getPaymentStatus(booking)}
+                    </span>
+                    <span className="text-xs text-[#8a7d91]">
+                      #{booking.id.slice(0, 8)}
+                    </span>
+                  </div>
 
-            <p className="mt-2 text-sm text-gray-500">
-              Try changing your search or filters.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead className="border-b border-gray-100 bg-gray-50">
-                <tr className="text-left text-sm text-gray-500">
-                  <th className="px-6 py-4 font-medium">Booking</th>
-                  <th className="px-6 py-4 font-medium">Bride</th>
-                  <th className="px-6 py-4 font-medium">MUA</th>
-                  <th className="px-6 py-4 font-medium">Service</th>
-                  <th className="px-6 py-4 font-medium">Date</th>
-                  <th className="px-6 py-4 font-medium">Status</th>
-                  <th className="px-6 py-4 font-medium">Total</th>
-                  <th className="px-6 py-4 font-medium">Actions</th>
-                </tr>
-              </thead>
+                  <h2 className="mt-3 text-2xl font-light tracking-[-0.05em] text-[#171018]">
+                    {booking.service?.name || "Service"}
+                  </h2>
 
-              <tbody>
-                {filteredBookings.map((booking) => (
-                  <tr
-                    key={booking.id}
-                    className="border-b border-gray-100 last:border-0"
+                  <p className="mt-2 text-sm leading-6 text-[#6f6077]">
+                    {getBrideName(booking)} with {getMuaName(booking)}
+                  </p>
+
+                  <p className="mt-1 text-sm text-[#6f6077]">
+                    {formatDate(booking.booking_date)} ·{" "}
+                    {booking.booking_time || "—"} ·{" "}
+                    {formatMoney(booking.total_price)}
+                  </p>
+
+                  {booking.refund_processed && (
+                    <p className="mt-3 rounded-2xl border border-green-100 bg-green-50 p-3 text-sm text-green-700">
+                      Refund processed: {formatMoney(booking.refund_amount)}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setSelectedBooking(booking)}
+                    className="inline-flex items-center gap-2 rounded-full border border-[#eadff5] px-4 py-2 text-sm"
                   >
-                    <td className="px-6 py-5">
-                      <p className="text-sm font-medium text-gray-900">
-                        #{booking.id.slice(0, 8)}
-                      </p>
+                    <Eye size={15} />
+                    View
+                  </button>
 
-                      <p className="mt-1 text-xs text-gray-400">
-                        Created {formatDate(booking.created_at)}
-                      </p>
-                    </td>
+                  <button
+                    onClick={() => updateBookingStatus(booking.id, "confirmed")}
+                    disabled={updatingId === booking.id}
+                    className="rounded-full border border-purple-200 px-4 py-2 text-sm text-purple-700 disabled:opacity-50"
+                  >
+                    Confirm
+                  </button>
 
-                    <td className="px-6 py-5 text-sm text-gray-700">
-                      {booking.bride
-                        ? `${booking.bride.first_name || ""} ${
-                            booking.bride.last_name || ""
-                          }`
-                        : "Unknown bride"}
-                    </td>
+                  <button
+                    onClick={() => updateBookingStatus(booking.id, "completed")}
+                    disabled={updatingId === booking.id}
+                    className="rounded-full border border-green-200 px-4 py-2 text-sm text-green-700 disabled:opacity-50"
+                  >
+                    Complete
+                  </button>
 
-                    <td className="px-6 py-5 text-sm text-gray-700">
-                      {booking.mua
-                        ? `${booking.mua.first_name || ""} ${
-                            booking.mua.last_name || ""
-                          }`
-                        : "Unknown MUA"}
-                    </td>
+                  {canCancel(booking) && (
+                    <button
+                      onClick={() => openCancelModal(booking)}
+                      disabled={updatingId === booking.id}
+                      className="rounded-full border border-red-200 px-4 py-2 text-sm text-red-600 disabled:opacity-50"
+                    >
+                      Cancel & refund
+                    </button>
+                  )}
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
 
-                    <td className="px-6 py-5 text-sm text-gray-700">
-                      {booking.service?.name || "—"}
-                    </td>
-
-                    <td className="px-6 py-5">
-                      <p className="text-sm text-gray-700">
-                        {formatDate(booking.booking_date)}
-                      </p>
-
-                      <p className="mt-1 text-xs text-gray-400">
-                        {booking.booking_time || "—"}
-                      </p>
-                    </td>
-
-                    <td className="px-6 py-5">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${
-                          booking.status === "completed"
-                            ? "bg-green-50 text-green-700"
-                            : booking.status === "confirmed"
-                            ? "bg-purple-50 text-purple-700"
-                            : booking.status?.includes("cancelled")
-                            ? "bg-red-50 text-red-700"
-                            : "bg-amber-50 text-amber-700"
-                        }`}
-                      >
-                        {booking.status}
-                      </span>
-                    </td>
-
-                    <td className="px-6 py-5 text-sm font-medium text-gray-900">
-                      {formatMoney(booking.total_price)}
-                    </td>
-
-                    <td className="px-6 py-5">
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          onClick={() => setSelectedBooking(booking)}
-                          className="rounded-full border border-gray-200 px-3 py-1 text-xs hover:bg-gray-50"
-                        >
-                          View
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            updateBookingStatus(booking.id, "confirmed")
-                          }
-                          className="rounded-full border border-purple-200 px-3 py-1 text-xs text-purple-700 hover:bg-purple-50"
-                        >
-                          Confirm
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            updateBookingStatus(booking.id, "completed")
-                          }
-                          className="rounded-full border border-green-200 px-3 py-1 text-xs text-green-700 hover:bg-green-50"
-                        >
-                          Complete
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            updateBookingStatus(
-                              booking.id,
-                              "cancelled_by_admin"
-                            )
-                          }
-                          className="rounded-full border border-red-200 px-3 py-1 text-xs text-red-600 hover:bg-red-50"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-            {/* DRAWER */}
       {selectedBooking && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          {/* OVERLAY */}
-          <div
-            className="absolute inset-0 bg-black/30"
+          <button
+            className="absolute inset-0 bg-black/35 backdrop-blur-sm"
             onClick={() => setSelectedBooking(null)}
           />
 
-          {/* PANEL */}
-          <div className="relative h-full w-full max-w-lg overflow-y-auto bg-white shadow-2xl">
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-5">
+          <aside className="relative h-full w-full max-w-2xl overflow-y-auto bg-white shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[#eadff5] bg-white px-5 py-5">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Booking Details
-                </h2>
-
-                <p className="mt-1 text-sm text-gray-500">
-                  #{selectedBooking.id.slice(0, 8)}
+                <p className="text-xs uppercase tracking-[0.2em] text-purple-700">
+                  booking details
                 </p>
+                <h2 className="mt-1 text-2xl font-light tracking-[-0.05em]">
+                  #{selectedBooking.id.slice(0, 8)}
+                </h2>
               </div>
-
               <button
                 onClick={() => setSelectedBooking(null)}
-                className="rounded-full p-2 text-gray-500 transition hover:bg-gray-100"
+                className="grid h-10 w-10 place-items-center rounded-full border border-[#eadff5]"
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 
-            <div className="space-y-8 p-6">
-              {/* STATUS */}
-              <section>
-                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">
-                  Status
-                </h3>
+            <div className="space-y-5 p-5">
+              <Section title="People">
+                <Detail label="Client" value={getBrideName(selectedBooking)} />
+                <Detail label="MUA" value={getMuaName(selectedBooking)} />
+              </Section>
 
-                <div className="rounded-3xl border border-gray-100 bg-gray-50 p-5">
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${
-                      selectedBooking.status === "completed"
-                        ? "bg-green-50 text-green-700"
-                        : selectedBooking.status === "confirmed"
-                        ? "bg-purple-50 text-purple-700"
-                        : selectedBooking.status?.includes("cancelled")
-                        ? "bg-red-50 text-red-700"
-                        : "bg-amber-50 text-amber-700"
-                    }`}
-                  >
-                    {selectedBooking.status}
-                  </span>
-                </div>
-              </section>
+              <Section title="Booking info">
+                <Detail
+                  label="Status"
+                  value={cleanText(selectedBooking.status)}
+                />
+                <Detail
+                  label="Service"
+                  value={selectedBooking.service?.name || "—"}
+                />
+                <Detail
+                  label="Date"
+                  value={formatDate(selectedBooking.booking_date)}
+                />
+                <Detail
+                  label="Time"
+                  value={selectedBooking.booking_time || "—"}
+                />
+                <Detail
+                  label="Location"
+                  value={selectedBooking.location || "No location provided"}
+                />
+                <Detail
+                  label="Notes"
+                  value={selectedBooking.notes || "No notes provided"}
+                  large
+                />
+              </Section>
 
-              {/* PEOPLE */}
-              <section>
-                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">
-                  People
-                </h3>
+              <Section title="Payment">
+                <Detail
+                  label="Payment method"
+                  value={getPaymentMethod(selectedBooking)}
+                />
+                <Detail
+                  label="Payment status"
+                  value={getPaymentStatus(selectedBooking)}
+                />
+                <Detail
+                  label="Wallet charged"
+                  value={selectedBooking.wallet_charged ? "Yes" : "No"}
+                />
+                <Detail
+                  label="Card paid"
+                  value={selectedBooking.card_paid ? "Yes" : "No"}
+                />
+                <Detail
+                  label="Amount due after wallet"
+                  value={formatMoney(selectedBooking.amount_due_after_wallet)}
+                />
+              </Section>
 
-                <div className="space-y-4 rounded-3xl border border-gray-100 bg-gray-50 p-5">
-                  <div>
-                    <p className="text-xs text-gray-400">Bride</p>
-                    <p className="mt-1 font-medium text-gray-900">
-                      {selectedBooking.bride
-                        ? `${selectedBooking.bride.first_name || ""} ${
-                            selectedBooking.bride.last_name || ""
-                          }`
-                        : "Unknown bride"}
-                    </p>
-                  </div>
+              <Section title="Price breakdown">
+                <Detail
+                  label="Service price"
+                  value={formatMoney(selectedBooking.service_price)}
+                />
+                <Detail
+                  label="Platform fee"
+                  value={formatMoney(selectedBooking.platform_fee)}
+                />
+                <Detail
+                  label="Tax"
+                  value={formatMoney(selectedBooking.tax_fee)}
+                />
+                <Detail
+                  label="Total"
+                  value={formatMoney(selectedBooking.total_price)}
+                />
+              </Section>
 
-                  <div>
-                    <p className="text-xs text-gray-400">Makeup Artist</p>
-                    <p className="mt-1 font-medium text-gray-900">
-                      {selectedBooking.mua
-                        ? `${selectedBooking.mua.first_name || ""} ${
-                            selectedBooking.mua.last_name || ""
-                          }`
-                        : "Unknown MUA"}
-                    </p>
-                  </div>
-                </div>
-              </section>
+              <Section title="Refund">
+                <Detail
+                  label="Refund processed"
+                  value={selectedBooking.refund_processed ? "Yes" : "No"}
+                />
+                <Detail
+                  label="Refund amount"
+                  value={formatMoney(selectedBooking.refund_amount)}
+                />
+                <Detail
+                  label="Refund date"
+                  value={formatDate(selectedBooking.refund_processed_at || null)}
+                />
+                <Detail
+                  label="Cancellation reason"
+                  value={selectedBooking.cancellation_reason || "—"}
+                  large
+                />
+              </Section>
 
-              {/* BOOKING INFO */}
-              <section>
-                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">
-                  Booking Information
-                </h3>
+              {selectedBooking.issue_reason && (
+                <Section title="Issue report">
+                  <Detail
+                    label="Issue"
+                    value={selectedBooking.issue_reason}
+                    large
+                  />
+                </Section>
+              )}
 
-                <div className="space-y-4 rounded-3xl border border-gray-100 bg-gray-50 p-5">
-                  <div>
-                    <p className="text-xs text-gray-400">Service</p>
-                    <p className="mt-1 text-gray-700">
-                      {selectedBooking.service?.name || "—"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-gray-400">Date</p>
-                    <p className="mt-1 text-gray-700">
-                      {formatDate(selectedBooking.booking_date)}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-gray-400">Time</p>
-                    <p className="mt-1 text-gray-700">
-                      {selectedBooking.booking_time || "—"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-gray-400">Location</p>
-                    <p className="mt-1 text-gray-700">
-                      {selectedBooking.location || "No location provided."}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-gray-400">Notes</p>
-                    <p className="mt-1 leading-relaxed text-gray-700">
-                      {selectedBooking.notes || "No notes provided."}
-                    </p>
-                  </div>
-                </div>
-              </section>
-
-              {/* PRICE BREAKDOWN */}
-              <section>
-                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">
-                  Price Breakdown
-                </h3>
-
-                <div className="space-y-3 rounded-3xl border border-gray-100 bg-gray-50 p-5 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Service price</span>
-                    <span className="font-medium text-gray-900">
-                      {formatMoney(selectedBooking.service_price)}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Platform fee</span>
-                    <span className="font-medium text-gray-900">
-                      {formatMoney(selectedBooking.platform_fee)}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Tax</span>
-                    <span className="font-medium text-gray-900">
-                      {formatMoney(selectedBooking.tax_fee)}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between border-t border-gray-200 pt-3">
-                    <span className="font-medium text-gray-900">Total</span>
-                    <span className="font-semibold text-gray-900">
-                      {formatMoney(selectedBooking.total_price)}
-                    </span>
-                  </div>
-                </div>
-              </section>
-
-              {/* PAYMENT STATE */}
-              <section>
-                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">
-                  Payment State
-                </h3>
-
-                <div className="space-y-3 rounded-3xl border border-gray-100 bg-gray-50 p-5 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Deposit amount</span>
-                    <span className="font-medium text-gray-900">
-                      {formatMoney(selectedBooking.deposit_amount)}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Deposit held</span>
-                    <span>{selectedBooking.deposit_held ? "Yes" : "No"}</span>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Deposit released</span>
-                    <span>
-                      {selectedBooking.deposit_released ? "Yes" : "No"}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Remaining amount</span>
-                    <span className="font-medium text-gray-900">
-                      {formatMoney(selectedBooking.remaining_amount)}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Remaining paid</span>
-                    <span>{selectedBooking.remaining_paid ? "Yes" : "No"}</span>
-                  </div>
-                </div>
-              </section>
-
-              {/* COMPLETION PHOTO */}
-              <section>
-                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">
-                  Completion Photo
-                </h3>
-
-                {selectedBooking.mua_photo_url ? (
+              <Section title="Completion photo">
+                {selectedBooking.completion_photo_url ? (
                   <img
-                    src={selectedBooking.mua_photo_url}
-                    alt="Completed makeup"
-                    className="w-full rounded-3xl border border-gray-100 object-cover"
+                    src={selectedBooking.completion_photo_url}
+                    alt="Completion"
+                    className="w-full rounded-[2rem] object-cover"
                   />
                 ) : (
-                  <div className="rounded-3xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center text-sm text-gray-500">
-                    No completion photo uploaded yet.
-                  </div>
+                  <p className="text-sm text-[#6f6077]">
+                    No completion photo uploaded.
+                  </p>
                 )}
-              </section>
+              </Section>
 
-              {/* ADMIN ACTIONS */}
-              <section>
-                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">
-                  Admin Actions
-                </h3>
-
-                <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-3 pb-6">
+                <button
+                  onClick={() =>
+                    updateBookingStatus(selectedBooking.id, "confirmed")
+                  }
+                  className="rounded-full border border-purple-200 px-5 py-3 text-sm text-purple-700"
+                >
+                  Mark confirmed
+                </button>
+                <button
+                  onClick={() =>
+                    updateBookingStatus(selectedBooking.id, "completed")
+                  }
+                  className="rounded-full border border-green-200 px-5 py-3 text-sm text-green-700"
+                >
+                  Mark completed
+                </button>
+                {canCancel(selectedBooking) && (
                   <button
-                    onClick={() =>
-                      updateBookingStatus(selectedBooking.id, "confirmed")
-                    }
-                    className="rounded-full border border-purple-200 px-4 py-2 text-sm text-purple-700 transition hover:bg-purple-50"
+                    onClick={() => openCancelModal(selectedBooking)}
+                    className="rounded-full border border-red-200 px-5 py-3 text-sm text-red-600"
                   >
-                    Mark Confirmed
+                    Cancel & refund
                   </button>
+                )}
+              </div>
+            </div>
+          </aside>
+        </div>
+      )}
 
-                  <button
-                    onClick={() =>
-                      updateBookingStatus(selectedBooking.id, "completed")
-                    }
-                    className="rounded-full border border-green-200 px-4 py-2 text-sm text-green-700 transition hover:bg-green-50"
-                  >
-                    Mark Completed
-                  </button>
+      {cancelBooking && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[2rem] border border-[#eadff5] bg-white p-6 shadow-2xl">
+            <p className="text-xs uppercase tracking-[0.22em] text-purple-700">
+              cancel booking
+            </p>
 
-                  <button
-                    onClick={() =>
-                      updateBookingStatus(
-                        selectedBooking.id,
-                        "cancelled_by_admin"
-                      )
-                    }
-                    className="rounded-full border border-red-200 px-4 py-2 text-sm text-red-600 transition hover:bg-red-50"
-                  >
-                    Cancel Booking
-                  </button>
-                </div>
-              </section>
+            <h2 className="mt-3 text-3xl font-light tracking-[-0.06em] text-[#171018]">
+              Cancel and refund?
+            </h2>
+
+            <p className="mt-3 text-sm leading-6 text-[#6f6077]">
+              If payment was already collected, the refund will be added to the
+              bride wallet as Beaura credit. The bride can later request a cash
+              refund from her wallet.
+            </p>
+
+            <div className="mt-5 rounded-2xl border border-[#eadff5] bg-[#fffafc] p-4 text-sm">
+              <p className="font-medium text-[#171018]">
+                {cancelBooking.service?.name || "Service"}
+              </p>
+              <p className="mt-1 text-[#6f6077]">
+                {getBrideName(cancelBooking)} ·{" "}
+                {formatMoney(cancelBooking.total_price)}
+              </p>
+              <p className="mt-1 text-[#6f6077]">
+                Payment: {getPaymentMethod(cancelBooking)} ·{" "}
+                {getPaymentStatus(cancelBooking)}
+              </p>
+            </div>
+
+            <label className="mt-5 block space-y-2">
+              <span className="text-xs uppercase tracking-[0.18em] text-[#8a7d91]">
+                Admin cancellation reason
+              </span>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                rows={4}
+                className="w-full resize-none rounded-2xl border border-[#eadff5] bg-[#fffafc] p-4 text-sm outline-none focus:border-purple-500"
+              />
+            </label>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={confirmCancelAndRefund}
+                disabled={updatingId === cancelBooking.id}
+                className="flex-1 rounded-full bg-red-600 py-3 text-sm font-medium text-white disabled:opacity-60"
+              >
+                {updatingId === cancelBooking.id
+                  ? "Processing..."
+                  : "Cancel & refund"}
+              </button>
+
+              <button
+                onClick={closeCancelModal}
+                className="flex-1 rounded-full border border-[#eadff5] py-3 text-sm"
+              >
+                Keep booking
+              </button>
             </div>
           </div>
         </div>
       )}
-    </main>
+    </section>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-[2rem] border border-[#eadff5] bg-white p-5 shadow-sm">
+      <p className="text-xs uppercase tracking-[0.16em] text-[#8a7d91]">
+        {label}
+      </p>
+      <h2 className="mt-3 text-4xl font-light tracking-[-0.06em] text-[#171018]">
+        {value}
+      </h2>
+    </div>
+  );
+}
+
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-[2rem] border border-[#eadff5] bg-[#fffafc] p-5">
+      <h3 className="mb-4 text-xs uppercase tracking-[0.2em] text-purple-700">
+        {title}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
+function Detail({
+  label,
+  value,
+  large = false,
+}: {
+  label: string;
+  value: string;
+  large?: boolean;
+}) {
+  return (
+    <div className="mb-4 last:mb-0">
+      <p className="text-xs uppercase tracking-[0.16em] text-[#8a7d91]">
+        {label}
+      </p>
+      <p
+        className={`mt-1 text-sm leading-7 text-[#171018] ${
+          large ? "" : "break-all"
+        }`}
+      >
+        {value}
+      </p>
+    </div>
   );
 }

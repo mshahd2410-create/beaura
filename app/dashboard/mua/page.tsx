@@ -10,6 +10,7 @@ import {
   ArrowRight,
   Star,
   CheckCircle2,
+  Wallet,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import SupportHelpButton from "@/components/support/SupportHelpButton";
@@ -19,6 +20,9 @@ type Booking = {
   event_date: string | null;
   status: string | null;
   total_amount?: number | null;
+  total_price?: number | null;
+  service_price?: number | null;
+  platform_fee?: number | null;
   created_at?: string | null;
   bride_profiles?: {
     first_name?: string | null;
@@ -44,12 +48,25 @@ type MuaService = {
   price: number | null;
 };
 
+type MuaWallet = {
+  id: string;
+  user_id: string;
+  user_type: string;
+  available_balance: number;
+  pending_balance: number;
+  frozen_balance: number;
+  total_earned: number;
+  total_withdrawn: number;
+  updated_at: string | null;
+};
+
 export default function MuaDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [muaName, setMuaName] = useState("beautiful");
   const [profile, setProfile] = useState<MuaProfile | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [services, setServices] = useState<MuaService[]>([]);
+  const [walletData, setWalletData] = useState<MuaWallet | null>(null);
 
   useEffect(() => {
     loadDashboard();
@@ -77,6 +94,13 @@ export default function MuaDashboardPage() {
           loadDashboard();
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "wallets" },
+        () => {
+          loadDashboard();
+        }
+      )
       .subscribe();
 
     return () => {
@@ -96,41 +120,58 @@ export default function MuaDashboardPage() {
       return;
     }
 
-    const [{ data: profileData }, { data: bookingsData }, { data: servicesData }] =
-      await Promise.all([
-        supabase
-          .from("mua_profiles")
-          .select("id, first_name, last_name, bio, instagram, experience, cities, verified, beaura_tier")
-          .eq("id", user.id)
-          .maybeSingle(),
+    const [
+      { data: profileData },
+      { data: bookingsData },
+      { data: servicesData },
+      { data: wallet },
+    ] = await Promise.all([
+      supabase
+        .from("mua_profiles")
+        .select(
+          "id, first_name, last_name, bio, instagram, experience, cities, verified, beaura_tier"
+        )
+        .eq("id", user.id)
+        .maybeSingle(),
 
-        supabase
-          .from("bookings")
-          .select(
-            `
-            id,
-            event_date,
-            status,
-            total_amount,
-            created_at,
-            bride_profiles (
-              first_name,
-              last_name
-            )
+      supabase
+        .from("bookings")
+        .select(
           `
+          id,
+          event_date,
+          status,
+          total_amount,
+          total_price,
+          service_price,
+          platform_fee,
+          created_at,
+          bride_profiles (
+            first_name,
+            last_name
           )
-          .eq("mua_id", user.id)
-          .order("event_date", { ascending: true }),
+        `
+        )
+        .eq("mua_id", user.id)
+        .order("event_date", { ascending: true }),
 
-        supabase
-          .from("mua_services")
-          .select("id, name, price")
-          .eq("mua_id", user.id),
-      ]);
+      supabase
+        .from("mua_services")
+        .select("id, name, price")
+        .eq("mua_id", user.id),
+
+      supabase
+        .from("wallets")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("user_type", "mua")
+        .maybeSingle(),
+    ]);
 
     setProfile((profileData as MuaProfile) || null);
     setBookings((bookingsData as Booking[]) || []);
     setServices((servicesData as MuaService[]) || []);
+    setWalletData((wallet as MuaWallet) || null);
 
     if (profileData?.first_name) {
       setMuaName(profileData.first_name);
@@ -144,7 +185,9 @@ export default function MuaDashboardPage() {
 
     return bookings.filter((booking) => {
       if (!booking.event_date) return false;
-      return new Date(booking.event_date) >= now && booking.status !== "cancelled";
+      return (
+        new Date(booking.event_date) >= now && booking.status !== "cancelled"
+      );
     });
   }, [bookings]);
 
@@ -172,7 +215,14 @@ export default function MuaDashboardPage() {
           eventDate.getFullYear() === currentYear
         );
       })
-      .reduce((sum, booking) => sum + Number(booking.total_amount || 0), 0);
+      .reduce((sum, booking) => {
+        const servicePrice = Number(
+          booking.service_price || booking.total_amount || booking.total_price || 0
+        );
+        const platformFee = Number(booking.platform_fee || 0);
+
+        return sum + Math.max(servicePrice - platformFee, 0);
+      }, 0);
   }, [bookings]);
 
   const popularService = useMemo(() => {
@@ -216,7 +266,8 @@ export default function MuaDashboardPage() {
             </h1>
 
             <p className="mt-3 max-w-2xl text-sm leading-7 text-[#6f6077]">
-              Keep track of bookings, earnings, and your profile in one place.
+              Keep track of bookings, wallet balance, earnings, and your profile
+              in one place.
             </p>
           </div>
 
@@ -228,14 +279,34 @@ export default function MuaDashboardPage() {
               Manage calendar
             </Link>
 
+            <Link
+              href="/dashboard/mua/wallet"
+              className="rounded-full border border-[#eadff5] bg-[#fffafc] px-5 py-3 text-sm font-medium text-[#171018] transition hover:border-purple-300"
+            >
+              Open wallet
+            </Link>
+
             <SupportHelpButton userType="mua" />
           </div>
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3">
-          <QuickPill label="Pending bookings" value={pendingBookings.length.toString()} />
-          <QuickPill label="Confirmed" value={confirmedBookings.length.toString()} />
-          <QuickPill label="Profile completion" value={`${profileCompletion}%`} />
+          <QuickPill
+            label="Pending bookings"
+            value={pendingBookings.length.toString()}
+          />
+          <QuickPill
+            label="Confirmed"
+            value={confirmedBookings.length.toString()}
+          />
+          <QuickPill
+            label="Wallet available"
+            value={formatMoney(walletData?.available_balance)}
+          />
+          <QuickPill
+            label="Profile completion"
+            value={`${profileCompletion}%`}
+          />
         </div>
       </section>
 
@@ -256,17 +327,18 @@ export default function MuaDashboardPage() {
         />
 
         <StatCard
-          title="Monthly earnings"
-          value={loading ? "..." : `EGP ${monthlyEarnings.toLocaleString()}`}
-          subtext="Based on confirmed bookings this month"
-          icon={<CircleDollarSign size={18} />}
+          title="Wallet balance"
+          value={loading ? "..." : formatMoney(walletData?.available_balance)}
+          subtext="Available balance ready for payout request"
+          icon={<Wallet size={18} />}
+          href="/dashboard/mua/wallet"
         />
 
         <StatCard
-          title="Popular service"
-          value={loading ? "..." : popularService}
-          subtext="Your currently listed service highlight"
-          icon={<Sparkles size={18} />}
+          title="Monthly earnings"
+          value={loading ? "..." : `EGP ${monthlyEarnings.toLocaleString()}`}
+          subtext="Estimated from confirmed bookings this month"
+          icon={<CircleDollarSign size={18} />}
         />
       </section>
 
@@ -304,7 +376,8 @@ export default function MuaDashboardPage() {
                     </p>
 
                     <p className="mt-1 text-sm text-[#6f6077]">
-                      {formatDate(nextBooking.event_date)} • {capitalize(nextBooking.status)}
+                      {formatDate(nextBooking.event_date)} •{" "}
+                      {capitalize(nextBooking.status)}
                     </p>
                   </div>
 
@@ -356,7 +429,9 @@ export default function MuaDashboardPage() {
                         {booking.bride_profiles?.last_name || ""}
                       </p>
                       <p className="mt-1 text-sm text-[#6f6077]">
-                        {booking.event_date ? formatDate(booking.event_date) : "No date yet"}
+                        {booking.event_date
+                          ? formatDate(booking.event_date)
+                          : "No date yet"}
                       </p>
                     </div>
 
@@ -370,6 +445,43 @@ export default function MuaDashboardPage() {
 
         {/* RIGHT COLUMN */}
         <div className="space-y-6">
+          {/* WALLET SNAPSHOT */}
+          <Card>
+            <p className="text-xs uppercase tracking-[0.18em] text-purple-700">
+              Wallet snapshot
+            </p>
+
+            <h2 className="mt-2 text-2xl font-light tracking-[-0.04em]">
+              Your Beaura earnings
+            </h2>
+
+            <div className="mt-5 grid gap-3">
+              <WalletRow
+                label="Available"
+                value={formatMoney(walletData?.available_balance)}
+              />
+              <WalletRow
+                label="Pending"
+                value={formatMoney(walletData?.pending_balance)}
+              />
+              <WalletRow
+                label="Frozen"
+                value={formatMoney(walletData?.frozen_balance)}
+              />
+              <WalletRow
+                label="Total earned"
+                value={formatMoney(walletData?.total_earned)}
+              />
+            </div>
+
+            <Link
+              href="/dashboard/mua/wallet"
+              className="mt-6 inline-flex items-center gap-2 text-sm text-purple-700"
+            >
+              Open wallet <ArrowRight size={16} />
+            </Link>
+          </Card>
+
           {/* PROFILE COMPLETION */}
           <Card>
             <p className="text-xs uppercase tracking-[0.18em] text-purple-700">
@@ -383,7 +495,9 @@ export default function MuaDashboardPage() {
             <div className="mt-5">
               <div className="mb-2 flex items-center justify-between text-sm">
                 <span className="text-[#6f6077]">Completion</span>
-                <span className="font-medium text-[#171018]">{profileCompletion}%</span>
+                <span className="font-medium text-[#171018]">
+                  {profileCompletion}%
+                </span>
               </div>
 
               <div className="h-3 overflow-hidden rounded-full bg-[#f1e5ff]">
@@ -396,9 +510,18 @@ export default function MuaDashboardPage() {
 
             <div className="mt-5 space-y-3">
               <ChecklistItem done={!!profile?.bio} label="Add your bio" />
-              <ChecklistItem done={!!profile?.instagram} label="Add your Instagram" />
-              <ChecklistItem done={!!(profile?.cities && profile.cities.length)} label="Select your cities" />
-              <ChecklistItem done={services.length > 0} label="Add at least one service" />
+              <ChecklistItem
+                done={!!profile?.instagram}
+                label="Add your Instagram"
+              />
+              <ChecklistItem
+                done={!!(profile?.cities && profile.cities.length)}
+                label="Select your cities"
+              />
+              <ChecklistItem
+                done={services.length > 0}
+                label="Add at least one service"
+              />
             </div>
 
             <Link
@@ -428,7 +551,9 @@ export default function MuaDashboardPage() {
                     key={service.id}
                     className="flex items-center justify-between rounded-[1.2rem] border border-[#eadff5] bg-white px-4 py-3"
                   >
-                    <span className="text-sm text-[#171018]">{service.name}</span>
+                    <span className="text-sm text-[#171018]">
+                      {service.name}
+                    </span>
                     <span className="text-sm text-[#6f6077]">
                       {service.price ? `EGP ${service.price}` : "—"}
                     </span>
@@ -476,17 +601,21 @@ function StatCard({
   value,
   subtext,
   icon,
+  href,
 }: {
   title: string;
   value: string;
   subtext: string;
   icon: React.ReactNode;
+  href?: string;
 }) {
-  return (
+  const content = (
     <div className="rounded-[2rem] border border-[#eadff5] bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-center justify-between">
         <p className="text-sm text-[#6f6077]">{title}</p>
-        <div className="rounded-full bg-[#f7efff] p-2 text-purple-700">{icon}</div>
+        <div className="rounded-full bg-[#f7efff] p-2 text-purple-700">
+          {icon}
+        </div>
       </div>
 
       <p className="mt-5 text-3xl font-light tracking-[-0.04em] text-[#171018]">
@@ -494,6 +623,21 @@ function StatCard({
       </p>
 
       <p className="mt-2 text-sm leading-6 text-[#8a7d91]">{subtext}</p>
+    </div>
+  );
+
+  if (href) {
+    return <Link href={href}>{content}</Link>;
+  }
+
+  return content;
+}
+
+function WalletRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between rounded-[1.2rem] border border-[#eadff5] bg-[#fffafc] px-4 py-3">
+      <span className="text-sm text-[#6f6077]">{label}</span>
+      <span className="text-sm font-medium text-[#171018]">{value}</span>
     </div>
   );
 }
@@ -507,7 +651,9 @@ function StatusBadge({ status }: { status: string }) {
       : "bg-[#f7efff] text-purple-700 border-[#eadff5]";
 
   return (
-    <span className={`rounded-full border px-3 py-1.5 text-xs font-medium ${styles}`}>
+    <span
+      className={`rounded-full border px-3 py-1.5 text-xs font-medium ${styles}`}
+    >
       {capitalize(status)}
     </span>
   );
@@ -545,6 +691,10 @@ function formatDate(date: string | null) {
     month: "short",
     year: "numeric",
   });
+}
+
+function formatMoney(value: number | string | null | undefined) {
+  return `EGP ${Number(value || 0).toLocaleString()}`;
 }
 
 function capitalize(value: string | null | undefined) {

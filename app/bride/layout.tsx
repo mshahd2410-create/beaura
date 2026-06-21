@@ -1,27 +1,39 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Heart, Menu, X } from "lucide-react";
+import { Heart, Menu, Wallet, X } from "lucide-react";
 
 const NAV_ITEMS = [
   ["Discover", "/bride/home"],
   ["Favorites", "/bride/favorites"],
   ["Bookings", "/bride/bookings"],
   ["Messages", "/bride/messages"],
+  ["Wallet", "/bride/wallet"],
   ["Account", "/bride/account"],
 ];
 
-export default function BrideLayout({ children }: { children: React.ReactNode }) {
+export default function BrideLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#fffafc] text-[#171018]">
       <header className="fixed inset-x-0 top-0 z-40 border-b border-[#eadff5] bg-[#fffafc]/90 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
-          <Link href="/bride/home" className="text-3xl font-light tracking-[-0.08em]">
+          <Link
+            href="/bride/home"
+            className="text-3xl font-light tracking-[-0.08em]"
+          >
             Beaura
           </Link>
 
@@ -43,8 +55,17 @@ export default function BrideLayout({ children }: { children: React.ReactNode })
 
           <div className="flex items-center gap-2">
             <Link
+              href="/bride/wallet"
+              className="grid h-10 w-10 place-items-center rounded-full border border-[#eadff5] bg-white hover:text-purple-700"
+              aria-label="Wallet"
+            >
+              <Wallet size={18} />
+            </Link>
+
+            <Link
               href="/bride/favorites"
               className="grid h-10 w-10 place-items-center rounded-full border border-[#eadff5] bg-white hover:text-purple-700"
+              aria-label="Favorites"
             >
               <Heart size={18} />
             </Link>
@@ -52,6 +73,7 @@ export default function BrideLayout({ children }: { children: React.ReactNode })
             <button
               onClick={() => setOpen(true)}
               className="grid h-10 w-10 place-items-center rounded-full border border-[#eadff5] bg-white md:hidden"
+              aria-label="Open menu"
             >
               <Menu size={20} />
             </button>
@@ -65,6 +87,7 @@ export default function BrideLayout({ children }: { children: React.ReactNode })
           className={`absolute inset-0 bg-black/30 transition-opacity ${
             open ? "opacity-100" : "opacity-0"
           }`}
+          aria-label="Close menu"
         />
 
         <aside
@@ -73,11 +96,14 @@ export default function BrideLayout({ children }: { children: React.ReactNode })
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-3xl font-light tracking-[-0.08em]">Beaura</span>
+            <span className="text-3xl font-light tracking-[-0.08em]">
+              Beaura
+            </span>
 
             <button
               onClick={() => setOpen(false)}
               className="grid h-10 w-10 place-items-center rounded-full bg-[#f7efff]"
+              aria-label="Close menu"
             >
               <X size={20} />
             </button>
