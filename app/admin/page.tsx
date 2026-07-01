@@ -11,6 +11,10 @@ import {
   AlertCircle,
   ArrowRight,
   RefreshCw,
+  Wallet,
+  Tag,
+  BarChart3,
+  Settings,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -20,6 +24,9 @@ type DashboardStats = {
   brides: number;
   supportTickets: number;
   bookings: number;
+  moneyRequests: number;
+  promotions: number;
+  reports: number;
 };
 
 export default function AdminDashboardPage() {
@@ -29,6 +36,9 @@ export default function AdminDashboardPage() {
     brides: 0,
     supportTickets: 0,
     bookings: 0,
+    moneyRequests: 0,
+    promotions: 0,
+    reports: 0,
   });
 
   const [loading, setLoading] = useState(true);
@@ -58,18 +68,29 @@ export default function AdminDashboardPage() {
   async function fetchStats() {
     setLoading(true);
 
-    const [pendingMuas, approvedMuas, brides, supportTickets, bookings] =
-      await Promise.all([
-        getCount("mua_profiles", (q) =>
-          q.eq("verified", false).eq("status", "active")
-        ),
-        getCount("mua_profiles", (q) =>
-          q.eq("verified", true).eq("status", "active")
-        ),
-        getCount("bride_profiles"),
-        getCount("support_tickets", (q) => q.eq("status", "open")),
-        getCount("bookings"),
-      ]);
+    const [
+      pendingMuas,
+      approvedMuas,
+      brides,
+      supportTickets,
+      bookings,
+      moneyRequests,
+      promotions,
+      reports,
+    ] = await Promise.all([
+      getCount("mua_profiles", (q) =>
+        q.eq("verified", false).eq("status", "active")
+      ),
+      getCount("mua_profiles", (q) =>
+        q.eq("verified", true).eq("status", "active")
+      ),
+      getCount("bride_profiles"),
+      getCount("support_tickets", (q) => q.eq("status", "open")),
+      getCount("bookings"),
+      getCount("wallet_cash_requests", (q) => q.eq("status", "pending")),
+      getCount("promo_codes"),
+      getCount("reports", (q) => q.neq("status", "resolved")),
+    ]);
 
     setStats({
       pendingMuas,
@@ -77,6 +98,9 @@ export default function AdminDashboardPage() {
       brides,
       supportTickets,
       bookings,
+      moneyRequests,
+      promotions,
+      reports,
     });
 
     setLoading(false);
@@ -105,6 +129,27 @@ export default function AdminDashboardPage() {
       href: "/admin/brides",
     },
     {
+      title: "Bookings",
+      value: stats.bookings,
+      description: "Total platform bookings",
+      icon: CalendarCheck,
+      href: "/admin/bookings",
+    },
+    {
+      title: "Money requests",
+      value: stats.moneyRequests,
+      description: "Pending MUA payout requests",
+      icon: Wallet,
+      href: "/admin/wallet-requests",
+    },
+    {
+      title: "Promotions",
+      value: stats.promotions,
+      description: "Promo codes and offers",
+      icon: Tag,
+      href: "/admin/promotions",
+    },
+    {
       title: "Support tickets",
       value: stats.supportTickets,
       description: "Open messages needing help",
@@ -112,11 +157,11 @@ export default function AdminDashboardPage() {
       href: "/admin/support",
     },
     {
-      title: "Bookings",
-      value: stats.bookings,
-      description: "Total platform bookings",
-      icon: CalendarCheck,
-      href: "/admin/bookings",
+      title: "Reports",
+      value: stats.reports,
+      description: "Open reports and disputes",
+      icon: BarChart3,
+      href: "/admin/reports",
     },
   ];
 
@@ -134,7 +179,8 @@ export default function AdminDashboardPage() {
             </h1>
 
             <p className="mt-4 max-w-2xl text-sm leading-7 text-[#6f6077]">
-              Monitor approvals, clients, artists, bookings, and support in one clean place.
+              Monitor approvals, clients, artists, bookings, payout requests,
+              promotions, support, and reports in one clean place.
             </p>
           </div>
 
@@ -154,7 +200,7 @@ export default function AdminDashboardPage() {
         </div>
       ) : (
         <>
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {cards.map((card) => {
               const Icon = card.icon;
 
@@ -199,9 +245,7 @@ export default function AdminDashboardPage() {
                   <h2 className="text-3xl font-light tracking-[-0.06em] text-[#171018]">
                     Needs attention
                   </h2>
-                  <p className="text-sm text-[#6f6077]">
-                    Review these first.
-                  </p>
+                  <p className="text-sm text-[#6f6077]">Review these first.</p>
                 </div>
               </div>
 
@@ -218,6 +262,17 @@ export default function AdminDashboardPage() {
                 />
 
                 <AttentionItem
+                  show={stats.moneyRequests > 0}
+                  emptyText="No pending money requests."
+                  title={`${stats.moneyRequests} pending money request${
+                    stats.moneyRequests === 1 ? "" : "s"
+                  }`}
+                  text="Review MUA cash-out and payout requests."
+                  href="/admin/wallet-requests"
+                  badge="Money"
+                />
+
+                <AttentionItem
                   show={stats.supportTickets > 0}
                   emptyText="No open support tickets."
                   title={`${stats.supportTickets} open support ticket${
@@ -226,6 +281,17 @@ export default function AdminDashboardPage() {
                   text="Reply to client or artist issues from support."
                   href="/admin/support"
                   badge="Open"
+                />
+
+                <AttentionItem
+                  show={stats.reports > 0}
+                  emptyText="No open reports."
+                  title={`${stats.reports} open report${
+                    stats.reports === 1 ? "" : "s"
+                  }`}
+                  text="Review reports, disputes, and suspicious activity."
+                  href="/admin/reports"
+                  badge="Reports"
                 />
               </div>
             </div>
@@ -241,10 +307,14 @@ export default function AdminDashboardPage() {
 
               <div className="mt-6 grid gap-3">
                 <Shortcut href="/admin/approvals" label="MUA Approval Queue" />
+                <Shortcut href="/admin/wallet-requests" label="Money Requests" />
                 <Shortcut href="/admin/brides" label="Manage Clients" />
                 <Shortcut href="/admin/muas" label="Manage MUAs" />
                 <Shortcut href="/admin/bookings" label="Bookings" />
+                <Shortcut href="/admin/promotions" label="Promotions" />
                 <Shortcut href="/admin/support" label="Support Inbox" />
+                <Shortcut href="/admin/reports" label="Reports & Disputes" />
+                <Shortcut href="/admin/settings" label="Settings" />
               </div>
             </div>
           </section>

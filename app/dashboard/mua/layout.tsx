@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import NotificationBell from "@/components/NotificationBell";
 import { supabase } from "@/lib/supabaseClient";
 import { MuaApprovalBanner } from "@/components/dashboard/mua/MuaApprovalBanner";
 import {

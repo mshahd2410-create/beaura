@@ -16,6 +16,7 @@ import {
   X,
   Wallet,
   Tag,
+  CreditCard,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
   { href: "/admin/brides", label: "Brides", icon: Users },
   { href: "/admin/bookings", label: "Bookings", icon: CalendarCheck },
   { href: "/admin/wallet-requests", label: "Money Requests", icon: Wallet },
+  { href: "/admin/wallets", label: "Wallets", icon: CreditCard },
   { href: "/admin/promotions", label: "Promotions", icon: Tag },
   { href: "/admin/support", label: "Support", icon: MessageSquare },
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },
@@ -145,8 +147,11 @@ function SidebarContent({
       <nav className="flex-1 space-y-2 overflow-y-auto px-5 py-6">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
+
           const active =
-            pathname === item.href || pathname.startsWith(`${item.href}/`);
+            item.href === "/admin"
+              ? pathname === "/admin"
+              : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
           return (
             <Link

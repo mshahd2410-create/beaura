@@ -73,6 +73,8 @@ type Booking = {
   } | null;
 };
 
+type ModalType = "complete" | "issue" | null;
+
 const STATUSES = [
   "pending",
   "confirmed",
@@ -82,6 +84,8 @@ const STATUSES = [
   "cancelled",
 ];
 
+const MAX_PHOTO_SIZE_MB = 8;
+
 export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,9 +94,10 @@ export default function BookingsPage() {
   const [pageError, setPageError] = useState<string | null>(null);
 
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [modalType, setModalType] = useState<"complete" | "issue" | null>(null);
+  const [modalType, setModalType] = useState<ModalType>(null);
   const [photo, setPhoto] = useState<File | null>(null);
   const [issueReason, setIssueReason] = useState("");
+  const [modalError, setModalError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchBookings();
@@ -142,62 +147,68 @@ export default function BookingsPage() {
     setLoading(true);
     setPageError(null);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+      if (!user) {
+        setBookings([]);
+        return;
+      }
 
-    const { data: bookingsData, error } = await supabase
-      .from("bookings")
-      .select("*")
-      .eq("mua_id", user.id)
-      .order("created_at", { ascending: false });
+      const { data: bookingsData, error } = await supabase
+        .from("bookings")
+        .select("*")
+        .eq("mua_id", user.id)
+        .order("created_at", { ascending: false });
 
-    if (error || !bookingsData) {
-      console.error("FETCH BOOKINGS ERROR:", error);
-      setPageError(error?.message || "Could not load bookings.");
+      if (error || !bookingsData) {
+        console.error("FETCH BOOKINGS ERROR:", error);
+        setPageError(error?.message || "Could not load bookings.");
+        setBookings([]);
+        return;
+      }
+
+      const brideIds = [
+        ...new Set(bookingsData.map((b) => b.bride_id).filter(Boolean)),
+      ];
+
+      const serviceIds = [
+        ...new Set(bookingsData.map((b) => b.service_id).filter(Boolean)),
+      ];
+
+      const [{ data: brides }, { data: services }] = await Promise.all([
+        brideIds.length
+          ? supabase
+              .from("bride_profiles")
+              .select("id, first_name, last_name")
+              .in("id", brideIds)
+          : Promise.resolve({ data: [] as any[] }),
+
+        serviceIds.length
+          ? supabase
+              .from("mua_services")
+              .select("id, name, duration_minutes")
+              .in("id", serviceIds)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+
+      const enriched: Booking[] = bookingsData.map((b) => ({
+        ...b,
+        status: normalizeStatus(b.status || "pending"),
+        bride: brides?.find((br) => br.id === b.bride_id) || null,
+        service: services?.find((s) => s.id === b.service_id) || null,
+      }));
+
+      setBookings(enriched);
+    } catch (err: any) {
+      console.error("UNEXPECTED FETCH BOOKINGS ERROR:", err);
+      setPageError(err?.message || "Could not load bookings.");
       setBookings([]);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const brideIds = [
-      ...new Set(bookingsData.map((b) => b.bride_id).filter(Boolean)),
-    ];
-
-    const serviceIds = [
-      ...new Set(bookingsData.map((b) => b.service_id).filter(Boolean)),
-    ];
-
-    const [{ data: brides }, { data: services }] = await Promise.all([
-      brideIds.length
-        ? supabase
-            .from("bride_profiles")
-            .select("id, first_name, last_name")
-            .in("id", brideIds)
-        : Promise.resolve({ data: [] as any[] }),
-
-      serviceIds.length
-        ? supabase
-            .from("mua_services")
-            .select("id, name, duration_minutes")
-            .in("id", serviceIds)
-        : Promise.resolve({ data: [] as any[] }),
-    ]);
-
-    const enriched: Booking[] = bookingsData.map((b) => ({
-      ...b,
-      status: normalizeStatus(b.status || "pending"),
-      bride: brides?.find((br) => br.id === b.bride_id) || null,
-      service: services?.find((s) => s.id === b.service_id) || null,
-    }));
-
-    setBookings(enriched);
-    setLoading(false);
   }
 
   function getBookingStartEnd(booking: Booking) {
@@ -324,24 +335,43 @@ export default function BookingsPage() {
 
       await fetchBookings();
     } catch (err: any) {
-      setPageError(err.message || "Could not update booking.");
+      console.error("UPDATE BOOKING ERROR:", err);
+      setPageError(err?.message || "Could not update booking.");
+    } finally {
+      setUpdatingId(null);
     }
-
-    setUpdatingId(null);
   }
 
-  async function uploadCompletionPhoto(bookingId: string) {
-    if (!photo) return null;
+  function createSafePhotoPath(bookingId: string, file: File) {
+    const safeFileName = file.name
+      .trim()
+      .replace(/\s+/g, "_")
+      .replace(/[^a-zA-Z0-9._-]/g, "");
 
-    const path = `${bookingId}/${crypto.randomUUID()}-${photo.name}`;
+    const randomId =
+      typeof globalThis !== "undefined" &&
+      globalThis.crypto &&
+      "randomUUID" in globalThis.crypto
+        ? globalThis.crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    return `${bookingId}/${randomId}-${safeFileName || "completion-photo.jpg"}`;
+  }
+
+  async function uploadCompletionPhoto(bookingId: string, file: File) {
+    const path = createSafePhotoPath(bookingId, file);
 
     const { error } = await supabase.storage
       .from("booking-completion")
-      .upload(path, photo);
+      .upload(path, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type || "image/jpeg",
+      });
 
     if (error) {
       console.error("PHOTO UPLOAD ERROR:", error);
-      return null;
+      throw new Error(error.message || "Could not upload completion photo.");
     }
 
     const { data } = supabase.storage
@@ -356,51 +386,84 @@ export default function BookingsPage() {
 
     setUpdatingId(selectedBooking.id);
     setPageError(null);
+    setModalError(null);
 
-    const photoUrl = await uploadCompletionPhoto(selectedBooking.id);
+    try {
+      if (!photo) {
+        setModalError("Please upload a completion photo before confirming.");
+        return;
+      }
 
-    const { error } = await supabase.rpc("complete_booking_and_credit_mua", {
-      p_booking_id: selectedBooking.id,
-      p_completion_photo_url:
-        photoUrl || selectedBooking.completion_photo_url || null,
-    });
+      if (!photo.type.startsWith("image/")) {
+        setModalError("Please upload an image file only.");
+        return;
+      }
 
-    if (error) {
-      setPageError(error.message);
+      if (photo.size > MAX_PHOTO_SIZE_MB * 1024 * 1024) {
+        setModalError(`Photo must be smaller than ${MAX_PHOTO_SIZE_MB}MB.`);
+        return;
+      }
+
+      const photoUrl = await uploadCompletionPhoto(selectedBooking.id, photo);
+
+      const { error } = await supabase.rpc("complete_booking_and_credit_mua", {
+        p_booking_id: selectedBooking.id,
+        p_completion_photo_url: photoUrl,
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      closeModal();
+      await fetchBookings();
+    } catch (err: any) {
+      console.error("COMPLETE BOOKING ERROR:", err);
+      setModalError(err?.message || "Could not complete booking.");
+    } finally {
       setUpdatingId(null);
-      return;
     }
-
-    closeModal();
-    await fetchBookings();
-    setUpdatingId(null);
   }
 
   async function reportIssue() {
-    if (!selectedBooking || !issueReason.trim()) return;
+    if (!selectedBooking) return;
 
     setUpdatingId(selectedBooking.id);
     setPageError(null);
+    setModalError(null);
 
-    const { error } = await supabase.rpc("report_booking_issue", {
-      p_booking_id: selectedBooking.id,
-      p_reason: issueReason.trim(),
-    });
+    try {
+      if (!issueReason.trim()) {
+        setModalError("Please describe the problem before submitting.");
+        return;
+      }
 
-    if (error) {
-      setPageError(error.message);
+      const { error } = await supabase.rpc("report_booking_issue", {
+        p_booking_id: selectedBooking.id,
+        p_reason: issueReason.trim(),
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      closeModal();
+      await fetchBookings();
+    } catch (err: any) {
+      console.error("REPORT ISSUE ERROR:", err);
+      setModalError(err?.message || "Could not report problem.");
+    } finally {
       setUpdatingId(null);
-      return;
     }
-
-    closeModal();
-    await fetchBookings();
-    setUpdatingId(null);
   }
 
   function openModal(type: "complete" | "issue", booking: Booking) {
     setSelectedBooking(booking);
     setModalType(type);
+    setPhoto(null);
+    setIssueReason("");
+    setModalError(null);
+    setPageError(null);
   }
 
   function closeModal() {
@@ -408,6 +471,7 @@ export default function BookingsPage() {
     setModalType(null);
     setPhoto(null);
     setIssueReason("");
+    setModalError(null);
   }
 
   function getMuaEarning(booking: Booking) {
@@ -569,9 +633,7 @@ export default function BookingsPage() {
                       <InfoCard
                         label="Notes"
                         value={
-                          b.location_notes ||
-                          b.notes ||
-                          "No additional notes"
+                          b.location_notes || b.notes || "No additional notes"
                         }
                       />
 
@@ -592,7 +654,7 @@ export default function BookingsPage() {
 
                       <InfoCard
                         label="Total booking"
-                        value={formatMoney(b.total_price)}
+                        value={formatMoney(b.total_price || b.total_amount)}
                       />
 
                       {Number(b.discount_amount || 0) > 0 && (
@@ -606,7 +668,9 @@ export default function BookingsPage() {
                         Number(b.discount_amount || 0) > 0 && (
                           <InfoCard
                             label="Before promo"
-                            value={formatMoney(b.bride_total_before_discount)}
+                            value={formatMoney(
+                              b.bride_total_before_discount
+                            )}
                           />
                         )}
 
@@ -638,6 +702,17 @@ export default function BookingsPage() {
                         The bride confirmed completion. Confirm completion to
                         release your payout.
                       </p>
+                    )}
+
+                    {b.completion_photo_url && (
+                      <a
+                        href={b.completion_photo_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-4 inline-flex rounded-full border border-[#eadff5] px-4 py-2 text-sm font-medium text-purple-700 transition hover:bg-[#f7efff]"
+                      >
+                        View completion photo
+                      </a>
                     )}
 
                     {b.refund_processed && (
@@ -690,7 +765,8 @@ export default function BookingsPage() {
                         {!b.completed_by_mua && (
                           <button
                             onClick={() => openModal("complete", b)}
-                            className="rounded-full bg-[#171018] px-5 py-3 text-sm font-medium text-white transition hover:opacity-90"
+                            disabled={updatingId === b.id}
+                            className="rounded-full bg-[#171018] px-5 py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60"
                           >
                             Confirm completion
                           </button>
@@ -698,7 +774,8 @@ export default function BookingsPage() {
 
                         <button
                           onClick={() => openModal("issue", b)}
-                          className="rounded-full border border-[#eadff5] px-5 py-3 text-sm font-medium transition hover:border-red-200 hover:text-red-600"
+                          disabled={updatingId === b.id}
+                          className="rounded-full border border-[#eadff5] px-5 py-3 text-sm font-medium transition hover:border-red-200 hover:text-red-600 disabled:opacity-60"
                         >
                           Report a problem
                         </button>
@@ -721,7 +798,8 @@ export default function BookingsPage() {
 
                         <button
                           onClick={() => openModal("issue", b)}
-                          className="rounded-full border border-[#eadff5] px-5 py-3 text-sm font-medium transition hover:border-red-200 hover:text-red-600"
+                          disabled={updatingId === b.id}
+                          className="rounded-full border border-[#eadff5] px-5 py-3 text-sm font-medium transition hover:border-red-200 hover:text-red-600 disabled:opacity-60"
                         >
                           Report a problem
                         </button>
@@ -767,7 +845,9 @@ export default function BookingsPage() {
           saving={updatingId === selectedBooking.id}
           issueReason={issueReason}
           setIssueReason={setIssueReason}
+          photo={photo}
           setPhoto={setPhoto}
+          modalError={modalError}
           onClose={closeModal}
           onComplete={completeBooking}
           onReport={reportIssue}
@@ -788,16 +868,36 @@ function InfoCard({ label, value }: { label: string; value: string }) {
   );
 }
 
+type ActionModalProps = {
+  type: "complete" | "issue";
+  saving: boolean;
+  issueReason: string;
+  setIssueReason: (value: string) => void;
+  photo: File | null;
+  setPhoto: (file: File | null) => void;
+  modalError: string | null;
+  onClose: () => void;
+  onComplete: () => void;
+  onReport: () => void;
+};
+
 function ActionModal({
   type,
   saving,
   issueReason,
   setIssueReason,
+  photo,
   setPhoto,
+  modalError,
   onClose,
   onComplete,
   onReport,
-}: any) {
+}: ActionModalProps) {
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] || null;
+    setPhoto(file);
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-[2rem] border border-[#eadff5] bg-white p-7 shadow-2xl">
@@ -805,34 +905,53 @@ function ActionModal({
           {type === "complete" ? "confirm completion" : "report problem"}
         </p>
 
-        <h2 className="mt-3 text-3xl font-light tracking-[-0.06em]">
+        <h2 className="mt-3 text-3xl font-light tracking-[-0.06em] text-[#171018]">
           {type === "complete"
             ? "Confirm this booking is done?"
             : "Tell us what happened"}
         </h2>
 
+        {modalError && (
+          <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {modalError}
+          </div>
+        )}
+
         {type === "complete" ? (
           <div className="mt-6 space-y-4">
             <p className="text-sm leading-6 text-[#6f6077]">
-              Once you confirm completion, Beaura will wait for the bride’s
-              confirmation too. Your wallet is credited only after both sides
-              confirm.
+              Upload a completion photo, then confirm the booking. Beaura will
+              wait for the bride’s confirmation too before releasing payout.
             </p>
 
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => setPhoto(e.target.files?.[0] || null)}
-              className="w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] p-3 text-sm"
-            />
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-[#171018]">
+                Completion photo required
+              </span>
+
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoChange}
+                disabled={saving}
+                className="w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] p-3 text-sm disabled:opacity-60"
+              />
+            </label>
+
+            {photo && (
+              <p className="rounded-2xl border border-green-100 bg-green-50 p-3 text-sm text-green-700">
+                Selected: {photo.name}
+              </p>
+            )}
           </div>
         ) : (
           <textarea
             value={issueReason}
             onChange={(e) => setIssueReason(e.target.value)}
             rows={5}
+            disabled={saving}
             placeholder="Describe the problem..."
-            className="mt-6 w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] p-4 text-sm outline-none focus:border-purple-500"
+            className="mt-6 w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] p-4 text-sm outline-none focus:border-purple-500 disabled:opacity-60"
           />
         )}
 
@@ -851,7 +970,8 @@ function ActionModal({
 
           <button
             onClick={onClose}
-            className="flex-1 rounded-full border border-[#eadff5] py-3 text-sm"
+            disabled={saving}
+            className="flex-1 rounded-full border border-[#eadff5] py-3 text-sm disabled:opacity-60"
           >
             Cancel
           </button>
