@@ -236,10 +236,12 @@ export default function RequestBookingModal({
     try {
       if (!muaProfile?.email) {
         console.warn(
-          "MUA EMAIL NOT SENT: MUA email is missing. Make sure mua_profiles has an email column and it is filled."
+          "MUA EMAIL NOT SENT: MUA email is missing. Make sure mua_profiles.email is filled."
         );
         return;
       }
+
+      console.log("CALLING MUA EMAIL API...");
 
       const emailRes = await fetch("/api/emails/booking-request-created", {
         method: "POST",
@@ -292,10 +294,12 @@ export default function RequestBookingModal({
     try {
       if (!brideProfile?.email) {
         console.warn(
-          "BRIDE EMAIL NOT SENT: Bride email is missing. Make sure bride_profiles has an email column and it is filled."
+          "BRIDE EMAIL NOT SENT: Bride email is missing. Bride profile email and auth user email were both empty."
         );
         return;
       }
+
+      console.log("CALLING BRIDE EMAIL API...");
 
       const emailRes = await fetch("/api/emails/new-booking", {
         method: "POST",
@@ -485,8 +489,22 @@ export default function RequestBookingModal({
         getMuaProfile(muaId),
       ]);
 
-      console.log("BRIDE PROFILE FOR EMAIL:", brideProfile);
+      const brideProfileWithFallback: BasicProfile = brideProfile
+        ? {
+            ...brideProfile,
+            email: brideProfile.email || user.email || null,
+          }
+        : {
+            id: user.id,
+            first_name: null,
+            last_name: null,
+            email: user.email || null,
+          };
+
+      console.log("BRIDE PROFILE FOR EMAIL:", brideProfileWithFallback);
       console.log("MUA PROFILE FOR EMAIL:", muaProfile);
+      console.log("BRIDE EMAIL VALUE:", brideProfileWithFallback.email);
+      console.log("MUA EMAIL VALUE:", muaProfile?.email);
 
       const { data: bookingData, error: insertError } = await supabase
         .from("bookings")
@@ -535,15 +553,18 @@ export default function RequestBookingModal({
 
       const finalBookingData = bookingData as BookingData;
 
+      console.log("BOOKING CREATED:", finalBookingData);
+      console.log("BOOKING CREATED — starting email calls");
+
       await sendNewBookingEmailToMua({
         muaProfile,
-        brideProfile,
+        brideProfile: brideProfileWithFallback,
         bookingData: finalBookingData,
       });
 
       await sendBookingRequestEmailToBride({
         muaProfile,
-        brideProfile,
+        brideProfile: brideProfileWithFallback,
         bookingData: finalBookingData,
       });
 
