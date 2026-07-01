@@ -8,10 +8,23 @@ type BookingEmailData = {
   totalPrice?: number | null;
 };
 
-function safe(value: string | number | null | undefined) {
-  return value === null || value === undefined || value === ""
-    ? "Not provided"
-    : String(value);
+type GenericEmailData = {
+  title?: string;
+  subtitle?: string;
+  body?: string;
+};
+
+function escapeHtml(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") {
+    return "Not provided";
+  }
+
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 function money(value: number | null | undefined) {
@@ -22,13 +35,41 @@ function money(value: number | null | undefined) {
 function detailRow(label: string, value: string) {
   return `
     <tr>
-      <td style="padding:12px 0; color:#8B6F61; font-size:14px; border-bottom:1px solid #F0E4DA;">
-        ${label}
+      <td style="padding:14px 0; color:#8a7d91; font-size:13px; border-bottom:1px solid #eadff5;">
+        ${escapeHtml(label)}
       </td>
-      <td style="padding:12px 0; color:#3A2A24; font-size:14px; font-weight:600; text-align:right; border-bottom:1px solid #F0E4DA;">
+      <td style="padding:14px 0; color:#171018; font-size:14px; font-weight:700; text-align:right; border-bottom:1px solid #eadff5;">
         ${value}
       </td>
     </tr>
+  `;
+}
+
+function detailsTable(rows: string) {
+  return `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%; border-collapse:collapse; background:#fffafc; border:1px solid #eadff5; border-radius:20px; overflow:hidden;">
+      <tbody>
+        <tr>
+          <td style="padding:4px 22px 6px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%; border-collapse:collapse;">
+              <tbody>
+                ${rows}
+              </tbody>
+            </table>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+}
+
+function primaryButton(label: string) {
+  return `
+    <div style="margin-top:28px; text-align:center;">
+      <span style="display:inline-block; background:#171018; color:#FFFFFF; padding:14px 28px; border-radius:999px; font-size:14px; font-weight:700; letter-spacing:0.2px;">
+        ${escapeHtml(label)}
+      </span>
+    </div>
   `;
 }
 
@@ -39,54 +80,57 @@ function beauraEmailLayout(title: string, subtitle: string, content: string) {
       <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>${title}</title>
+        <title>${escapeHtml(title)}</title>
       </head>
 
-      <body style="margin:0; padding:0; background:#F8F1EB; font-family:Arial, Helvetica, sans-serif;">
-        <div style="width:100%; background:#F8F1EB; padding:32px 14px;">
-          <div style="max-width:620px; margin:0 auto;">
+      <body style="margin:0; padding:0; background:#FAF8FF; font-family:Arial, Helvetica, sans-serif;">
+        <div style="width:100%; background:#FAF8FF; padding:38px 14px;">
+          <div style="max-width:640px; margin:0 auto;">
 
-            <div style="text-align:center; padding:20px 0 26px;">
-              <div style="display:inline-block; background:#FFF8F3; border:1px solid #E9D6C9; border-radius:999px; padding:10px 24px;">
-                <span style="font-size:25px; letter-spacing:1px; color:#6F4E43; font-weight:700;">
+            <!-- Brand header -->
+            <div style="text-align:center; padding:10px 0 30px;">
+              <div style="display:inline-block; background:#FFFFFF; border:1px solid #eadff5; border-radius:999px; padding:11px 26px; box-shadow:0 12px 34px rgba(23, 16, 24, 0.06);">
+                <span style="font-family:Georgia, 'Times New Roman', serif; font-size:28px; letter-spacing:0.4px; color:#171018; font-weight:700;">
                   Beaura
                 </span>
               </div>
 
-              <p style="margin:12px 0 0; color:#A07E70; font-size:13px; letter-spacing:0.4px;">
-                Book your perfect makeup artist
+              <p style="margin:11px 0 0; color:#6f6077; font-size:13px; letter-spacing:0.3px;">
+                Beauty bookings, beautifully organized
               </p>
             </div>
 
-            <div style="background:#FFFDFC; border-radius:28px; overflow:hidden; border:1px solid #EAD8CD; box-shadow:0 16px 40px rgba(94, 63, 50, 0.10);">
-              
-              <div style="background:linear-gradient(135deg, #F2D7CC 0%, #FFF4EC 45%, #D9B8A8 100%); padding:34px 30px; text-align:center;">
-                <div style="width:56px; height:56px; border-radius:50%; background:#FFFDFC; margin:0 auto 16px; line-height:56px; font-size:26px;">
-                  ✨
-                </div>
+            <!-- Main card -->
+            <div style="background:#FFFFFF; border:1px solid #eadff5; border-radius:32px; overflow:hidden; box-shadow:0 20px 50px rgba(23, 16, 24, 0.08);">
 
-                <h1 style="margin:0; color:#3A2A24; font-size:28px; line-height:1.25; font-weight:700;">
-                  ${title}
+              <!-- Top soft panel -->
+              <div style="background:#f7efff; padding:34px 32px 32px; text-align:center; border-bottom:1px solid #eadff5;">
+                <div style="width:76px; height:2px; background:#171018; margin:0 auto 22px; border-radius:999px; opacity:0.85;"></div>
+
+                <h1 style="margin:0; color:#171018; font-family:Georgia, 'Times New Roman', serif; font-size:30px; line-height:1.25; font-weight:700;">
+                  ${escapeHtml(title)}
                 </h1>
 
-                <p style="margin:12px 0 0; color:#6F4E43; font-size:15px; line-height:1.6;">
-                  ${subtitle}
+                <p style="margin:14px auto 0; color:#6f6077; font-size:15px; line-height:1.7; max-width:470px;">
+                  ${escapeHtml(subtitle)}
                 </p>
               </div>
 
-              <div style="padding:30px;">
+              <!-- Content -->
+              <div style="padding:32px;">
                 ${content}
 
-                <div style="margin-top:28px; background:#FBF3ED; border:1px solid #EEDFD5; border-radius:20px; padding:18px;">
-                  <p style="margin:0; color:#7C6257; font-size:13px; line-height:1.7;">
-                    Need help? Beaura support is here to keep your booking safe, organized, and stress-free.
+                <div style="margin-top:30px; background:#f3f0f5; border:1px solid #eadff5; border-radius:22px; padding:18px 20px;">
+                  <p style="margin:0; color:#6f6077; font-size:13px; line-height:1.75;">
+                    Beaura keeps your beauty booking clear, protected, and easy to manage from start to finish.
                   </p>
                 </div>
               </div>
             </div>
 
+            <!-- Footer -->
             <div style="text-align:center; padding:24px 12px 0;">
-              <p style="margin:0; color:#A9897C; font-size:12px; line-height:1.7;">
+              <p style="margin:0; color:#8a7d91; font-size:12px; line-height:1.8;">
                 You received this email because you used Beaura.
                 <br />
                 © ${new Date().getFullYear()} Beaura. All rights reserved.
@@ -103,21 +147,17 @@ function beauraEmailLayout(title: string, subtitle: string, content: string) {
 export function testEmailTemplate() {
   return beauraEmailLayout(
     "Your Beaura email is ready",
-    "This is a test email from your verified Beaura domain.",
+    "Your verified Beaura domain is now connected and ready to send emails.",
     `
-      <p style="margin:0 0 16px; color:#4D3830; font-size:15px; line-height:1.8;">
-        Hi beautiful,
+      <p style="margin:0 0 16px; color:#171018; font-size:15px; line-height:1.8;">
+        Hello,
       </p>
 
-      <p style="margin:0 0 16px; color:#4D3830; font-size:15px; line-height:1.8;">
-        Your Beaura email setup is working successfully. Emails can now be sent from your verified domain using Resend.
+      <p style="margin:0 0 18px; color:#6f6077; font-size:15px; line-height:1.8;">
+        This is a test email from Beaura. Your Resend setup is working, and emails can now be sent from your verified domain.
       </p>
 
-      <div style="margin-top:24px; text-align:center;">
-        <span style="display:inline-block; background:#6F4E43; color:#FFFDFC; padding:13px 24px; border-radius:999px; font-size:14px; font-weight:700;">
-          Beaura is glowing ✨
-        </span>
-      </div>
+      ${primaryButton("Email setup confirmed")}
     `
   );
 }
@@ -125,32 +165,26 @@ export function testEmailTemplate() {
 export function bookingRequestCreatedTemplate(data: BookingEmailData) {
   return beauraEmailLayout(
     "New booking request",
-    "A bride just requested to book your makeup service.",
+    "A bride has requested to book your makeup service through Beaura.",
     `
-      <p style="margin:0 0 16px; color:#4D3830; font-size:15px; line-height:1.8;">
-        Hello ${safe(data.muaName)},
+      <p style="margin:0 0 16px; color:#171018; font-size:15px; line-height:1.8;">
+        Hello ${escapeHtml(data.muaName)},
       </p>
 
-      <p style="margin:0 0 22px; color:#4D3830; font-size:15px; line-height:1.8;">
-        You received a new booking request on Beaura. Please review the details and respond from your dashboard.
+      <p style="margin:0 0 22px; color:#6f6077; font-size:15px; line-height:1.8;">
+        You received a new booking request. Please review the details below and respond from your Beaura dashboard.
       </p>
 
-      <table style="width:100%; border-collapse:collapse; background:#FFF8F3; border-radius:18px; overflow:hidden;">
-        <tbody>
-          ${detailRow("Bride", safe(data.brideName))}
-          ${detailRow("Service", safe(data.serviceName))}
-          ${detailRow("Date", safe(data.bookingDate))}
-          ${detailRow("Time", safe(data.bookingTime))}
-          ${detailRow("Location", safe(data.location))}
-          ${detailRow("Total", money(data.totalPrice))}
-        </tbody>
-      </table>
+      ${detailsTable(`
+        ${detailRow("Bride", escapeHtml(data.brideName))}
+        ${detailRow("Service", escapeHtml(data.serviceName))}
+        ${detailRow("Date", escapeHtml(data.bookingDate))}
+        ${detailRow("Time", escapeHtml(data.bookingTime))}
+        ${detailRow("Location", escapeHtml(data.location))}
+        ${detailRow("Total", escapeHtml(money(data.totalPrice)))}
+      `)}
 
-      <div style="margin-top:26px; text-align:center;">
-        <span style="display:inline-block; background:#6F4E43; color:#FFFDFC; padding:13px 24px; border-radius:999px; font-size:14px; font-weight:700;">
-          Open Beaura dashboard
-        </span>
-      </div>
+      ${primaryButton("Open Beaura dashboard")}
     `
   );
 }
@@ -158,32 +192,51 @@ export function bookingRequestCreatedTemplate(data: BookingEmailData) {
 export function newBookingTemplate(data: BookingEmailData) {
   return beauraEmailLayout(
     "Your booking request was sent",
-    "We sent your request to the makeup artist. Now we wait for her response.",
+    "We sent your request to the makeup artist. You will receive an update once she responds.",
     `
-      <p style="margin:0 0 16px; color:#4D3830; font-size:15px; line-height:1.8;">
-        Hello ${safe(data.brideName)},
+      <p style="margin:0 0 16px; color:#171018; font-size:15px; line-height:1.8;">
+        Hello ${escapeHtml(data.brideName)},
       </p>
 
-      <p style="margin:0 0 22px; color:#4D3830; font-size:15px; line-height:1.8;">
-        Your booking request has been created successfully. The makeup artist will confirm, decline, or suggest a reschedule.
+      <p style="margin:0 0 22px; color:#6f6077; font-size:15px; line-height:1.8;">
+        Your booking request has been created successfully. The makeup artist can confirm, decline, or suggest a reschedule.
       </p>
 
-      <table style="width:100%; border-collapse:collapse; background:#FFF8F3; border-radius:18px; overflow:hidden;">
-        <tbody>
-          ${detailRow("Makeup artist", safe(data.muaName))}
-          ${detailRow("Service", safe(data.serviceName))}
-          ${detailRow("Date", safe(data.bookingDate))}
-          ${detailRow("Time", safe(data.bookingTime))}
-          ${detailRow("Location", safe(data.location))}
-          ${detailRow("Total", money(data.totalPrice))}
-        </tbody>
-      </table>
+      ${detailsTable(`
+        ${detailRow("Makeup artist", escapeHtml(data.muaName))}
+        ${detailRow("Service", escapeHtml(data.serviceName))}
+        ${detailRow("Date", escapeHtml(data.bookingDate))}
+        ${detailRow("Time", escapeHtml(data.bookingTime))}
+        ${detailRow("Location", escapeHtml(data.location))}
+        ${detailRow("Total", escapeHtml(money(data.totalPrice)))}
+      `)}
 
-      <div style="margin-top:26px; text-align:center;">
-        <span style="display:inline-block; background:#6F4E43; color:#FFFDFC; padding:13px 24px; border-radius:999px; font-size:14px; font-weight:700;">
-          View my booking
-        </span>
-      </div>
+      ${primaryButton("View my booking")}
     `
   );
+}
+
+/*
+  Backward-compatible exports.
+  Keep these so older Beaura files do not break if they import the previous names.
+*/
+
+export function beauraEmailTemplate(data?: GenericEmailData) {
+  return beauraEmailLayout(
+    data?.title || "Beaura notification",
+    data?.subtitle || "You have a new update from Beaura.",
+    `
+      <p style="margin:0; color:#6f6077; font-size:15px; line-height:1.8;">
+        ${escapeHtml(data?.body || "Please open Beaura to view the latest update.")}
+      </p>
+    `
+  );
+}
+
+export function bookingRequestCreatedBrideEmail(data: BookingEmailData) {
+  return newBookingTemplate(data);
+}
+
+export function newBookingMuaEmail(data: BookingEmailData) {
+  return bookingRequestCreatedTemplate(data);
 }
