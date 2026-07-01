@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   return NextResponse.json({
-    resendApiKeyExists: Boolean(process.env.re_eRVMFseY_LRs3HqmFzpQ2kMxJHutpFYz8),
-    emailFromExists: Boolean(process.env.hello@beauraegypt.com),
-    emailFrom: process.env.hello@beauraegypt.com || null,
+    resendApiKeyExists: Boolean(process.env.RESEND_API_KEY),
+    emailFromExists: Boolean(process.env.EMAIL_FROM),
+    emailFrom: process.env.EMAIL_FROM || null,
   });
 }
