@@ -46,7 +46,10 @@ export async function POST(req: Request) {
     console.error("New booking email error:", error);
 
     return NextResponse.json(
-      { error: "Failed to send new booking email" },
+      {
+        error: "Failed to send new booking email",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }

@@ -28,7 +28,10 @@ export async function POST(req: Request) {
     console.error("Send test email error:", error);
 
     return NextResponse.json(
-      { error: "Failed to send test email" },
+      {
+        error: "Failed to send test email",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }

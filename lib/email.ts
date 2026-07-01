@@ -27,13 +27,15 @@ export async function sendEmail({
 
   const from = process.env.EMAIL_FROM || "Beaura <hello@beauraegypt.com>";
 
-  const { data, error } = await resend.emails.send({
+  const emailPayload = {
     from,
     to,
     subject,
     html,
-    replyTo,
-  });
+    ...(replyTo ? { replyTo } : {}),
+  };
+
+  const { data, error } = await resend.emails.send(emailPayload);
 
   if (error) {
     console.error("Resend error:", error);
