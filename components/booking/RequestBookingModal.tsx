@@ -241,7 +241,7 @@ export default function RequestBookingModal({
         return;
       }
 
-      const emailRes = await fetch("/api/emails/new-booking", {
+      const emailRes = await fetch("/api/emails/booking-request-created", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -297,7 +297,7 @@ export default function RequestBookingModal({
         return;
       }
 
-      const emailRes = await fetch("/api/emails/booking-request-created", {
+      const emailRes = await fetch("/api/emails/new-booking", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -535,13 +535,13 @@ export default function RequestBookingModal({
 
       const finalBookingData = bookingData as BookingData;
 
-      void sendNewBookingEmailToMua({
+      await sendNewBookingEmailToMua({
         muaProfile,
         brideProfile,
         bookingData: finalBookingData,
       });
 
-      void sendBookingRequestEmailToBride({
+      await sendBookingRequestEmailToBride({
         muaProfile,
         brideProfile,
         bookingData: finalBookingData,
