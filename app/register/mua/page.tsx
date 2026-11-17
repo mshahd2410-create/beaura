@@ -376,7 +376,8 @@ const path = `${user.id}/${uniqueName}-${file.name}`;
               I agree to the{" "}
               <Link href="/terms" className="text-purple-700 underline">
                 Terms & Conditions
-              </Link>
+              </Link>{" "}and{" "}
+              <Link href="/privacy" className="text-purple-700 underline">Privacy Policy</Link>
             </span>
           </label>
 
