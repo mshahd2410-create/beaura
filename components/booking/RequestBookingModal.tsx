@@ -799,7 +799,7 @@ export default function RequestBookingModal({
 
               {groupSize > 1 && groupTierLoading && (
                 <p className="mt-3 text-xs leading-5 text-[#6f6077]">
-                  Loading the artist's group prices...
+                  Loading the artist&apos;s group prices...
                 </p>
               )}
 

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -30,7 +31,7 @@ type Booking = {
   bride_total_after_discount?: number | null;
   mua_payout?: number | null;
 
-  payment_method?: "transfer" | "credit_balance" | string | null;
+  payment_method?: string | null;
   use_wallet_credit?: boolean | null;
   wallet_credit_amount?: number | null;
   amount_due_after_wallet?: number | null;
@@ -144,6 +145,11 @@ export default function BookingsPage() {
     return status.replaceAll("_", " ");
   }
 
+  function isWalletPayment(booking: Booking) {
+    const method = normalizeStatus(booking.payment_method);
+    return method === "wallet" || method === "credit_balance";
+  }
+
   async function fetchBookings() {
     setLoading(true);
     setPageError(null);
@@ -212,75 +218,6 @@ export default function BookingsPage() {
     }
   }
 
-  function getBookingStartEnd(booking: Booking) {
-    let start: Date | null = null;
-    let end: Date | null = null;
-
-    if (booking.start_time && booking.end_time) {
-      start = new Date(booking.start_time);
-      end = new Date(booking.end_time);
-    } else if (booking.booking_date && booking.booking_time) {
-      const duration =
-        booking.service_duration_minutes ||
-        booking.service?.duration_minutes ||
-        120;
-
-      start = new Date(`${booking.booking_date}T${booking.booking_time}`);
-      end = new Date(start);
-      end.setMinutes(end.getMinutes() + duration);
-    }
-
-    if (
-      !start ||
-      !end ||
-      Number.isNaN(start.getTime()) ||
-      Number.isNaN(end.getTime())
-    ) {
-      return null;
-    }
-
-    return { start, end };
-  }
-
-  async function checkBeforeConfirm(booking: Booking) {
-    const range = getBookingStartEnd(booking);
-
-    if (!range) {
-      throw new Error("This booking has an invalid date or time.");
-    }
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      throw new Error("You must be logged in.");
-    }
-
-    const { data: conflicts, error } = await supabase.rpc(
-      "check_mua_time_conflict",
-      {
-        p_mua_id: user.id,
-        p_start_time: range.start.toISOString(),
-        p_end_time: range.end.toISOString(),
-      }
-    );
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    const realConflicts =
-      conflicts?.filter((conflict: any) => conflict.conflict_id !== booking.id) ||
-      [];
-
-    if (realConflicts.length > 0) {
-      throw new Error(
-        "This booking overlaps with another booking or blocked time. Please cancel or reschedule one of them."
-      );
-    }
-  }
-
   async function updateStatus(
     booking: Booking,
     status: "confirmed" | "cancelled"
@@ -290,8 +227,6 @@ export default function BookingsPage() {
 
     try {
       if (status === "confirmed") {
-        await checkBeforeConfirm(booking);
-
         const { error } = await supabase.rpc(
           "confirm_booking_and_handle_payment",
           {
@@ -303,7 +238,10 @@ export default function BookingsPage() {
           throw new Error(error.message);
         }
 
-        if (booking.promo_code_id && Number(booking.discount_amount || 0) > 0) {
+        if (
+          booking.promo_code_id &&
+          Number(booking.discount_amount || 0) > 0
+        ) {
           const { error: promoError } = await supabase.rpc(
             "finalize_booking_promo_usage",
             {
@@ -489,21 +427,24 @@ export default function BookingsPage() {
   }
 
   function getPaymentMethodLabel(booking: Booking) {
-    if (booking.payment_method === "credit_balance") return "Beaura Wallet";
-    return "Transfer";
+    return isWalletPayment(booking) ? "Beaura Wallet" : "Transfer";
   }
 
   function getPaymentStatusLabel(booking: Booking) {
     const status = normalizeStatus(booking.status);
 
-    if (booking.payment_method === "credit_balance") {
+    if (isWalletPayment(booking)) {
       return booking.wallet_charged ? "Credit charged" : "Credit pending";
     }
 
     if (status === "confirmed_payment_pending") {
       if (booking.payment_proof_status === "approved") return "Deposit approved";
-      if (booking.payment_proof_status === "pending_review") return "Deposit proof under review";
-      if (booking.payment_proof_status === "rejected") return "Deposit proof rejected";
+      if (booking.payment_proof_status === "pending_review") {
+        return "Deposit proof under review";
+      }
+      if (booking.payment_proof_status === "rejected") {
+        return "Deposit proof rejected";
+      }
       return "Waiting for 50% deposit";
     }
 
@@ -749,9 +690,9 @@ export default function BookingsPage() {
                         >
                           {updatingId === b.id
                             ? "Saving..."
-                            : b.payment_method === "credit_balance"
-                            ? "Confirm & charge credit"
-                            : "Confirm booking"}
+                            : isWalletPayment(b)
+                              ? "Confirm & charge credit"
+                              : "Confirm booking"}
                         </button>
 
                         <button
@@ -797,7 +738,13 @@ export default function BookingsPage() {
                     {status === "confirmed_payment_pending" && (
                       <>
                         <span className="rounded-full border border-amber-200 bg-amber-50 px-5 py-3 text-sm font-medium text-amber-700">
-                          {b.payment_proof_status === "approved" ? "Deposit proof approved" : b.payment_proof_status === "pending_review" ? "Deposit proof under review" : b.payment_proof_status === "rejected" ? "Deposit proof rejected" : "Waiting for bride’s 50% deposit"}
+                          {b.payment_proof_status === "approved"
+                            ? "Deposit proof approved"
+                            : b.payment_proof_status === "pending_review"
+                              ? "Deposit proof under review"
+                              : b.payment_proof_status === "rejected"
+                                ? "Deposit proof rejected"
+                                : "Waiting for bride’s 50% deposit"}
                         </span>
 
                         <button
@@ -968,8 +915,8 @@ function ActionModal({
             {saving
               ? "Saving..."
               : type === "complete"
-              ? "Confirm completion"
-              : "Submit problem"}
+                ? "Confirm completion"
+                : "Submit problem"}
           </button>
 
           <button
