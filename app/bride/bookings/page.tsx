@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -41,7 +42,8 @@ type Booking = {
   tax_fee?: number | null;
   total_price?: number | null;
 
-  payment_method?: "card" | "credit_balance" | string | null;
+  payment_method?: "transfer" | "credit_balance" | string | null;
+  payment_proof_status?: string | null;
   use_wallet_credit?: boolean | null;
   wallet_credit_amount?: number | null;
   amount_due_after_wallet?: number | null;
@@ -97,7 +99,6 @@ export default function BrideBookings() {
   const [issueReason, setIssueReason] = useState("");
 
   const [saving, setSaving] = useState(false);
-  const [payingId, setPayingId] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
 
@@ -211,35 +212,6 @@ export default function BrideBookings() {
       setBookings([]);
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function payNow(booking: Booking) {
-    setPayingId(booking.id);
-    setPageError(null);
-
-    try {
-      const { error } = await supabase
-        .from("bookings")
-        .update({
-          status: "confirmed",
-          card_paid: true,
-          card_paid_at: new Date().toISOString(),
-          payment_status: "paid",
-        })
-        .eq("id", booking.id)
-        .eq("bride_id", booking.bride_id);
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      await loadBookings();
-    } catch (err: any) {
-      console.error("PAY NOW ERROR:", err);
-      setPageError(err?.message || "Could not process payment.");
-    } finally {
-      setPayingId(null);
     }
   }
 
@@ -369,8 +341,8 @@ export default function BrideBookings() {
   }
 
   function getPaymentMethodLabel(booking: Booking) {
-    if (booking.payment_method === "credit_balance") return "Credit balance";
-    return "Card";
+    if (booking.payment_method === "credit_balance") return "Beaura Wallet";
+    return "Transfer";
   }
 
   function getPaymentStatusLabel(booking: Booking) {
@@ -381,11 +353,17 @@ export default function BrideBookings() {
     }
 
     if (status === "confirmed_payment_pending") {
-      return "Card payment required";
+      return booking.payment_proof_status === "pending_review"
+        ? "Deposit proof under review"
+        : booking.payment_proof_status === "approved"
+        ? "Deposit approved"
+        : booking.payment_proof_status === "rejected"
+        ? "Proof rejected — action required"
+        : "50% deposit required";
     }
 
     if (booking.card_paid || booking.payment_status === "paid") {
-      return "Paid by card";
+      return "Paid";
     }
 
     if (status === "confirmed" || status === "completed") {
@@ -589,13 +567,12 @@ export default function BrideBookings() {
 
                     <div className="flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
                       {status === "confirmed_payment_pending" && (
-                        <button
-                          onClick={() => payNow(b)}
-                          disabled={payingId === b.id || saving}
-                          className="rounded-full bg-[#171018] px-5 py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60"
+                        <Link
+                          href={`/bride/bookings/${b.id}/payment`}
+                          className="rounded-full bg-[#171018] px-5 py-3 text-sm font-medium text-white transition hover:opacity-90"
                         >
-                          {payingId === b.id ? "Processing..." : "Pay now"}
-                        </button>
+                          {b.payment_proof_status === "pending_review" ? "View proof status" : b.payment_proof_status === "approved" ? "View deposit status" : "Action required · Pay deposit"}
+                        </Link>
                       )}
 
                       {status === "confirmed" && (
@@ -623,7 +600,7 @@ export default function BrideBookings() {
                       {canBrideCancel(b) && (
                         <button
                           onClick={() => openCancelModal(b)}
-                          disabled={saving || payingId === b.id}
+                          disabled={saving}
                           className="rounded-full border border-red-200 bg-white px-5 py-3 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-60"
                         >
                           Cancel booking
