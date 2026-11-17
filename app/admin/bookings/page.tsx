@@ -29,6 +29,7 @@ type Booking = {
   wallet_charged_at?: string | null;
   wallet_credit_amount?: number | null;
   amount_due_after_wallet?: number | null;
+  payment_proof_status?: string | null;
 
   refund_processed?: boolean | null;
   refund_amount?: number | null;
@@ -384,6 +385,7 @@ export default function AdminBookingsPage() {
           Monitor bookings, review payments, and cancel bookings with automatic
           bride wallet refund when payment was already collected.
         </p>
+        <a href="/admin/payment-proofs" className="mt-5 inline-flex rounded-full bg-[#171018] px-5 py-3 text-sm font-medium text-white">Review transfer proofs</a>
       </div>
 
       {pageError && (
