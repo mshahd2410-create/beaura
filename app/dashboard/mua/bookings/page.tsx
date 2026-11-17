@@ -30,7 +30,7 @@ type Booking = {
   bride_total_after_discount?: number | null;
   mua_payout?: number | null;
 
-  payment_method?: "card" | "credit_balance" | string | null;
+  payment_method?: "transfer" | "credit_balance" | string | null;
   use_wallet_credit?: boolean | null;
   wallet_credit_amount?: number | null;
   amount_due_after_wallet?: number | null;
@@ -488,8 +488,8 @@ export default function BookingsPage() {
   }
 
   function getPaymentMethodLabel(booking: Booking) {
-    if (booking.payment_method === "credit_balance") return "Credit balance";
-    return "Card";
+    if (booking.payment_method === "credit_balance") return "Beaura Wallet";
+    return "Transfer";
   }
 
   function getPaymentStatusLabel(booking: Booking) {
@@ -500,11 +500,11 @@ export default function BookingsPage() {
     }
 
     if (status === "confirmed_payment_pending") {
-      return "Card payment pending";
+      return "Waiting for 50% deposit";
     }
 
     if (booking.card_paid || booking.payment_status === "paid") {
-      return "Card paid";
+      return "Paid";
     }
 
     if (status === "confirmed" || status === "completed") {
@@ -793,7 +793,7 @@ export default function BookingsPage() {
                     {status === "confirmed_payment_pending" && (
                       <>
                         <span className="rounded-full border border-amber-200 bg-amber-50 px-5 py-3 text-sm font-medium text-amber-700">
-                          Waiting for bride card payment
+                          Waiting for bride’s 50% deposit
                         </span>
 
                         <button
