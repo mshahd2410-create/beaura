@@ -326,6 +326,8 @@ function Input({
 
       <input
         type={type}
+        minLength={type === "password" ? 8 : undefined}
+        autoComplete={type === "password" ? "new-password" : type === "email" ? "email" : "off"}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required={label.includes("*")}
