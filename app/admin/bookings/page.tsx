@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { createNotification } from "@/lib/createNotification";
 import { Eye, Search, X } from "lucide-react";
 
 type Booking = {
@@ -231,11 +232,12 @@ export default function AdminBookingsPage() {
     setUpdatingId(cancelBooking.id);
     setPageError(null);
 
+    const cancellationReason = cancelReason.trim() || "Cancelled by Beaura admin";
     const { error } = await supabase.rpc(
       "admin_cancel_booking_and_refund_bride",
       {
         p_booking_id: cancelBooking.id,
-        p_reason: cancelReason.trim() || "Cancelled by Beaura admin",
+        p_reason: cancellationReason,
       }
     );
 
@@ -243,6 +245,50 @@ export default function AdminBookingsPage() {
       setPageError(error.message);
       setUpdatingId(null);
       return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const notificationMessage = `Your booking for ${cancelBooking.service?.name || "the selected service"} has been cancelled. Reason: ${cancellationReason}`;
+      const notificationResults = await Promise.all([
+        cancelBooking.bride_id ? createNotification({
+          userId: cancelBooking.bride_id,
+          actorId: user.id,
+          bookingId: cancelBooking.id,
+          type: "booking_cancelled",
+          title: "Booking cancelled",
+          message: notificationMessage,
+          href: "/bride/bookings",
+        }) : Promise.resolve({ success: false }),
+        cancelBooking.mua_id ? createNotification({
+          userId: cancelBooking.mua_id,
+          actorId: user.id,
+          bookingId: cancelBooking.id,
+          type: "booking_cancelled",
+          title: "Booking cancelled",
+          message: notificationMessage,
+          href: "/dashboard/mua/bookings",
+        }) : Promise.resolve({ success: false }),
+      ]);
+      if (notificationResults.some((result) => !result.success)) {
+        setPageError("Booking was cancelled, but one or more in-app notifications could not be sent.");
+      }
+    }
+
+    try {
+      const emailResponse = await fetch("/api/admin/booking-notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: cancelBooking.id, event: "cancelled", reason: cancellationReason }),
+      });
+      const emailResult = await emailResponse.json();
+      if (!emailResponse.ok || emailResult.failed?.length) {
+        setPageError("Booking was cancelled, but email delivery needs attention. Please check the email service.");
+        console.error("Booking cancellation email issue:", emailResult);
+      }
+    } catch (emailError) {
+      setPageError("Booking was cancelled, but email delivery could not be confirmed.");
+      console.error("Booking cancellation email request failed:", emailError);
     }
 
     closeCancelModal();
@@ -694,14 +740,6 @@ export default function AdminBookingsPage() {
               </Section>
 
               <div className="flex flex-wrap gap-3 pb-6">
-                {selectedBooking.payment_method !== "transfer" && (
-                  <button
-                    onClick={() => updateBookingStatus(selectedBooking.id, "confirmed")}
-                    className="rounded-full border border-purple-200 px-5 py-3 text-sm text-purple-700"
-                  >
-                    Mark confirmed
-                  </button>
-                )}
                 <button
                   onClick={() =>
                     updateBookingStatus(selectedBooking.id, "completed")
