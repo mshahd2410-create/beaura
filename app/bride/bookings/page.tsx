@@ -415,8 +415,15 @@ export default function BrideBookings() {
       return "Paid";
     }
 
+    if (
+      booking.payment_method === "transfer" &&
+      booking.payment_proof_status === "approved"
+    ) {
+      return "50% deposit approved · balance pending";
+    }
+
     if (status === "confirmed" || status === "completed") {
-      return "Paid / confirmed";
+      return "Payment status needs review";
     }
 
     return "Payment pending";
