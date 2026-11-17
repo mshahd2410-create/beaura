@@ -276,9 +276,16 @@ export default function AdminBookingsPage() {
     }
 
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session?.access_token) {
+        throw new Error("Your session expired. Please sign in again.");
+      }
       const emailResponse = await fetch("/api/admin/booking-notifications", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
         body: JSON.stringify({ bookingId: cancelBooking.id, event: "cancelled", reason: cancellationReason }),
       });
       const emailResult = await emailResponse.json();
