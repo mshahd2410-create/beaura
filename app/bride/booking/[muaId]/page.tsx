@@ -35,6 +35,27 @@ type Service = {
   group_tiers: GroupTier[];
 };
 
+type LocationType =
+  | "client_home"
+  | "hotel"
+  | "event_venue"
+  | "own_studio";
+
+type ArtistLocation = {
+  location_type: LocationType;
+  travel_fee: number;
+};
+
+const LOCATION_OPTIONS: {
+  value: LocationType;
+  label: string;
+}[] = [
+  { value: "client_home", label: "Client's home" },
+  { value: "hotel", label: "Hotel" },
+  { value: "event_venue", label: "Event venue" },
+  { value: "own_studio", label: "Artist's own studio" },
+];
+
 type PromoCode = {
   id: string;
   code: string;
@@ -77,6 +98,15 @@ export default function BookingPage() {
   const [bookingDate, setBookingDate] = useState("");
   const [bookingTime, setBookingTime] = useState("");
   const [location, setLocation] = useState("");
+
+  const [acceptedLocations, setAcceptedLocations] = useState<
+    ArtistLocation[]
+  >([]);
+  const [locationType, setLocationType] = useState<
+    LocationType | ""
+  >("");
+  const [locationsLoading, setLocationsLoading] = useState(false);
+
   const [notes, setNotes] = useState("");
 
   const [paymentMethod, setPaymentMethod] =
@@ -100,6 +130,14 @@ export default function BookingPage() {
   const selectedService = services.find(
     (service) => service.id === serviceId
   );
+
+  const selectedLocation = acceptedLocations.find(
+    (item) => item.location_type === locationType
+  );
+
+  const travelFee = selectedLocation
+    ? Number(selectedLocation.travel_fee || 0)
+    : 0;
 
   const matchingGroupTier = useMemo(() => {
     if (!selectedService || groupSize < 2) return null;
@@ -128,18 +166,23 @@ export default function BookingPage() {
       : selectedService.price
     : 0;
 
-  // All fees and payouts use the full service amount.
+  // Existing platform fee and tax calculations remain unchanged.
   const platformFee = Math.round(servicePrice * 0.1);
   const taxFee = Math.round(servicePrice * 0.01);
 
-  const totalBeforeDiscount =
+  // Promo codes apply to the existing service, platform fee and tax.
+  // Travel fee is added separately and is not discounted.
+  const discountableTotal =
     servicePrice + platformFee + taxFee;
 
-  const totalAfterDiscount = Math.max(
-    totalBeforeDiscount - promoDiscount,
-    0
-  );
+  const totalBeforeDiscount =
+    discountableTotal + travelFee;
 
+  const totalAfterDiscount =
+    Math.max(discountableTotal - promoDiscount, 0) +
+    travelFee;
+
+  // Artist payout remains based on the service price.
   const muaPayout = Math.round(servicePrice * 0.9);
 
   const canPayWithCredit =
@@ -161,6 +204,11 @@ export default function BookingPage() {
     `${mua?.first_name || ""} ${mua?.last_name || ""}`.trim() ||
     "Makeup artist";
 
+  const selectedLocationLabel =
+    LOCATION_OPTIONS.find(
+      (item) => item.value === locationType
+    )?.label || "";
+
   useEffect(() => {
     if (!muaId) return;
 
@@ -178,21 +226,22 @@ export default function BookingPage() {
   }, [paymentMethod, canPayWithCredit]);
 
   useEffect(() => {
-    if (!appliedPromo || totalBeforeDiscount <= 0) return;
+    if (!appliedPromo || discountableTotal <= 0) return;
 
     const discount = calculatePromoDiscount(
       appliedPromo,
-      totalBeforeDiscount
+      discountableTotal
     );
 
     setPromoDiscount(discount);
     setPromoSuccess(
       `Promo ${appliedPromo.code} applied. You saved EGP ${discount.toLocaleString("en-EG")}.`
     );
-  }, [appliedPromo, totalBeforeDiscount]);
+  }, [appliedPromo, discountableTotal]);
 
   async function loadArtist() {
     setPageLoading(true);
+    setLocationsLoading(true);
 
     try {
       const { data, error } = await supabase
@@ -252,6 +301,35 @@ export default function BookingPage() {
           ),
       }));
 
+      // Load only the locations accepted by this artist.
+      const { data: locationData, error: locationError } =
+        await supabase
+          .from("mua_service_locations")
+          .select("location_type, travel_fee")
+          .eq("mua_id", muaId)
+          .eq("is_accepted", true);
+
+      if (locationError) {
+        console.error(
+          "ARTIST LOCATIONS LOAD ERROR:",
+          locationError
+        );
+        setAcceptedLocations([]);
+        setLocationType("");
+      } else {
+        const formattedLocations: ArtistLocation[] = (
+          locationData || []
+        ).map((item: any) => ({
+          location_type: item.location_type as LocationType,
+          travel_fee: Number(item.travel_fee || 0),
+        }));
+
+        setAcceptedLocations(formattedLocations);
+        setLocationType(
+          formattedLocations[0]?.location_type || ""
+        );
+      }
+
       setMua(data);
       setServices(formattedServices);
 
@@ -263,6 +341,7 @@ export default function BookingPage() {
       setMua(null);
     } finally {
       setPageLoading(false);
+      setLocationsLoading(false);
     }
   }
 
@@ -547,9 +626,10 @@ export default function BookingPage() {
         return;
       }
 
+      // Promo discount does not apply to travel fee.
       const discount = calculatePromoDiscount(
         promo,
-        totalBeforeDiscount
+        discountableTotal
       );
 
       if (discount <= 0) {
@@ -583,9 +663,23 @@ export default function BookingPage() {
       !serviceId ||
       !bookingDate ||
       !bookingTime ||
-      !location.trim()
+      !location.trim() ||
+      !locationType ||
+      !selectedLocation
     ) {
       setError("Please fill in all required fields.");
+      return;
+    }
+
+    // Make sure the selected location is still accepted.
+    if (
+      !acceptedLocations.some(
+        (item) => item.location_type === locationType
+      )
+    ) {
+      setError(
+        "Please choose one of the artist's accepted booking locations."
+      );
       return;
     }
 
@@ -705,13 +799,23 @@ export default function BookingPage() {
             start_time: startTime.toISOString(),
             end_time: endTime.toISOString(),
             service_duration_minutes: durationMinutes,
+
+            // Address and selected location type.
             location: location.trim(),
+            location_type: locationType,
+
+            // Save the travel fee separately.
+            travel_fee: travelFee,
+
             notes: notes || null,
 
             // Full group service amount when group pricing applies.
             service_price: servicePrice,
             platform_fee: platformFee,
             tax_fee: taxFee,
+
+            // Travel fee is already included in totalAfterDiscount.
+            // Do not add it a second time here.
             total_price: totalAfterDiscount,
 
             promo_code_id: appliedPromo?.id || null,
@@ -719,7 +823,7 @@ export default function BookingPage() {
             bride_total_before_discount: totalBeforeDiscount,
             bride_total_after_discount: totalAfterDiscount,
 
-            // Artist payout is based on the full service amount.
+            // Artist payout remains based on the service amount.
             mua_payout: muaPayout,
 
             payment_method: paymentMethod,
@@ -842,6 +946,20 @@ export default function BookingPage() {
             </div>
 
             <div className="mt-3 flex justify-between gap-4 text-sm">
+              <span className="text-[#806f85]">Location type</span>
+              <strong>{selectedLocationLabel}</strong>
+            </div>
+
+            <div className="mt-3 flex justify-between gap-4 text-sm">
+              <span className="text-[#806f85]">Travel fee</span>
+              <strong>
+                {travelFee === 0
+                  ? "Free"
+                  : `EGP ${travelFee.toLocaleString("en-EG")}`}
+              </strong>
+            </div>
+
+            <div className="mt-3 flex justify-between gap-4 text-sm">
               <span className="text-[#806f85]">Total</span>
               <strong>
                 EGP {totalAfterDiscount.toLocaleString("en-EG")}
@@ -909,7 +1027,6 @@ export default function BookingPage() {
         {/* MAIN LAYOUT */}
         <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_370px] xl:gap-14">
           <div className="min-w-0 space-y-8">
-
             {/* STEP 1: SERVICE */}
             <SectionCard
               number="01"
@@ -1285,6 +1402,77 @@ export default function BookingPage() {
                 </Field>
               </div>
 
+              {/* ACCEPTED LOCATION TYPE */}
+              <div className="mt-5">
+                <Field label="Where would you like your makeup done?">
+                  <select
+                    value={locationType}
+                    onChange={(e) =>
+                      setLocationType(
+                        e.target.value as LocationType | ""
+                      )
+                    }
+                    disabled={loading || locationsLoading}
+                    className="booking-input"
+                  >
+                    <option value="">
+                      {locationsLoading
+                        ? "Loading available locations..."
+                        : "Choose a location"}
+                    </option>
+
+                    {acceptedLocations.map((item) => {
+                      const option = LOCATION_OPTIONS.find(
+                        (entry) =>
+                          entry.value === item.location_type
+                      );
+
+                      if (!option) return null;
+
+                      return (
+                        <option
+                          key={item.location_type}
+                          value={item.location_type}
+                        >
+                          {option.label}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </Field>
+              </div>
+
+              {acceptedLocations.length === 0 &&
+                !locationsLoading && (
+                  <p className="mt-4 rounded-xl bg-[#fffafc] p-4 text-sm leading-6 text-[#806f85]">
+                    This artist hasn't selected any available
+                    booking locations yet. Please contact the artist.
+                  </p>
+                )}
+
+              {/* TRAVEL FEE DISPLAY */}
+              {selectedLocation && (
+                <div className="mt-4 rounded-2xl bg-[#f7efff] p-5">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-wider text-purple-700">
+                        Travel fee
+                      </p>
+                      <p className="mt-1 text-xs text-[#806f85]">
+                        {selectedLocationLabel}
+                      </p>
+                    </div>
+
+                    <p className="text-xl font-semibold">
+                      {travelFee === 0
+                        ? "Free"
+                        : `EGP ${travelFee.toLocaleString("en-EG")}`}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* ADDRESS */}
               <div className="mt-5">
                 <Field label="Location or venue address">
                   <div className="relative">
@@ -1545,7 +1733,15 @@ export default function BookingPage() {
 
                   <SummaryDetail
                     icon={<MapPin size={16} />}
-                    value={location || "Location not entered"}
+                    value={
+                      selectedLocationLabel ||
+                      "Location type not selected"
+                    }
+                  />
+
+                  <SummaryDetail
+                    icon={<MapPin size={16} />}
+                    value={location || "Address not entered"}
                   />
                 </div>
 
@@ -1563,6 +1759,11 @@ export default function BookingPage() {
                         : "Service price"
                     }
                     value={servicePrice}
+                  />
+
+                  <PriceRow
+                    label="Travel fee"
+                    value={travelFee}
                   />
 
                   <PriceRow
@@ -1596,7 +1797,7 @@ export default function BookingPage() {
                     {promoDiscount > 0 && (
                       <p className="mt-2 text-xs leading-5 text-[#806f85]">
                         The promo discount does not affect the
-                        artist's payout.
+                        artist's payout or travel fee.
                       </p>
                     )}
                   </div>
@@ -1633,7 +1834,10 @@ export default function BookingPage() {
                     loading ||
                     !selectedService ||
                     invalidGroupSize ||
-                    services.length === 0
+                    services.length === 0 ||
+                    !locationType ||
+                    !selectedLocation ||
+                    locationsLoading
                   }
                   className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-[#171018] px-6 text-sm font-medium text-white transition hover:bg-[#4a3553] disabled:cursor-not-allowed disabled:opacity-50"
                 >

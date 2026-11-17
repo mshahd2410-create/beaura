@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Plus, Trash2, Users, Check } from "lucide-react";
+import { Plus, Trash2, Users, Check, MapPin } from "lucide-react";
 
 type GroupTier = {
   id?: string;
@@ -29,6 +29,52 @@ type DraftService = {
   group_tiers: GroupTier[];
 };
 
+type LocationType =
+  | "client_home"
+  | "hotel"
+  | "event_venue"
+  | "own_studio";
+
+type LocationSetting = {
+  location_type: LocationType;
+  is_accepted: boolean;
+  travel_fee: string;
+};
+
+const LOCATION_OPTIONS: {
+  value: LocationType;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "client_home",
+    label: "Client's home",
+    description: "Travel to the client's home address.",
+  },
+  {
+    value: "hotel",
+    label: "Hotel",
+    description: "Travel to a hotel where the client is staying.",
+  },
+  {
+    value: "event_venue",
+    label: "Event venue",
+    description: "Travel to a wedding or other event venue.",
+  },
+  {
+    value: "own_studio",
+    label: "My own studio",
+    description: "Clients visit your studio.",
+  },
+];
+
+const emptyLocationSettings = (): LocationSetting[] =>
+  LOCATION_OPTIONS.map((location) => ({
+    location_type: location.value,
+    is_accepted: false,
+    travel_fee: "0",
+  }));
+
 const emptyTier = (): GroupTier => ({
   min_people: "2",
   max_people: "3",
@@ -53,12 +99,19 @@ export default function ServicesPage() {
     group_tiers: [],
   });
 
+  const [locationSettings, setLocationSettings] = useState<LocationSetting[]>(
+    emptyLocationSettings()
+  );
+  const [loadingLocations, setLoadingLocations] = useState(true);
+  const [savingLocations, setSavingLocations] = useState(false);
+
   useEffect(() => {
     loadServices();
   }, []);
 
   async function loadServices() {
     setLoading(true);
+    setLoadingLocations(true);
 
     const {
       data: { user },
@@ -67,8 +120,40 @@ export default function ServicesPage() {
 
     if (userError || !user) {
       setLoading(false);
+      setLoadingLocations(false);
       return;
     }
+
+    // Load the MUA's location and travel fee settings.
+    const { data: locationRows, error: locationError } = await supabase
+      .from("mua_service_locations")
+      .select("location_type, is_accepted, travel_fee")
+      .eq("mua_id", user.id);
+
+    if (locationError) {
+      console.error("Could not load location settings:", locationError);
+      alert(
+        "Your services are loading, but your travel settings could not be loaded."
+      );
+    } else {
+      const savedLocations = locationRows || [];
+
+      setLocationSettings(
+        LOCATION_OPTIONS.map((option) => {
+          const saved = savedLocations.find(
+            (row) => row.location_type === option.value
+          );
+
+          return {
+            location_type: option.value,
+            is_accepted: saved?.is_accepted ?? false,
+            travel_fee: String(saved?.travel_fee ?? 0),
+          };
+        })
+      );
+    }
+
+    setLoadingLocations(false);
 
     const { data, error } = await supabase
       .from("mua_services")
@@ -124,6 +209,76 @@ export default function ServicesPage() {
     );
 
     setLoading(false);
+  }
+
+  function updateLocationSetting(
+    locationType: LocationType,
+    field: "is_accepted" | "travel_fee",
+    value: boolean | string
+  ) {
+    setLocationSettings((prev) =>
+      prev.map((setting) =>
+        setting.location_type === locationType
+          ? { ...setting, [field]: value }
+          : setting
+      )
+    );
+  }
+
+  async function saveLocationSettings() {
+    for (const setting of locationSettings) {
+      const fee = Number(setting.travel_fee);
+
+      if (
+        setting.travel_fee.trim() === "" ||
+        !Number.isFinite(fee) ||
+        fee < 0
+      ) {
+        alert(
+          "Please enter a valid travel fee of zero or more for every location."
+        );
+        return;
+      }
+    }
+
+    setSavingLocations(true);
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        alert("Please sign in again to save your travel settings.");
+        return;
+      }
+
+      const rows = locationSettings.map((setting) => ({
+        mua_id: user.id,
+        location_type: setting.location_type,
+        is_accepted: setting.is_accepted,
+        travel_fee: Number(setting.travel_fee),
+        updated_at: new Date().toISOString(),
+      }));
+
+      const { error } = await supabase
+        .from("mua_service_locations")
+        .upsert(rows, {
+          onConflict: "mua_id,location_type",
+        });
+
+      if (error) throw error;
+
+      alert("Your service locations and travel fees have been saved.");
+    } catch (error) {
+      console.error("Could not save location settings:", error);
+      alert(
+        "We couldn't save your travel settings. Please try again."
+      );
+    } finally {
+      setSavingLocations(false);
+    }
   }
 
   function validateGroupTiers(tiers: GroupTier[]) {
@@ -442,6 +597,133 @@ export default function ServicesPage() {
               {services.length}
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* SERVICE LOCATIONS AND TRAVEL FEES */}
+      <section className="rounded-[2rem] border border-[#eadff5] bg-white p-5 shadow-[0_20px_60px_rgba(0,0,0,0.04)] sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="grid h-10 w-10 place-items-center rounded-2xl bg-[#f5edfb] text-purple-700">
+                <MapPin size={19} />
+              </div>
+              <div>
+                <h2 className="text-xl font-medium text-[#171018]">
+                  Service locations & travel fees
+                </h2>
+                <p className="mt-1 text-sm text-[#6f6077]">
+                  Choose where you accept bookings and set your fee for each location.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <span className="w-fit rounded-full bg-[#f8f4fc] px-3 py-1.5 text-xs font-medium text-purple-800">
+            Applies to all services
+          </span>
+        </div>
+
+        <div className="mt-5 rounded-2xl bg-[#fffafc] p-4 text-sm leading-6 text-[#75657e]">
+          Turn on every location where you are willing to work. You can set a
+          different travel fee for each one. Enter 0 if you do not charge a
+          travel fee for that location.
+        </div>
+
+        {loadingLocations ? (
+          <div className="mt-5 space-y-3">
+            {LOCATION_OPTIONS.map((location) => (
+              <div
+                key={location.value}
+                className="h-24 animate-pulse rounded-2xl bg-[#faf7ff]"
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="mt-5 space-y-3">
+            {LOCATION_OPTIONS.map((location) => {
+              const setting = locationSettings.find(
+                (item) => item.location_type === location.value
+              );
+
+              if (!setting) return null;
+
+              return (
+                <div
+                  key={location.value}
+                  className={`rounded-2xl border p-4 transition ${
+                    setting.is_accepted
+                      ? "border-purple-200 bg-[#fffaff]"
+                      : "border-[#efe6f7] bg-white"
+                  }`}
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={setting.is_accepted}
+                        onChange={(e) =>
+                          updateLocationSetting(
+                            location.value,
+                            "is_accepted",
+                            e.target.checked
+                          )
+                        }
+                        className="mt-1 h-4 w-4 accent-purple-700"
+                        aria-label={`Accept bookings at ${location.label}`}
+                      />
+
+                      <div>
+                        <p className="text-sm font-medium text-[#171018]">
+                          {location.label}
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-[#7d6e86]">
+                          {location.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="w-full sm:max-w-[220px]">
+                      <label className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-[#7d6e86]">
+                        Travel fee (EGP)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={setting.travel_fee}
+                        onChange={(e) =>
+                          updateLocationSetting(
+                            location.value,
+                            "travel_fee",
+                            e.target.value
+                          )
+                        }
+                        disabled={!setting.is_accepted}
+                        className="h-11 w-full rounded-xl border border-[#eadff5] bg-white px-3 text-sm text-[#171018] outline-none focus:border-purple-300 disabled:cursor-not-allowed disabled:bg-[#f7f4f9] disabled:text-[#a99eaf]"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="mt-5 flex flex-col gap-3 border-t border-[#efe6f7] pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs leading-5 text-[#7d6e86]">
+            These settings are saved once for your profile and apply to all your services.
+          </p>
+
+          <button
+            type="button"
+            onClick={saveLocationSettings}
+            disabled={savingLocations || loadingLocations}
+            className="h-12 rounded-full bg-[#171018] px-6 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {savingLocations ? "Saving..." : "Save location settings"}
+          </button>
         </div>
       </section>
 

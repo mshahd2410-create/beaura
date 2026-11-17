@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
@@ -15,25 +15,60 @@ import {
   Users,
 } from "lucide-react";
 
-export default function MuaProfilePage() {
-  const params = useParams();
-  const router = useRouter();
-  const id = Array.isArray(params.id) ? params.id[0] : params.id;
+type PortfolioImage = {
+  url: string;
+};
 
-  const [mua, setMua] = useState<any>(null);
+type MuaProfile = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  bio: string | null;
+  cities: string[] | null;
+  verified: boolean;
+  status: string;
+  instagram: string | null;
+  experience: string | null;
+  portfolio: PortfolioImage[];
+  services: any[];
+};
+
+function formatEGP(value: number) {
+  return `EGP ${Number(value || 0).toLocaleString("en-EG")}`;
+}
+
+export default function MuaProfilePage() {
+  const params = useParams<{
+    id?: string | string[];
+    muaId?: string | string[];
+  }>();
+
+  const router = useRouter();
+
+  // Supports either app/bride/mua/[id] or app/bride/mua/[muaId].
+  const rawId = params.id ?? params.muaId;
+  const id = Array.isArray(rawId) ? rawId[0] : rawId;
+
+  const [mua, setMua] = useState<MuaProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [imageOpen, setImageOpen] = useState<string | null>(null);
+
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
 
-  useEffect(() => {
-    if (!id) return;
-    loadMua();
-  }, [id]);
+  const loadMua = useCallback(async () => {
+    if (!id) {
+      setMua(null);
+      setLoadError("The artist profile link is invalid.");
+      setLoading(false);
+      return;
+    }
 
-  async function loadMua() {
     setLoading(true);
+    setLoadError(null);
 
     const { data, error } = await supabase
       .from("mua_profiles")
@@ -47,7 +82,9 @@ export default function MuaProfilePage() {
         status,
         instagram,
         experience,
-        mua_portfolio ( image_path ),
+        mua_portfolio (
+          image_path
+        ),
         mua_services (
           id,
           name,
@@ -58,30 +95,44 @@ export default function MuaProfilePage() {
             id,
             min_people,
             max_people,
-            total_price
+            price_per_person
           )
         )
       `)
       .eq("id", id)
       .eq("verified", true)
       .eq("status", "active")
-      .single();
+      .maybeSingle();
 
-    if (error || !data) {
+    if (error) {
+      console.error("Error loading MUA profile:", error);
+      setMua(null);
+      setLoadError(
+        "We couldn't load this artist's profile. Please try again."
+      );
       setLoading(false);
       return;
     }
 
-    const portfolio =
-      data.mua_portfolio?.map((p: any) => ({
+    if (!data) {
+      setMua(null);
+      setLoadError(null);
+      setLoading(false);
+      return;
+    }
+
+    const portfolio: PortfolioImage[] =
+      data.mua_portfolio?.map((item: any) => ({
         url: supabase.storage
           .from("mua-portfolio")
-          .getPublicUrl(p.image_path).data.publicUrl,
+          .getPublicUrl(item.image_path).data.publicUrl,
       })) || [];
 
     const services = (data.mua_services || []).map((service: any) => ({
       ...service,
-      group_tiers: (service.mua_service_group_tiers || []).sort(
+      group_tiers: [
+        ...(service.mua_service_group_tiers || []),
+      ].sort(
         (a: any, b: any) =>
           Number(a.min_people) - Number(b.min_people)
       ),
@@ -93,23 +144,39 @@ export default function MuaProfilePage() {
       services,
     });
 
+    // Check whether the current bride has saved this artist.
     const {
       data: { user },
+      error: userError,
     } = await supabase.auth.getUser();
 
+    if (userError) {
+      console.error("Error checking current user:", userError);
+    }
+
     if (user) {
-      const { data: favorite } = await supabase
+      const { data: favorite, error: favoriteError } = await supabase
         .from("favorites")
         .select("id")
         .eq("bride_id", user.id)
         .eq("mua_id", id)
         .maybeSingle();
 
-      setIsFavorite(!!favorite);
+      if (favoriteError) {
+        console.error("Error checking favorite:", favoriteError);
+      } else {
+        setIsFavorite(!!favorite);
+      }
+    } else {
+      setIsFavorite(false);
     }
 
     setLoading(false);
-  }
+  }, [id]);
+
+  useEffect(() => {
+    void loadMua();
+  }, [loadMua]);
 
   function goToBooking() {
     if (!id) return;
@@ -117,32 +184,50 @@ export default function MuaProfilePage() {
   }
 
   async function handleMessage() {
+    if (!id) return;
+
     const {
       data: { user },
+      error: userError,
     } = await supabase.auth.getUser();
 
-    if (!user || !id) return;
+    if (userError) {
+      console.error("Error getting current user:", userError);
+    }
 
-    const { data: existingConversation } = await supabase
-      .from("conversations")
-      .select("id")
-      .eq("bride_id", user.id)
-      .eq("mua_id", id)
-      .maybeSingle();
+    if (!user) return;
+
+    const { data: existingConversation, error: conversationError } =
+      await supabase
+        .from("conversations")
+        .select("id")
+        .eq("bride_id", user.id)
+        .eq("mua_id", id)
+        .maybeSingle();
+
+    if (conversationError) {
+      console.error("Error checking conversation:", conversationError);
+      return;
+    }
 
     if (existingConversation) {
       router.push(`/bride/messages/${existingConversation.id}`);
       return;
     }
 
-    const { data: newConversation } = await supabase
+    const { data: newConversation, error: insertError } = await supabase
       .from("conversations")
       .insert({
         bride_id: user.id,
         mua_id: id,
       })
-      .select()
+      .select("id")
       .single();
+
+    if (insertError) {
+      console.error("Error creating conversation:", insertError);
+      return;
+    }
 
     if (newConversation) {
       router.push(`/bride/messages/${newConversation.id}`);
@@ -150,43 +235,90 @@ export default function MuaProfilePage() {
   }
 
   async function toggleFavorite() {
-    if (favoriteLoading) return;
+    if (favoriteLoading || !id) return;
 
     setFavoriteLoading(true);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-    if (!user) {
+      if (userError) {
+        console.error("Error getting current user:", userError);
+        return;
+      }
+
+      if (!user) return;
+
+      if (isFavorite) {
+        const { error } = await supabase
+          .from("favorites")
+          .delete()
+          .eq("bride_id", user.id)
+          .eq("mua_id", id);
+
+        if (error) {
+          console.error("Error removing favorite:", error);
+          return;
+        }
+
+        setIsFavorite(false);
+      } else {
+        const { error } = await supabase.from("favorites").insert({
+          bride_id: user.id,
+          mua_id: id,
+        });
+
+        if (error) {
+          console.error("Error saving favorite:", error);
+          return;
+        }
+
+        setIsFavorite(true);
+      }
+    } finally {
       setFavoriteLoading(false);
-      return;
     }
-
-    if (isFavorite) {
-      await supabase
-        .from("favorites")
-        .delete()
-        .eq("bride_id", user.id)
-        .eq("mua_id", id);
-
-      setIsFavorite(false);
-    } else {
-      await supabase.from("favorites").insert({
-        bride_id: user.id,
-        mua_id: id,
-      });
-
-      setIsFavorite(true);
-    }
-
-    setFavoriteLoading(false);
   }
 
   if (loading) {
     return (
       <main className="min-h-screen bg-[#fffafc] px-4 pt-28 text-[#6f6077]">
-        Loading artist…
+        <div className="mx-auto max-w-7xl">
+          Loading artist…
+        </div>
+      </main>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <main className="min-h-screen bg-[#fffafc] px-4 pt-28 text-[#6f6077]">
+        <div className="mx-auto max-w-xl rounded-[2rem] border border-[#eadff5] bg-white p-8 text-center shadow-sm">
+          <h1 className="text-2xl font-medium text-[#171018]">
+            Unable to load profile
+          </h1>
+
+          <p className="mt-3 text-sm leading-7">
+            {loadError}
+          </p>
+
+          <button
+            onClick={() => void loadMua()}
+            className="mt-6 rounded-full bg-[#171018] px-6 py-3 text-sm font-medium text-white"
+          >
+            Try again
+          </button>
+
+          <button
+            onClick={() => router.back()}
+            className="mt-3 block w-full text-sm text-purple-700"
+          >
+            Go back
+          </button>
+        </div>
       </main>
     );
   }
@@ -194,7 +326,23 @@ export default function MuaProfilePage() {
   if (!mua) {
     return (
       <main className="min-h-screen bg-[#fffafc] px-4 pt-28 text-[#6f6077]">
-        Artist not found.
+        <div className="mx-auto max-w-xl rounded-[2rem] border border-[#eadff5] bg-white p-8 text-center shadow-sm">
+          <h1 className="text-2xl font-medium text-[#171018]">
+            Artist not found
+          </h1>
+
+          <p className="mt-3 text-sm leading-7">
+            This artist may no longer be available, or their profile may
+            not be published yet.
+          </p>
+
+          <button
+            onClick={() => router.back()}
+            className="mt-6 rounded-full bg-[#171018] px-6 py-3 text-sm font-medium text-white"
+          >
+            Go back
+          </button>
+        </div>
       </main>
     );
   }
@@ -207,8 +355,12 @@ export default function MuaProfilePage() {
   const sideImages = mua.portfolio?.slice(1, 4) || [];
 
   const lowestPrice =
-    mua.services?.length > 0
-      ? Math.min(...mua.services.map((s: any) => Number(s.price || 0)))
+    mua.services.length > 0
+      ? Math.min(
+          ...mua.services.map((service: any) =>
+            Number(service.price || 0)
+          )
+        )
       : null;
 
   return (
@@ -229,7 +381,10 @@ export default function MuaProfilePage() {
             disabled={favoriteLoading}
             className="inline-flex h-11 items-center gap-2 rounded-full border border-[#eadff5] bg-white px-4 text-sm text-purple-700 disabled:opacity-60"
           >
-            <Heart size={16} fill={isFavorite ? "currentColor" : "none"} />
+            <Heart
+              size={16}
+              fill={isFavorite ? "currentColor" : "none"}
+            />
             {isFavorite ? "Saved" : "Save"}
           </button>
         </div>
@@ -298,10 +453,22 @@ export default function MuaProfilePage() {
             <div className="mt-7 grid gap-3 sm:grid-cols-3">
               <MiniStat
                 label="Starting from"
-                value={lowestPrice !== null ? `EGP ${lowestPrice}` : "Ask"}
+                value={
+                  lowestPrice !== null
+                    ? formatEGP(lowestPrice)
+                    : "Ask"
+                }
               />
-              <MiniStat label="Services" value={`${mua.services.length}`} />
-              <MiniStat label="Photos" value={`${mua.portfolio.length}`} />
+
+              <MiniStat
+                label="Services"
+                value={`${mua.services.length}`}
+              />
+
+              <MiniStat
+                label="Photos"
+                value={`${mua.portfolio.length}`}
+              />
             </div>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -326,7 +493,7 @@ export default function MuaProfilePage() {
         {/* PHOTO STRIP */}
         {sideImages.length > 0 && (
           <section className="grid grid-cols-3 gap-3">
-            {sideImages.map((img: any, index: number) => (
+            {sideImages.map((img, index) => (
               <button
                 key={index}
                 onClick={() => setImageOpen(img.url)}
@@ -334,7 +501,7 @@ export default function MuaProfilePage() {
               >
                 <img
                   src={img.url}
-                  alt="Portfolio"
+                  alt={`${artistName} portfolio ${index + 2}`}
                   className="h-full w-full object-cover transition duration-500 hover:scale-[1.04]"
                 />
               </button>
@@ -349,6 +516,7 @@ export default function MuaProfilePage() {
               <p className="text-xs uppercase tracking-[0.22em] text-purple-700">
                 service menu
               </p>
+
               <h2 className="mt-3 text-4xl font-light tracking-[-0.07em]">
                 Choose your glam.
               </h2>
@@ -381,12 +549,13 @@ export default function MuaProfilePage() {
                     {service.name}
                   </h3>
 
-                  <div className="mt-4 flex items-center justify-between text-sm">
+                  <div className="mt-4 flex items-center justify-between gap-3 text-sm">
                     <span className="text-[#6f6077]">
                       {service.duration_minutes} min
                     </span>
+
                     <span className="font-medium text-[#171018]">
-                      EGP {service.price}
+                      {formatEGP(Number(service.price))}
                     </span>
                   </div>
 
@@ -399,7 +568,8 @@ export default function MuaProfilePage() {
                         </div>
 
                         <p className="mt-1 text-xs leading-5 text-[#8a7d91]">
-                          Total price for the entire group
+                          Price per person. The group total is calculated
+                          using the number of people.
                         </p>
 
                         <div className="mt-3 space-y-2">
@@ -411,8 +581,12 @@ export default function MuaProfilePage() {
                               <span className="text-[#6f6077]">
                                 {tier.min_people}–{tier.max_people} people
                               </span>
+
                               <span className="font-medium text-[#171018]">
-                                EGP {Number(tier.total_price).toLocaleString("en-EG")}
+                                {formatEGP(
+                                  Number(tier.price_per_person)
+                                )}{" "}
+                                / person
                               </span>
                             </div>
                           ))}
@@ -431,6 +605,7 @@ export default function MuaProfilePage() {
             <p className="text-xs uppercase tracking-[0.22em] text-white/45">
               why clients book
             </p>
+
             <h2 className="mt-4 text-4xl font-light leading-none tracking-[-0.07em]">
               Pretty work. Clear details. Easier planning.
             </h2>
@@ -438,7 +613,7 @@ export default function MuaProfilePage() {
 
           <div className="rounded-[2.5rem] border border-[#eadff5] bg-white p-6 shadow-sm sm:p-8">
             <h2 className="text-3xl font-light tracking-[-0.06em]">
-              About {mua.first_name}
+              About {mua.first_name || "this artist"}
             </h2>
 
             <p className="mt-5 text-sm leading-8 text-[#6f6077]">
@@ -474,7 +649,10 @@ export default function MuaProfilePage() {
         <div className="fixed inset-0 z-50 overflow-y-auto bg-[#fffafc] px-4 py-6">
           <div className="mx-auto max-w-6xl">
             <div className="sticky top-0 z-10 mb-5 flex items-center justify-between rounded-full border border-[#eadff5] bg-white/90 px-4 py-3 backdrop-blur">
-              <p className="text-sm font-medium">{artistName} portfolio</p>
+              <p className="text-sm font-medium">
+                {artistName} portfolio
+              </p>
+
               <button
                 onClick={() => setGalleryOpen(false)}
                 className="grid h-9 w-9 place-items-center rounded-full bg-[#171018] text-white"
@@ -484,16 +662,16 @@ export default function MuaProfilePage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {mua.portfolio.map((img: any, i: number) => (
+              {mua.portfolio.map((img, index) => (
                 <button
-                  key={i}
+                  key={index}
                   onClick={() => setImageOpen(img.url)}
                   className="aspect-[4/5] overflow-hidden rounded-[1.5rem] bg-[#f7efff]"
                 >
                   <img
                     src={img.url}
                     className="h-full w-full object-cover"
-                    alt="Portfolio"
+                    alt={`${artistName} portfolio ${index + 1}`}
                   />
                 </button>
               ))}
@@ -523,13 +701,22 @@ export default function MuaProfilePage() {
   );
 }
 
-function MiniStat({ label, value }: { label: string; value: string }) {
+function MiniStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
   return (
     <div className="rounded-[1.5rem] border border-[#eadff5] bg-[#fffafc] p-4">
       <p className="text-xs uppercase tracking-[0.16em] text-[#8a7d91]">
         {label}
       </p>
-      <p className="mt-2 text-sm font-medium text-[#171018]">{value}</p>
+
+      <p className="mt-2 text-sm font-medium text-[#171018]">
+        {value}
+      </p>
     </div>
   );
 }
