@@ -40,6 +40,7 @@ type Booking = {
   card_paid?: boolean | null;
   card_paid_at?: string | null;
   payment_status?: string | null;
+  payment_proof_status?: string | null;
 
   refund_processed?: boolean | null;
   refund_amount?: number | null;
@@ -500,6 +501,9 @@ export default function BookingsPage() {
     }
 
     if (status === "confirmed_payment_pending") {
+      if (booking.payment_proof_status === "approved") return "Deposit approved";
+      if (booking.payment_proof_status === "pending_review") return "Deposit proof under review";
+      if (booking.payment_proof_status === "rejected") return "Deposit proof rejected";
       return "Waiting for 50% deposit";
     }
 
@@ -793,7 +797,7 @@ export default function BookingsPage() {
                     {status === "confirmed_payment_pending" && (
                       <>
                         <span className="rounded-full border border-amber-200 bg-amber-50 px-5 py-3 text-sm font-medium text-amber-700">
-                          Waiting for bride’s 50% deposit
+                          {b.payment_proof_status === "approved" ? "Deposit proof approved" : b.payment_proof_status === "pending_review" ? "Deposit proof under review" : b.payment_proof_status === "rejected" ? "Deposit proof rejected" : "Waiting for bride’s 50% deposit"}
                         </span>
 
                         <button
