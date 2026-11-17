@@ -503,13 +503,15 @@ export default function AdminBookingsPage() {
                     View
                   </button>
 
-                  <button
-                    onClick={() => updateBookingStatus(booking.id, "confirmed")}
-                    disabled={updatingId === booking.id}
-                    className="rounded-full border border-purple-200 px-4 py-2 text-sm text-purple-700 disabled:opacity-50"
-                  >
-                    Confirm
-                  </button>
+                  {booking.payment_method !== "transfer" && (
+                    <button
+                      onClick={() => updateBookingStatus(booking.id, "confirmed")}
+                      disabled={updatingId === booking.id}
+                      className="rounded-full border border-purple-200 px-4 py-2 text-sm text-purple-700 disabled:opacity-50"
+                    >
+                      Confirm
+                    </button>
+                  )}
 
                   <button
                     onClick={() => updateBookingStatus(booking.id, "completed")}
@@ -608,7 +610,7 @@ export default function AdminBookingsPage() {
                   value={selectedBooking.wallet_charged ? "Yes" : "No"}
                 />
                 <Detail
-                  label="Card paid"
+                  label="Legacy card paid"
                   value={selectedBooking.card_paid ? "Yes" : "No"}
                 />
                 <Detail
@@ -681,14 +683,14 @@ export default function AdminBookingsPage() {
               </Section>
 
               <div className="flex flex-wrap gap-3 pb-6">
-                <button
-                  onClick={() =>
-                    updateBookingStatus(selectedBooking.id, "confirmed")
-                  }
-                  className="rounded-full border border-purple-200 px-5 py-3 text-sm text-purple-700"
-                >
-                  Mark confirmed
-                </button>
+                {selectedBooking.payment_method !== "transfer" && (
+                  <button
+                    onClick={() => updateBookingStatus(selectedBooking.id, "confirmed")}
+                    className="rounded-full border border-purple-200 px-5 py-3 text-sm text-purple-700"
+                  >
+                    Mark confirmed
+                  </button>
+                )}
                 <button
                   onClick={() =>
                     updateBookingStatus(selectedBooking.id, "completed")
