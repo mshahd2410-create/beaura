@@ -12,6 +12,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,6 +77,27 @@ export default function LoginPage() {
 
     setError("Account exists but profile is not set up yet.");
     setLoading(false);
+  };
+
+  const sendPasswordReset = async () => {
+    if (!email.trim()) {
+      setError("Enter your email address first, then choose Forgot password.");
+      return;
+    }
+    setError(null);
+    setResetMessage(null);
+    setResetLoading(true);
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (resetError) throw resetError;
+      setResetMessage("If an account exists for this email, a password reset link is on its way. Check your inbox and spam folder.");
+    } catch (resetError) {
+      setError(resetError instanceof Error ? resetError.message : "We couldn't send the reset email. Please try again.");
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   return (
@@ -151,11 +174,15 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                className="text-purple-700 hover:underline"
+                onClick={sendPasswordReset}
+                disabled={resetLoading}
+                className="text-purple-700 hover:underline disabled:opacity-50"
               >
-                Forgot password?
+                {resetLoading ? "Sending link..." : "Forgot password?"}
               </button>
             </div>
+
+            {resetMessage && <p role="status" className="rounded-2xl bg-purple-50 p-4 text-center text-sm text-purple-800">{resetMessage}</p>}
 
             {error && (
               <p className="rounded-2xl bg-red-50 p-4 text-center text-sm text-red-600">
