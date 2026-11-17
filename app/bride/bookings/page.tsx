@@ -20,6 +20,8 @@ const STATUSES: BookingStatus[] = [
   "disputed",
   "cancelled",
 ];
+const STATUS_TABS = ["all", ...STATUSES] as const;
+type BookingTab = (typeof STATUS_TABS)[number];
 
 type Booking = {
   id: string;
@@ -92,7 +94,7 @@ type ModalType = "complete" | "issue" | null;
 export default function BrideBookings() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeStatus, setActiveStatus] = useState<BookingStatus>("pending");
+  const [activeStatus, setActiveStatus] = useState<BookingTab>("all");
 
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [modalType, setModalType] = useState<ModalType>(null);
@@ -106,7 +108,7 @@ export default function BrideBookings() {
   const [cancelReason, setCancelReason] = useState("");
 
   useEffect(() => {
-    loadBookings();
+    loadBookings(true);
 
     let channel: ReturnType<typeof supabase.channel> | null = null;
 
@@ -147,8 +149,8 @@ export default function BrideBookings() {
     return status.replaceAll("_", " ");
   }
 
-  async function loadBookings() {
-    setLoading(true);
+  async function loadBookings(showLoading = false) {
+    if (showLoading) setLoading(true);
     setPageError(null);
 
     try {
@@ -170,7 +172,6 @@ export default function BrideBookings() {
       if (error) {
         console.error("BRIDE BOOKINGS LOAD ERROR:", error);
         setPageError(error.message);
-        setBookings([]);
         return;
       }
 
@@ -209,9 +210,8 @@ export default function BrideBookings() {
     } catch (err: any) {
       console.error("UNEXPECTED BRIDE BOOKINGS LOAD ERROR:", err);
       setPageError(err?.message || "Could not load bookings.");
-      setBookings([]);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }
 
@@ -390,6 +390,7 @@ export default function BrideBookings() {
   const filtered = bookings.filter((b) => {
     const status = normalizeStatus(b.status);
 
+    if (activeStatus === "all") return true;
     if (activeStatus === "cancelled") {
       return status.includes("cancelled");
     }
@@ -409,18 +410,34 @@ export default function BrideBookings() {
     <main className="min-h-screen overflow-x-hidden bg-[#fffafc] px-4 pb-28 pt-24 text-[#171018] sm:px-6 lg:px-8">
       <section className="mx-auto max-w-5xl space-y-5">
         <div className="rounded-[2rem] border border-[#eadff5] bg-white p-6 shadow-sm sm:p-8">
-          <p className="text-xs uppercase tracking-[0.22em] text-purple-700">
-            your bookings
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-purple-700">
+                your bookings
+              </p>
 
           <h1 className="mt-3 text-5xl font-light leading-[0.9] tracking-[-0.08em] sm:text-7xl">
             Your glam plans.
           </h1>
 
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-[#6f6077]">
-            Track requests, pay for confirmed card bookings, cancel when needed,
-            mark appointments complete, or report an issue.
-          </p>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-[#6f6077]">
+                Keep track of every makeup appointment, payment update, and next step in one place.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => loadBookings(true)}
+              className="rounded-full border border-[#eadff5] bg-white px-5 py-3 text-sm font-medium text-[#6f6077] transition hover:bg-[#f7efff] hover:text-purple-700"
+            >
+              Refresh bookings
+            </button>
+          </div>
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <InfoCard label="All bookings" value={String(bookings.length)} />
+            <InfoCard label="Needs attention" value={String(bookings.filter((item) => ["pending", "confirmed_payment_pending", "disputed"].includes(normalizeStatus(item.status))).length)} />
+            <InfoCard label="Confirmed" value={String(bookings.filter((item) => normalizeStatus(item.status) === "confirmed").length)} />
+            <InfoCard label="Completed" value={String(bookings.filter((item) => normalizeStatus(item.status) === "completed").length)} />
+          </div>
         </div>
 
         {pageError && (
@@ -430,19 +447,25 @@ export default function BrideBookings() {
         )}
 
         <div className="flex gap-2 overflow-x-auto rounded-full border border-[#eadff5] bg-white p-2 shadow-sm">
-          {STATUSES.map((status) => (
-            <button
-              key={status}
-              onClick={() => setActiveStatus(status)}
-              className={`whitespace-nowrap rounded-full px-5 py-2.5 text-sm capitalize transition ${
-                activeStatus === status
-                  ? "bg-[#171018] text-white"
-                  : "text-[#6f6077] hover:bg-[#f7efff] hover:text-purple-700"
-              }`}
-            >
-              {cleanStatus(status)}
-            </button>
-          ))}
+          {STATUS_TABS.map((status) => {
+            const count = status === "all"
+              ? bookings.length
+              : bookings.filter((item) => normalizeStatus(item.status) === status || (status === "cancelled" && normalizeStatus(item.status).includes("cancelled"))).length;
+            return (
+              <button
+                key={status}
+                onClick={() => setActiveStatus(status)}
+                className={`flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2.5 text-sm capitalize transition ${
+                  activeStatus === status
+                    ? "bg-[#171018] text-white"
+                    : "text-[#6f6077] hover:bg-[#f7efff] hover:text-purple-700"
+                }`}
+              >
+                {status === "all" ? "All" : cleanStatus(status)}
+                <span className={`rounded-full px-2 py-0.5 text-[11px] ${activeStatus === status ? "bg-white/15 text-white" : "bg-[#f7efff] text-purple-700"}`}>{count}</span>
+              </button>
+            );
+          })}
         </div>
 
         {filtered.length === 0 ? (
