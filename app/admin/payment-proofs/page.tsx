@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { createNotification } from "@/lib/createNotification";
 
 type ProofBooking = {
   id: string;
@@ -96,6 +97,7 @@ export default function AdminPaymentProofsPage() {
         payment_proof_reviewed_at: new Date().toISOString(),
         payment_proof_reviewed_by: user.id,
         payment_proof_rejection_reason: decision === "rejected" ? rejectionReason : null,
+        ...(decision === "approved" ? { status: "confirmed" } : {}),
       })
       .eq("id", item.id)
       .eq("payment_proof_status", "pending_review")
@@ -107,7 +109,69 @@ export default function AdminPaymentProofsPage() {
       await loadProofs();
       return;
     }
-    setMessage(decision === "approved" ? "Deposit proof approved." : "Proof rejected. The bride can upload a new receipt.");
+
+    const notificationMessage = decision === "approved"
+      ? "The transfer receipt was approved. The booking is now confirmed."
+      : `The transfer receipt was rejected. Reason: ${rejectionReason}`;
+    const notificationTargets = decision === "approved"
+      ? [
+          createNotification({
+            userId: item.bride_id,
+            actorId: user.id,
+            bookingId: item.id,
+            type: "booking_confirmed",
+            title: "Booking confirmed",
+            message: notificationMessage,
+            href: "/bride/bookings",
+          }),
+          createNotification({
+            userId: item.mua_id,
+            actorId: user.id,
+            bookingId: item.id,
+            type: "booking_confirmed",
+            title: "Booking confirmed",
+            message: notificationMessage,
+            href: "/dashboard/mua/bookings",
+          }),
+        ]
+      : [
+          createNotification({
+            userId: item.bride_id,
+            actorId: user.id,
+            bookingId: item.id,
+            type: "booking_rejected",
+            title: "Payment proof needs attention",
+            message: notificationMessage,
+            href: `/bride/bookings/${item.id}/payment`,
+          }),
+        ];
+    const notificationResults = await Promise.all(notificationTargets);
+    const notificationFailed = notificationResults.some((result) => !result.success);
+
+    let emailWarning = "";
+    if (decision === "approved") {
+      try {
+        const emailResponse = await fetch("/api/admin/booking-notifications", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bookingId: item.id, event: "confirmed" }),
+        });
+        const emailResult = await emailResponse.json();
+        if (!emailResponse.ok || emailResult.failed?.length) {
+          emailWarning = " Email delivery needs attention.";
+          console.error("Booking confirmation email issue:", emailResult);
+        }
+      } catch (emailError) {
+        emailWarning = " Email delivery needs attention.";
+        console.error("Booking confirmation email request failed:", emailError);
+      }
+    }
+
+    setMessage(
+      (decision === "approved" ? "Deposit approved and booking confirmed." : "Proof rejected. The bride can upload a new receipt.") +
+      (notificationFailed ? " Some in-app notifications could not be sent." : "") +
+      emailWarning
+    );
     await loadProofs();
     setBusyId(null);
   }
