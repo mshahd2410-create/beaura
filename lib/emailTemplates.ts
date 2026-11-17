@@ -216,6 +216,56 @@ export function newBookingTemplate(data: BookingEmailData) {
   );
 }
 
+
+type BookingStatusEmailData = {
+  recipientName: string;
+  otherPartyName: string;
+  serviceName: string;
+  bookingDate: string;
+  bookingTime: string;
+  location?: string | null;
+  totalPrice?: number | null;
+  reason?: string | null;
+};
+
+export function bookingStatusUpdateTemplate(
+  event: "confirmed" | "cancelled",
+  data: BookingStatusEmailData
+) {
+  const confirmed = event === "confirmed";
+  const title = confirmed ? "Your booking is confirmed" : "Your booking has been cancelled";
+  const subtitle = confirmed
+    ? "The transfer receipt has been approved and your Beaura booking is now confirmed."
+    : "Your Beaura booking has been cancelled. Please review the details below.";
+  return beauraEmailLayout(
+    title,
+    subtitle,
+    `
+      <p style="margin:0 0 16px; color:#171018; font-size:15px; line-height:1.8;">
+        Hello ${escapeHtml(data.recipientName)},
+      </p>
+      <p style="margin:0 0 22px; color:#6f6077; font-size:15px; line-height:1.8;">
+        ${confirmed
+          ? `Your booking with ${escapeHtml(data.otherPartyName)} is confirmed. We look forward to your appointment.`
+          : `Your booking with ${escapeHtml(data.otherPartyName)} has been cancelled.`}
+      </p>
+      ${detailsTable(`
+        ${detailRow("Service", escapeHtml(data.serviceName))}
+        ${detailRow("Date", escapeHtml(data.bookingDate))}
+        ${detailRow("Time", escapeHtml(data.bookingTime))}
+        ${detailRow("Location", escapeHtml(data.location))}
+        ${detailRow("Booking total", escapeHtml(money(data.totalPrice)))}
+      `)}
+      ${!confirmed && data.reason ? `
+        <p style="margin:20px 0 0; color:#6f6077; font-size:14px; line-height:1.8;">
+          <strong>Reason:</strong> ${escapeHtml(data.reason)}
+        </p>
+      ` : ""}
+      ${primaryButton("Open Beaura dashboard")}
+    `
+  );
+}
+
 /*
   Backward-compatible exports.
   Keep these so older Beaura files do not break if they import the previous names.
