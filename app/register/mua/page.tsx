@@ -179,24 +179,45 @@ export default function RegisterMUA() {
       }
     }
 
+    let uploadedCount = 0;
+    let portfolioUploadFailed = false;
+
     for (const file of portfolio) {
       const uniqueName =
-  typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-const path = `${user.id}/${uniqueName}-${file.name}`;
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const safeExtension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `${user.id}/${uniqueName}.${safeExtension}`;
 
       const { error: uploadError } = await supabase.storage
         .from("mua-portfolio")
-        .upload(path, file);
+        .upload(path, file, { contentType: file.type, upsert: false });
 
-      if (uploadError) continue;
+      if (uploadError) {
+        console.error("Portfolio upload failed:", uploadError);
+        portfolioUploadFailed = true;
+        continue;
+      }
 
-      await supabase.from("mua_portfolio").insert({
+      const { error: imageRecordError } = await supabase.from("mua_portfolio").insert({
         mua_id: user.id,
         image_path: path,
       });
+
+      if (imageRecordError) {
+        console.error("Portfolio record save failed:", imageRecordError);
+        portfolioUploadFailed = true;
+        continue;
+      }
+
+      uploadedCount += 1;
+    }
+
+    if (portfolioUploadFailed || uploadedCount < 5) {
+      setError(`Your account was created, but only ${uploadedCount} portfolio photos were saved. Please sign in and finish adding at least 5 photos from your artist Portfolio page.`);
+      setLoading(false);
+      return;
     }
 
     router.push("/dashboard/mua");
