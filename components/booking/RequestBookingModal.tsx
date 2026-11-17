@@ -82,6 +82,7 @@ export default function RequestBookingModal({
   const [loading, setLoading] = useState(false);
   const [walletLoading, setWalletLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [requestSent, setRequestSent] = useState(false);
 
   const selectedService = services.find((s) => s.id === serviceId);
 
@@ -120,6 +121,7 @@ export default function RequestBookingModal({
 
   useEffect(() => {
     if (!open) return;
+    setRequestSent(false);
     loadBrideWallet();
   }, [open]);
 
@@ -690,7 +692,7 @@ export default function RequestBookingModal({
       });
 
       resetForm();
-      onClose();
+      setRequestSent(true);
     } catch (bookingError) {
       console.warn("BOOKING SUBMIT CRASHED:", bookingError);
       setError("Something went wrong while sending the booking request.");
@@ -717,6 +719,7 @@ export default function RequestBookingModal({
   function handleClose() {
     if (loading) return;
     resetForm();
+    setRequestSent(false);
     onClose();
   }
 
@@ -735,6 +738,14 @@ export default function RequestBookingModal({
           Send your date, time, and location. The artist will confirm or decline your request before any payment is taken.
         </p>
 
+        {requestSent ? (
+          <div className="mt-8 rounded-[1.5rem] border border-purple-100 bg-[#f7efff] p-6 text-center">
+            <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-white text-2xl text-purple-700">✓</div>
+            <h3 className="mt-5 text-2xl font-medium tracking-[-0.04em] text-[#171018]">Your request has been sent!</h3>
+            <p className="mt-3 text-sm leading-6 text-[#6f6077]">Your booking request is now with the makeup artist. Please wait for them to accept it. If you chose Transfer, you will be asked to pay the 50% deposit only after the artist accepts.</p>
+            <button type="button" onClick={handleClose} className="mt-6 h-12 w-full rounded-full bg-[#171018] text-sm font-medium text-white">Got it</button>
+          </div>
+        ) : (
         <div className="mt-7 space-y-4">
           <Field label="Service">
             <select
@@ -1094,6 +1105,7 @@ export default function RequestBookingModal({
             </button>
           </div>
         </div>
+        )}
 
         <style jsx>{`
           .input {
