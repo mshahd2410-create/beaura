@@ -3,19 +3,19 @@
 const faqs = [
   {
     q: "How do payments work?",
-    a: "You pay securely online. The price includes the makeup service plus a 10% Beaura platform fee.",
+    a: "Available payment methods and the full price breakdown are shown during checkout. Review the service price, any platform fee, taxes and deposit before you submit your booking.",
   },
   {
     q: "What if the makeup artist cancels?",
-    a: "You receive a full refund or an immediate replacement with the same requirements.",
+    a: "You will receive a cancellation update. Any refund is handled according to the booking cancellation terms and payment method. Contact Beaura support if you need help.",
   },
   {
     q: "Can I cancel my booking?",
-    a: "Yes. Cancellation rules depend on how close it is to your event date.",
+    a: "You can request cancellation from your booking page when the option is available. Any refund or cancellation amount depends on the booking terms and timing.",
   },
   {
     q: "Is Beaura safe?",
-    a: "Yes. All artists are verified and payments are processed securely.",
+    a: "Artist profiles are reviewed before they are listed as verified. Always review an artist’s profile and booking details, and use the payment methods shown inside Beaura.",
   },
 ];
 
