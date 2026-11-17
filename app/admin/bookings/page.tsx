@@ -334,8 +334,8 @@ export default function AdminBookingsPage() {
   }
 
   function getPaymentMethod(booking: Booking) {
-    if (booking.payment_method === "credit_balance") return "Credit balance";
-    return "Card";
+    if (booking.payment_method === "credit_balance") return "Beaura Wallet";
+    return "Transfer";
   }
 
   function getPaymentStatus(booking: Booking) {
@@ -345,10 +345,12 @@ export default function AdminBookingsPage() {
       return booking.wallet_charged ? "Credit charged" : "Credit pending";
     }
 
-    if (status === "confirmed_payment_pending") return "Card payment pending";
+    if (status === "confirmed_payment_pending") {
+      return booking.payment_proof_status === "pending_review" ? "Deposit proof under review" : booking.payment_proof_status === "approved" ? "Deposit approved" : booking.payment_proof_status === "rejected" ? "Proof rejected" : "50% deposit pending";
+    }
 
     if (booking.card_paid || booking.payment_status === "paid") {
-      return "Card paid";
+      return "Paid";
     }
 
     if (status === "confirmed" || status === "completed") {
