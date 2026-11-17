@@ -17,6 +17,7 @@ import {
   Wallet,
   Tag,
   CreditCard,
+  ReceiptText,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
   { href: "/admin/muas", label: "MUAs", icon: UserCheck },
   { href: "/admin/brides", label: "Brides", icon: Users },
   { href: "/admin/bookings", label: "Bookings", icon: CalendarCheck },
+  { href: "/admin/payment-proofs", label: "Payment Proofs", icon: ReceiptText },
   { href: "/admin/wallet-requests", label: "Money Requests", icon: Wallet },
   { href: "/admin/wallets", label: "Wallets", icon: CreditCard },
   { href: "/admin/promotions", label: "Promotions", icon: Tag },
