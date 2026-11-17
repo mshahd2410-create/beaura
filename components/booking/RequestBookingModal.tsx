@@ -1022,12 +1022,12 @@ export default function RequestBookingModal({
               <div className="mt-4 rounded-2xl border border-[#eadff5] bg-[#fffafc] p-4">
                 <PriceRow
                   label={paymentMethod === "credit_balance" ? "Credit balance payment" : "Transfer deposit (after MUA accepts)"}
-                  value={paymentMethod === "credit_balance" ? walletCreditAmount : Math.ceil(totalAfterDiscount / 2)}
+                  value={paymentMethod === "credit_balance" ? walletCreditAmount : totalAfterDiscount / 2}
                 />
 
                 <div className="mt-2 flex justify-between border-t border-[#eadff5] pt-2 text-sm font-semibold text-[#171018]">
                   <span>{paymentMethod === "credit_balance" ? "Amount deducted after MUA accepts" : "50% deposit after MUA accepts"}</span>
-                  <span>EGP {(paymentMethod === "credit_balance" ? walletCreditAmount : Math.ceil(totalAfterDiscount / 2)).toLocaleString()}</span>
+                  <span>EGP {(paymentMethod === "credit_balance" ? walletCreditAmount : totalAfterDiscount / 2).toLocaleString()}</span>
                 </div>
               </div>
             </div>
