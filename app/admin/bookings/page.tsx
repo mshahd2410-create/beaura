@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Eye, Search, X } from "lucide-react";
@@ -385,7 +386,10 @@ export default function AdminBookingsPage() {
           Monitor bookings, review payments, and cancel bookings with automatic
           bride wallet refund when payment was already collected.
         </p>
-        <a href="/admin/payment-proofs" className="mt-5 inline-flex rounded-full bg-[#171018] px-5 py-3 text-sm font-medium text-white">Review transfer proofs</a>
+        <Link href="/admin/payment-proofs" className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#171018] px-5 py-3 text-sm font-medium text-white transition hover:opacity-90">
+          Review transfer proofs
+          <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs">Open queue</span>
+        </Link>
       </div>
 
       {pageError && (
@@ -503,23 +507,30 @@ export default function AdminBookingsPage() {
                     View
                   </button>
 
-                  {booking.payment_method !== "transfer" && (
+                  {normalizeStatus(booking.status) === "pending" && booking.payment_method !== "transfer" && (
                     <button
                       onClick={() => updateBookingStatus(booking.id, "confirmed")}
                       disabled={updatingId === booking.id}
                       className="rounded-full border border-purple-200 px-4 py-2 text-sm text-purple-700 disabled:opacity-50"
                     >
-                      Confirm
+                      {updatingId === booking.id ? "Saving..." : "Confirm booking"}
                     </button>
                   )}
 
-                  <button
-                    onClick={() => updateBookingStatus(booking.id, "completed")}
-                    disabled={updatingId === booking.id}
-                    className="rounded-full border border-green-200 px-4 py-2 text-sm text-green-700 disabled:opacity-50"
-                  >
-                    Complete
-                  </button>
+                  {booking.payment_method === "transfer" && normalizeStatus(booking.status) === "confirmed_payment_pending" && (
+                    <Link
+                      href="/admin/payment-proofs"
+                      className="rounded-full border border-purple-200 px-4 py-2 text-sm text-purple-700 transition hover:bg-[#f7efff]"
+                    >
+                      Review deposit
+                    </Link>
+                  )}
+
+                  {normalizeStatus(booking.status) === "confirmed" && (
+                    <span className="rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">
+                      Awaiting both completion confirmations
+                    </span>
+                  )}
 
                   {canCancel(booking) && (
                     <button
