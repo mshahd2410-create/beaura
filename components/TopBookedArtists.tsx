@@ -19,14 +19,19 @@ export default function TopBookedArtists() {
           supabase.from("mua_profiles").select("id, first_name, last_name, cities, mua_portfolio(image_path)").eq("verified", true).eq("status", "active"),
           supabase.from("bookings").select("mua_id").eq("status", "completed"),
         ]);
-        if (profileError || bookingError || !profiles || !bookings) { if (active) setArtists([]); return; }
+        if (profileError || !profiles) {
+          console.error("Unable to load public MUA profiles:", profileError);
+          if (active) setArtists([]);
+          return;
+        }
+        if (bookingError) console.error("Unable to load completed booking counts:", bookingError);
         const counts = new Map<string, number>();
-        bookings.forEach((b: { mua_id: string | null }) => { if (b.mua_id) counts.set(b.mua_id, (counts.get(b.mua_id) || 0) + 1); });
+        (bookings || []).forEach((b: { mua_id: string | null }) => { if (b.mua_id) counts.set(b.mua_id, (counts.get(b.mua_id) || 0) + 1); });
         const ranked: Artist[] = profiles.map((p: any) => ({
           id: p.id, first_name: p.first_name, last_name: p.last_name, cities: p.cities || [],
           bookings: counts.get(p.id) || 0,
           image: p.mua_portfolio?.[0]?.image_path ? supabase.storage.from("mua-portfolio").getPublicUrl(p.mua_portfolio[0].image_path).data.publicUrl : null,
-        })).filter((a: Artist) => a.bookings > 0).sort((a: Artist, b: Artist) => b.bookings - a.bookings).slice(0, 5);
+        })).sort((a: Artist, b: Artist) => b.bookings - a.bookings).slice(0, 5);
         if (active) setArtists(ranked);
       } catch (error) { console.error("Unable to load top booked artists:", error); if (active) setArtists([]); }
       finally { if (active) setLoading(false); }
