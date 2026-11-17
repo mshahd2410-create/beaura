@@ -110,7 +110,7 @@ export default function BrideAccount() {
               Account
             </h1>
             <p className="mt-4 max-w-xl text-sm leading-7 text-white/60">
-              Keep your details polished, secure, and ready for your next glam booking.
+              your personal information.
             </p>
           </div>
 

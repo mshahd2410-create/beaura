@@ -9,7 +9,7 @@ type GroupTier = {
   id?: string;
   min_people: string;
   max_people: string;
-  total_price: string;
+  price_per_person: string;
 };
 
 type Service = {
@@ -32,7 +32,7 @@ type DraftService = {
 const emptyTier = (): GroupTier => ({
   min_people: "2",
   max_people: "3",
-  total_price: "",
+  price_per_person: "",
 });
 
 const emptyService: DraftService = {
@@ -109,7 +109,7 @@ export default function ServicesPage() {
             id: tier.id,
             min_people: String(tier.min_people),
             max_people: String(tier.max_people),
-            total_price: String(tier.total_price),
+            price_per_person: String(tier.price_per_person),
           });
         });
       }
@@ -138,7 +138,7 @@ export default function ServicesPage() {
     for (const tier of sorted) {
       const min = Number(tier.min_people);
       const max = Number(tier.max_people);
-      const price = Number(tier.total_price);
+      const price = Number(tier.price_per_person);
 
       if (
         !Number.isInteger(min) ||
@@ -150,11 +150,11 @@ export default function ServicesPage() {
       }
 
       if (
-        tier.total_price.trim() === "" ||
+        tier.price_per_person.trim() === "" ||
         !Number.isFinite(price) ||
-        price < 0
+        price <= 0
       ) {
-        return "Please enter a valid total price for every group tier.";
+        return "Please enter a valid price per person greater than zero for every group tier.";
       }
     }
 
@@ -191,7 +191,7 @@ export default function ServicesPage() {
         service_id: serviceId,
         min_people: Number(tier.min_people),
         max_people: Number(tier.max_people),
-        total_price: Number(tier.total_price),
+        price_per_person: Number(tier.price_per_person),
       };
 
       if (tier.id) {
@@ -430,7 +430,7 @@ export default function ServicesPage() {
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6f6077]">
               Manage what clients can book — update names, prices, durations,
-              and optional group offers whenever you need.
+              and optional group pricing whenever you need.
             </p>
           </div>
 
@@ -593,8 +593,9 @@ export default function ServicesPage() {
                           Enable group pricing
                         </span>
                         <span className="mt-1 block text-xs leading-5 text-[#7d6e86]">
-                          Offer a special total price when multiple people
-                          book this service together.
+                          Set your own price per client for bookings with
+                          multiple people. You choose the price for each group
+                          size.
                         </span>
                       </span>
                     </label>
@@ -759,7 +760,7 @@ export default function ServicesPage() {
                       Enable group pricing
                     </span>
                     <span className="mt-1 block text-xs leading-5 text-[#7d6e86]">
-                      Set special total prices for groups.
+                      Set your own price per client for each group size.
                     </span>
                   </span>
                 </label>
@@ -871,7 +872,7 @@ function GroupPricingEditor({
             Group price tiers
           </h3>
           <p className="text-xs text-[#7d6e86]">
-            Set one total price for everyone in the group.
+            Set the price each person pays based on the group size.
           </p>
         </div>
       </div>
@@ -924,16 +925,16 @@ function GroupPricingEditor({
               </Field>
 
               <div className="col-span-2">
-                <Field label="Total group price (EGP)">
+                <Field label="Price per person (EGP)">
                   <input
                     type="number"
-                    min="0"
+                    min="0.01"
                     step="any"
-                    value={tier.total_price}
+                    value={tier.price_per_person}
                     onChange={(e) =>
-                      onChange(index, "total_price", e.target.value)
+                      onChange(index, "price_per_person", e.target.value)
                     }
-                    placeholder="e.g. 5000"
+                    placeholder="e.g. 1500"
                     className="h-11 w-full rounded-xl border border-[#eadff5] bg-white px-3 text-sm text-[#171018] outline-none placeholder:text-[#9b8da4] focus:border-purple-300"
                   />
                 </Field>
@@ -941,8 +942,9 @@ function GroupPricingEditor({
             </div>
 
             <p className="mt-3 text-[11px] leading-5 text-[#8b7c93]">
-              This is the total amount for the entire group, not the price
-              per person.
+              This is the amount charged to each client. The group total is
+              calculated as this price multiplied by the number of people.
+              You set the price yourself — no automatic discount is applied.
             </p>
           </div>
         ))}
@@ -959,7 +961,8 @@ function GroupPricingEditor({
 
       <div className="mt-3 flex items-start gap-2 rounded-xl bg-[#f8f4fc] p-3 text-xs leading-5 text-[#75657e]">
         <Check size={15} className="mt-0.5 shrink-0 text-purple-700" />
-        Brides will see these group options when booking this service.
+        Brides will see the available group sizes and the price per person
+        when booking this service.
       </div>
     </div>
   );

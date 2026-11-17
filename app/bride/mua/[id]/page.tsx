@@ -1,9 +1,9 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import RequestBookingModal from "@/components/booking/RequestBookingModal";
 import {
   ArrowLeft,
   Heart,
@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Sparkles,
   X,
+  Users,
 } from "lucide-react";
 
 export default function MuaProfilePage() {
@@ -21,7 +22,6 @@ export default function MuaProfilePage() {
 
   const [mua, setMua] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [openBooking, setOpenBooking] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [imageOpen, setImageOpen] = useState<string | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -35,7 +35,7 @@ export default function MuaProfilePage() {
   async function loadMua() {
     setLoading(true);
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("mua_profiles")
       .select(`
         id,
@@ -52,7 +52,14 @@ export default function MuaProfilePage() {
           id,
           name,
           price,
-          duration_minutes
+          duration_minutes,
+          group_pricing_enabled,
+          mua_service_group_tiers (
+            id,
+            min_people,
+            max_people,
+            total_price
+          )
         )
       `)
       .eq("id", id)
@@ -60,7 +67,7 @@ export default function MuaProfilePage() {
       .eq("status", "active")
       .single();
 
-    if (!data) {
+    if (error || !data) {
       setLoading(false);
       return;
     }
@@ -72,10 +79,18 @@ export default function MuaProfilePage() {
           .getPublicUrl(p.image_path).data.publicUrl,
       })) || [];
 
+    const services = (data.mua_services || []).map((service: any) => ({
+      ...service,
+      group_tiers: (service.mua_service_group_tiers || []).sort(
+        (a: any, b: any) =>
+          Number(a.min_people) - Number(b.min_people)
+      ),
+    }));
+
     setMua({
       ...data,
       portfolio,
-      services: data.mua_services || [],
+      services,
     });
 
     const {
@@ -94,6 +109,11 @@ export default function MuaProfilePage() {
     }
 
     setLoading(false);
+  }
+
+  function goToBooking() {
+    if (!id) return;
+    router.push(`/bride/booking/${id}`);
   }
 
   async function handleMessage() {
@@ -278,7 +298,7 @@ export default function MuaProfilePage() {
             <div className="mt-7 grid gap-3 sm:grid-cols-3">
               <MiniStat
                 label="Starting from"
-                value={lowestPrice ? `EGP ${lowestPrice}` : "Ask"}
+                value={lowestPrice !== null ? `EGP ${lowestPrice}` : "Ask"}
               />
               <MiniStat label="Services" value={`${mua.services.length}`} />
               <MiniStat label="Photos" value={`${mua.portfolio.length}`} />
@@ -286,7 +306,7 @@ export default function MuaProfilePage() {
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <button
-                onClick={() => setOpenBooking(true)}
+                onClick={goToBooking}
                 className="rounded-full bg-[#171018] px-6 py-3.5 text-sm font-medium text-white transition hover:opacity-90"
               >
                 Request booking
@@ -335,7 +355,7 @@ export default function MuaProfilePage() {
             </div>
 
             <button
-              onClick={() => setOpenBooking(true)}
+              onClick={goToBooking}
               className="rounded-full bg-[#171018] px-6 py-3 text-sm font-medium text-white"
             >
               Book now
@@ -369,6 +389,36 @@ export default function MuaProfilePage() {
                       EGP {service.price}
                     </span>
                   </div>
+
+                  {service.group_pricing_enabled &&
+                    service.group_tiers?.length > 0 && (
+                      <div className="mt-5 border-t border-[#eadff5] pt-4">
+                        <div className="flex items-center gap-2 text-sm font-medium text-purple-700">
+                          <Users size={16} />
+                          Group pricing
+                        </div>
+
+                        <p className="mt-1 text-xs leading-5 text-[#8a7d91]">
+                          Total price for the entire group
+                        </p>
+
+                        <div className="mt-3 space-y-2">
+                          {service.group_tiers.map((tier: any) => (
+                            <div
+                              key={tier.id}
+                              className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 text-sm"
+                            >
+                              <span className="text-[#6f6077]">
+                                {tier.min_people}–{tier.max_people} people
+                              </span>
+                              <span className="font-medium text-[#171018]">
+                                EGP {Number(tier.total_price).toLocaleString("en-EG")}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                 </div>
               ))}
             </div>
@@ -400,6 +450,7 @@ export default function MuaProfilePage() {
               <a
                 href={mua.instagram}
                 target="_blank"
+                rel="noreferrer"
                 className="mt-6 inline-block rounded-full border border-[#eadff5] px-5 py-3 text-sm font-medium"
               >
                 View Instagram
@@ -468,13 +519,6 @@ export default function MuaProfilePage() {
           />
         </div>
       )}
-
-      <RequestBookingModal
-        muaId={mua.id}
-        services={mua.services}
-        open={openBooking}
-        onClose={() => setOpenBooking(false)}
-      />
     </main>
   );
 }

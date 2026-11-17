@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
@@ -29,6 +30,13 @@ type PromoCode = {
   is_active: boolean;
 };
 
+type GroupTier = {
+  id: string;
+  min_people: number;
+  max_people: number;
+  price_per_person: number;
+};
+
 type BasicProfile = {
   id: string;
   first_name: string | null;
@@ -56,6 +64,11 @@ export default function RequestBookingModal({
   const [location, setLocation] = useState("");
   const [notes, setNotes] = useState("");
 
+  const [groupSize, setGroupSize] = useState(1);
+  const [groupTiers, setGroupTiers] = useState<GroupTier[]>([]);
+  const [groupTierLoading, setGroupTierLoading] = useState(false);
+  const [groupTierError, setGroupTierError] = useState<string | null>(null);
+
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [walletBalance, setWalletBalance] = useState(0);
 
@@ -72,7 +85,25 @@ export default function RequestBookingModal({
 
   const selectedService = services.find((s) => s.id === serviceId);
 
-  const servicePrice = selectedService?.price ?? 0;
+  const matchingGroupTier =
+    groupSize > 1
+      ? groupTiers.find(
+          (tier) =>
+            groupSize >= tier.min_people && groupSize <= tier.max_people
+        )
+      : null;
+
+  const groupPricingUnavailable =
+    groupSize > 1 && !groupTierLoading && !matchingGroupTier;
+
+  // Group tiers store a PER-PERSON price.
+  // The service price for a group is that price multiplied by group size.
+  const servicePrice = selectedService
+    ? groupSize > 1 && matchingGroupTier
+      ? matchingGroupTier.price_per_person * groupSize
+      : selectedService.price
+    : 0;
+
   const platformFee = Math.round(servicePrice * 0.1);
   const taxFee = Math.round(servicePrice * 0.01);
 
@@ -91,6 +122,72 @@ export default function RequestBookingModal({
     if (!open) return;
     loadBrideWallet();
   }, [open]);
+
+  useEffect(() => {
+    if (!serviceId) {
+      setGroupTiers([]);
+      setGroupTierError(null);
+      setGroupTierLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadGroupTiers() {
+      setGroupTierLoading(true);
+      setGroupTierError(null);
+      setGroupTiers([]);
+
+      try {
+        const { data, error } = await supabase
+          .from("mua_service_group_tiers")
+          .select("id, min_people, max_people, price_per_person")
+          .eq("service_id", serviceId)
+          .order("min_people", { ascending: true });
+
+        if (error) {
+          console.warn("GROUP TIERS LOAD ERROR:", error);
+
+          if (!cancelled) {
+            setGroupTierError(
+              "Group pricing could not be loaded. Please try again."
+            );
+          }
+
+          return;
+        }
+
+        if (!cancelled) {
+          const mappedTiers: GroupTier[] = (data || []).map((tier) => ({
+            id: tier.id,
+            min_people: Number(tier.min_people),
+            max_people: Number(tier.max_people),
+            price_per_person: Number(tier.price_per_person),
+          }));
+
+          setGroupTiers(mappedTiers);
+        }
+      } catch (tierError) {
+        console.warn("GROUP TIERS LOAD CRASHED:", tierError);
+
+        if (!cancelled) {
+          setGroupTierError(
+            "Group pricing could not be loaded. Please try again."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setGroupTierLoading(false);
+        }
+      }
+    }
+
+    loadGroupTiers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [serviceId]);
 
   useEffect(() => {
     if (!selectedService) {
@@ -349,6 +446,11 @@ export default function RequestBookingModal({
       return;
     }
 
+    if (groupPricingUnavailable || groupTierLoading) {
+      setPromoError("Please wait until group pricing is ready.");
+      return;
+    }
+
     const normalizedCode = promoCodeInput.trim().toUpperCase();
 
     if (!normalizedCode) {
@@ -437,6 +539,23 @@ export default function RequestBookingModal({
         return;
       }
 
+      if (groupTierLoading) {
+        setError("Please wait while group pricing is loading.");
+        return;
+      }
+
+      if (groupTierError) {
+        setError("Group pricing could not be loaded. Please try again.");
+        return;
+      }
+
+      if (groupPricingUnavailable) {
+        setError(
+          "This makeup artist has not configured group pricing for this group size. Please choose another group size or contact the artist."
+        );
+        return;
+      }
+
       if (paymentMethod === "credit_balance" && !canPayWithCredit) {
         setError(
           "Your credit balance is not enough for this booking. Please choose card payment."
@@ -520,6 +639,8 @@ export default function RequestBookingModal({
           location,
           notes: notes || null,
 
+          group_size: groupSize,
+
           service_price: servicePrice,
           platform_fee: platformFee,
           tax_fee: taxFee,
@@ -584,6 +705,10 @@ export default function RequestBookingModal({
     setBookingTime("");
     setLocation("");
     setNotes("");
+    setGroupSize(1);
+    setGroupTiers([]);
+    setGroupTierError(null);
+    setGroupTierLoading(false);
     setPaymentMethod("card");
     removePromo();
     setError(null);
@@ -615,7 +740,12 @@ export default function RequestBookingModal({
           <Field label="Service">
             <select
               value={serviceId}
-              onChange={(e) => setServiceId(e.target.value)}
+              onChange={(e) => {
+                setServiceId(e.target.value);
+                setGroupSize(1);
+                removePromo();
+                setError(null);
+              }}
               className="input"
               disabled={loading}
             >
@@ -629,8 +759,94 @@ export default function RequestBookingModal({
           </Field>
 
           {selectedService && (
+            <div className="rounded-[1.5rem] border border-[#eadff5] bg-[#fffafc] p-4">
+              <Field label="Number of people">
+                <select
+                  value={groupSize}
+                  onChange={(e) => {
+                    setGroupSize(Number(e.target.value));
+                    removePromo();
+                    setError(null);
+                  }}
+                  className="input"
+                  disabled={loading}
+                >
+                  {Array.from({ length: 20 }, (_, index) => index + 1).map(
+                    (size) => (
+                      <option key={size} value={size}>
+                        {size} {size === 1 ? "person" : "people"}
+                      </option>
+                    )
+                  )}
+                </select>
+              </Field>
+
+              {groupSize === 1 && (
+                <p className="mt-3 text-xs leading-5 text-[#6f6077]">
+                  The regular service price applies for one person.
+                </p>
+              )}
+
+              {groupSize > 1 && groupTierLoading && (
+                <p className="mt-3 text-xs leading-5 text-[#6f6077]">
+                  Loading the artist's group prices...
+                </p>
+              )}
+
+              {groupSize > 1 && groupTierError && (
+                <p className="mt-3 rounded-2xl bg-red-50 p-3 text-xs leading-5 text-red-600">
+                  {groupTierError}
+                </p>
+              )}
+
+              {groupSize > 1 &&
+                !groupTierLoading &&
+                !groupTierError &&
+                matchingGroupTier && (
+                  <div className="mt-4 rounded-2xl border border-purple-200 bg-[#f7efff] p-4">
+                    <p className="text-xs uppercase tracking-[0.16em] text-purple-700">
+                      Group pricing
+                    </p>
+
+                    <div className="mt-3 flex justify-between text-sm text-[#6f6077]">
+                      <span>Price per person</span>
+                      <span className="font-medium text-[#171018]">
+                        EGP{" "}
+                        {matchingGroupTier.price_per_person.toLocaleString()}
+                      </span>
+                    </div>
+
+                    <div className="mt-2 flex justify-between text-sm text-[#6f6077]">
+                      <span>Number of people</span>
+                      <span className="font-medium text-[#171018]">
+                        {groupSize}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 flex justify-between border-t border-purple-200 pt-3 text-sm font-semibold text-[#171018]">
+                      <span>Group service total</span>
+                      <span>EGP {servicePrice.toLocaleString()}</span>
+                    </div>
+                  </div>
+                )}
+
+              {groupPricingUnavailable && (
+                <p className="mt-3 rounded-2xl bg-red-50 p-3 text-xs leading-5 text-red-600">
+                  The artist has not configured a group price for {groupSize}{" "}
+                  people. Please choose another group size.
+                </p>
+              )}
+            </div>
+          )}
+
+          {selectedService && (
             <div className="rounded-[1.5rem] border border-[#eadff5] bg-[#fffafc] p-4 text-sm">
-              <PriceRow label="Service price" value={servicePrice} />
+              <PriceRow
+                label={
+                  groupSize > 1 ? "Group service total" : "Service price"
+                }
+                value={servicePrice}
+              />
               <PriceRow label="Platform fee" value={platformFee} />
               <PriceRow label="Tax" value={taxFee} />
 
@@ -684,7 +900,13 @@ export default function RequestBookingModal({
                   <button
                     type="button"
                     onClick={applyPromoCode}
-                    disabled={promoLoading || loading}
+                    disabled={
+                      promoLoading ||
+                      loading ||
+                      groupTierLoading ||
+                      groupPricingUnavailable ||
+                      !!groupTierError
+                    }
                     className="h-12 rounded-full bg-[#171018] px-5 text-sm font-medium text-white disabled:opacity-60"
                   >
                     {promoLoading ? "Checking..." : "Apply"}
@@ -863,7 +1085,12 @@ export default function RequestBookingModal({
           <div className="flex flex-col gap-3 pt-2 sm:flex-row">
             <button
               onClick={submitBooking}
-              disabled={loading}
+              disabled={
+                loading ||
+                groupTierLoading ||
+                !!groupTierError ||
+                groupPricingUnavailable
+              }
               className="h-12 flex-1 rounded-full bg-[#171018] text-sm font-medium text-white disabled:opacity-60"
             >
               {loading ? "Sending..." : "Send request"}
