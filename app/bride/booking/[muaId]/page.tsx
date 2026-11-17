@@ -1831,19 +1831,33 @@ export default function BookingPage() {
                 {selectedService && (
                   <div className="rounded-2xl bg-[#fffafc] p-5">
                     <p className="text-xs text-[#806f85]">
-                      Selected payment preference
+                      Payment summary
                     </p>
 
                     <p className="mt-2 text-lg font-semibold">
                       {paymentMethod === "credit_balance"
-                        ? "Credit"
-                        : "Transfer"}
+                        ? "Beaura Credit"
+                        : "Bank Transfer"}
                     </p>
 
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <span className="text-sm text-[#806f85]">
+                        {paymentMethod === "credit_balance"
+                          ? "Amount to be deducted"
+                          : "50% deposit to pay"}
+                      </span>
+                      <span className="text-lg font-semibold text-[#171018]">
+                        EGP {(paymentMethod === "credit_balance"
+                          ? totalAfterDiscount
+                          : totalAfterDiscount * 0.5
+                        ).toLocaleString("en-EG")}
+                      </span>
+                    </div>
+
                     <p className="mt-2 text-xs leading-5 text-[#806f85]">
-                      EGP {totalAfterDiscount.toLocaleString("en-EG")}{" "}
-                      is your booking total. Nothing is charged
-                      when you send the request.
+                      {paymentMethod === "credit_balance"
+                        ? "The full booking amount will be deducted from your Beaura Credit only after the artist accepts your request."
+                        : "You will pay this 50% deposit by bank transfer only after the artist accepts your request. The remaining 50% will be due later. No payment is taken when you send the request."}
                     </p>
                   </div>
                 )}
