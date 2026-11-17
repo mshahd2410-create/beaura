@@ -153,7 +153,8 @@ export default function HomePage() {
 
         <div className="border-t border-[#eadff5] bg-white/70">
           <div className="mx-auto flex max-w-7xl justify-center gap-8 overflow-x-auto px-6 py-3 text-xs uppercase tracking-[0.2em] text-[#7a6b82]">
-            <a href="#top-artists">Top artists</a>\n            <a href="#occasions">Bridal</a>
+            <a href="#top-artists">Top artists</a>
+            <a href="#occasions">Bridal</a>
             <a href="#occasions">Engagement</a>
             <a href="#occasions">Soirée</a>
             <a href="#styles">Glam styles</a>
@@ -289,7 +290,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      <TopBookedArtists />\n\n      <section id="occasions" className="px-6 py-24">
+      <TopBookedArtists />
+
+      <section id="occasions" className="px-6 py-24">
         <div className="mx-auto max-w-7xl">
           <div className="mb-12 text-center">
             <p className="text-sm uppercase tracking-[0.2em] text-purple-700">
@@ -339,40 +342,35 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="styles" className="bg-white px-6 py-24">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr]">
-            <div>
-              <p className="text-sm uppercase tracking-[0.2em] text-purple-700">
-                glam menu
-              </p>
-              <h2 className="mt-4 text-6xl font-light leading-none tracking-[-0.08em]">
-                Search by the look in your camera roll.
-              </h2>
-              <p className="mt-6 max-w-md text-sm leading-7 text-[#6f6077]">
-                Soft glam, clean bridal, bronze glow, full glam — Beaura lets
-                you think in beauty moods, not boring filters.
-              </p>
+      <section id="styles" className="relative overflow-hidden bg-[#f1e5ff] px-6 py-24">
+        <div className="absolute -right-24 top-0 h-80 w-80 rounded-full bg-[#ffe3ef] blur-3xl" />
+        <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[0.9fr_1.1fr]">
+          <div>
+            <p className="text-xs uppercase tracking-[0.24em] text-purple-700">A little Beaura inspiration</p>
+            <h2 className="mt-5 max-w-xl text-6xl font-light leading-[0.92] tracking-[-0.08em] md:text-7xl">
+              Your moment. Your mood. Your kind of beautiful.
+            </h2>
+            <p className="mt-6 max-w-lg text-sm leading-8 text-[#655968]">
+              From the first look in the mirror to the last photo of the night, find an artist who understands how you want to feel.
+            </p>
+            <Link href="/bride/home" className="mt-8 inline-flex rounded-full bg-[#171018] px-7 py-4 text-sm text-white transition hover:bg-purple-700">
+              Find your artist
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4 pt-12">
+              <img src="/Landing/bridal.jpg" alt="Bridal makeup inspiration" className="h-64 w-full rounded-t-full rounded-b-[2rem] object-cover shadow-lg" />
+              <div className="rounded-[2rem] bg-white p-5">
+                <p className="text-xs uppercase tracking-[0.18em] text-purple-700">The feeling</p>
+                <p className="mt-2 text-2xl font-light tracking-[-0.05em]">Effortlessly you.</p>
+              </div>
             </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              {glamStyles.map((style, index) => (
-                <Link
-                  href="/register/bride"
-                  key={style}
-                  className={`rounded-[2.5rem] bg-[#fffafc] p-7 shadow-sm transition hover:bg-[#f6edff] ${
-                    index % 2 === 0 ? "sm:translate-y-8" : ""
-                  }`}
-                >
-                  <div className="mb-12 h-2 w-20 rounded-full bg-purple-600" />
-                  <p className="text-xs uppercase tracking-[0.2em] text-purple-700">
-                    saved look {index + 1}
-                  </p>
-                  <h3 className="mt-4 text-3xl font-light tracking-[-0.05em]">
-                    {style}
-                  </h3>
-                </Link>
-              ))}
+            <div className="space-y-4">
+              <div className="rounded-[2rem] bg-[#171018] p-5 text-white">
+                <p className="text-xs uppercase tracking-[0.18em] text-white/55">The Beaura promise</p>
+                <p className="mt-2 text-2xl font-light tracking-[-0.05em]">Beauty with a little more meaning.</p>
+              </div>
+              <img src="/Landing/engagement.jpg" alt="Soft engagement makeup inspiration" className="h-80 w-full rounded-t-full rounded-b-[2rem] object-cover shadow-lg" />
             </div>
           </div>
         </div>
