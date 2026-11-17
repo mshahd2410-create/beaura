@@ -1,65 +1,6 @@
 import Link from "next/link";
 import TopBookedArtists from "@/components/TopBookedArtists";
 
-const occasions = [
-  {
-    title: "Bridal era",
-    label: "For the big day",
-    text: "Wedding day glam, trials, and long-wear looks that still feel like you.",
-    image: "/Landing/bridal.jpg",
-  },
-  {
-    title: "Engagement glow",
-    label: "For the announcement",
-    text: "Soft, romantic glam for engagement celebrations and family photos.",
-    image: "/Landing/engagement.jpg",
-  },
-  {
-    title: "Soirée mood",
-    label: "For the night out",
-    text: "Evening makeup for dinners, parties, and every dressed-up moment.",
-    image: "/Landing/soiree.jpg",
-  },
-  {
-    title: "Camera ready",
-    label: "For shoots",
-    text: "Polished looks for photoshoots, content days, and beauty moments.",
-    image: "/Landing/photoshoot.jpg",
-  },
-];
-
-const glamStyles = [
-  "Soft glam",
-  "Clean bridal",
-  "Bronze glow",
-  "Full glam",
-  "Classic bride",
-  "Engagement glow",
-  "Natural glam",
-  "Evening glam",
-];
-
-const edits = [
-  {
-    title: "For the girls who saved 500 makeup looks",
-    text: "Browse by vibe, city, and occasion instead of getting lost in screenshots.",
-    href: "/register/bride",
-    image: "/Landing/bridal.jpg",
-  },
-  {
-    title: "For brides who overthink every detail",
-    text: "Save your favorites, compare styles, and keep your booking process calmer.",
-    href: "/register/bride",
-    image: "/Landing/engagement.jpg",
-  },
-  {
-    title: "For artists who deserve a prettier profile",
-    text: "Show your portfolio, cities, services, and prices in one polished place.",
-    href: "/register/mua",
-    image: "/Landing/artist.jpg",
-  },
-];
-
 export default function HomePage() {
   return (
     <main className="min-h-screen overflow-hidden bg-[#fffafc] text-[#171018]">
