@@ -13,7 +13,7 @@ export default function RegisterPage() {
           </p>
 
           <h1 className="mx-auto mt-4 max-w-3xl text-4xl font-light leading-[0.95] tracking-[-0.07em] sm:text-6xl lg:text-7xl">
-            Choose your glow path.
+            Create your Beaura account.
           </h1>
 
           <p className="mx-auto mt-5 max-w-xl text-sm leading-7 text-[#6f6077]">
@@ -25,17 +25,17 @@ export default function RegisterPage() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <RegisterCard
             href="/register/bride"
-            label="For beauty lovers"
-            title="I want to book makeup"
-            text="Find verified makeup artists for bridal, engagement, soirée, shoots, and special days."
+            label="For clients"
+            title="I want to book a makeup artist"
+            text="Browse artist portfolios, compare services and prices, and request a booking."
             cta="Create client account"
           />
 
           <RegisterCard
             href="/register/mua"
             label="For artists"
-            title="I’m a makeup artist"
-            text="Create your profile, upload your portfolio, list your services, and start receiving bookings."
+            title="I am a makeup artist"
+            text="Build your artist profile, showcase your portfolio, add services and prices, and manage booking requests."
             cta="Create artist account"
           />
         </div>
