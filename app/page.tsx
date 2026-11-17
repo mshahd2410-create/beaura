@@ -92,73 +92,18 @@ export default function HomePage() {
         }
       `}</style>
 
-      <div className="overflow-hidden bg-[#171018] py-2.5 text-xs uppercase tracking-[0.22em] text-white">
-        <div className="marquee-track flex w-max gap-10 whitespace-nowrap">
-          {Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="flex gap-10">
-              <Link href="/register/bride" className="hover:text-purple-200">
-                Book your bridal artist
-              </Link>
-              <span>Soft glam girls, this way</span>
-              <Link href="/register/bride" className="hover:text-purple-200">
-                Start your glam search
-              </Link>
-              <span>Engagement glow without the chaos</span>
-              <Link href="/register/mua" className="hover:text-purple-200">
-                MUAs, join the beauty edit
-              </Link>
-              <span>Pretty bookings only</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <header className="sticky top-0 z-50 border-b border-[#eadff5] bg-[#fffafc]/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
-          <nav className="hidden items-center gap-7 text-xs uppercase tracking-[0.18em] text-[#6f6077] md:flex">
-            <a href="#occasions" className="hover:text-purple-700">
-              Occasions
-            </a>
-            <a href="#styles" className="hover:text-purple-700">
-              Styles
-            </a>
-            <a href="#edits" className="hover:text-purple-700">
-              Edits
-            </a>
+      <header className="sticky top-0 z-50 border-b border-[#eadff5] bg-[#fffafc]/95 backdrop-blur-xl">
+        <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-5 sm:px-8">
+          <Link href="/" className="text-4xl font-light tracking-[-0.09em] text-[#171018]">Beaura<span className="text-purple-600">.</span></Link>
+          <nav className="hidden items-center gap-8 text-sm text-[#6f6077] md:flex">
+            <a href="#artists" className="transition hover:text-purple-700">Makeup artists</a>
+            <a href="#occasions" className="transition hover:text-purple-700">Services</a>
+            <a href="#how-it-works" className="transition hover:text-purple-700">How it works</a>
+            <Link href="/about" className="transition hover:text-purple-700">About Beaura</Link>
           </nav>
-
-          <Link
-            href="/"
-            className="text-4xl font-light tracking-[-0.08em] text-[#171018]"
-          >
-            Beaura
-          </Link>
-
-          <div className="flex items-center gap-3">
-            <Link
-              href="/login"
-              className="rounded-full border border-[#eadff5] bg-white px-5 py-2.5 text-sm text-[#171018] hover:border-purple-300"
-            >
-              Sign in
-            </Link>
-
-            <Link
-              href="/register"
-              className="rounded-full bg-[#171018] px-5 py-2.5 text-sm text-white hover:bg-purple-700"
-            >
-              Sign up
-            </Link>
-          </div>
-        </div>
-
-        <div className="border-t border-[#eadff5] bg-white/70">
-          <div className="mx-auto flex max-w-7xl justify-center gap-8 overflow-x-auto px-6 py-3 text-xs uppercase tracking-[0.2em] text-[#7a6b82]">
-            <a href="#top-artists">Top artists</a>
-            <a href="#occasions">Bridal</a>
-            <a href="#occasions">Engagement</a>
-            <a href="#occasions">Soirée</a>
-            <a href="#styles">Glam styles</a>
-            <a href="#artists">Artists</a>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link href="/login" className="rounded-full px-4 py-2.5 text-sm text-[#171018] transition hover:bg-[#f1e5ff]">Log in</Link>
+            <Link href="/register" className="rounded-full bg-[#171018] px-5 py-2.5 text-sm text-white transition hover:bg-purple-700">Create account</Link>
           </div>
         </div>
       </header>
@@ -269,152 +214,60 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="overflow-hidden bg-[#f1e5ff] py-4 text-sm uppercase tracking-[0.18em] text-[#4d4054]">
-        <div className="marquee-track flex w-max gap-12 whitespace-nowrap">
-          {Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="flex gap-12">
-              <Link href="/register/bride" className="hover:text-purple-700">
-                Find your wedding-day face
-              </Link>
-              <span>For the girls who saved 500 makeup looks</span>
-              <Link href="/register/bride" className="hover:text-purple-700">
-                Browse soft glam MUAs
-              </Link>
-              <span>Main character makeup energy</span>
-              <Link href="/register/mua" className="hover:text-purple-700">
-                Artists, get discovered
-              </Link>
-              <span>DM chaos ends here</span>
-            </div>
-          ))}
+      <section className="border-y border-[#eadff5] bg-white px-5 py-7 sm:px-8">
+        <div className="mx-auto grid max-w-7xl gap-5 text-center sm:grid-cols-3 sm:text-left">
+          <div className="flex items-center justify-center gap-3 sm:justify-start">
+            <span className="grid h-11 w-11 place-items-center rounded-full bg-[#f1e5ff] text-lg text-purple-700">01</span>
+            <div><p className="text-sm font-medium text-[#171018]">Browse artist portfolios</p><p className="mt-1 text-xs text-[#827587]">See real makeup work and services</p></div>
+          </div>
+          <div className="flex items-center justify-center gap-3 sm:justify-start">
+            <span className="grid h-11 w-11 place-items-center rounded-full bg-[#ffe8f0] text-lg text-[#a44c78]">02</span>
+            <div><p className="text-sm font-medium text-[#171018]">Check prices and details</p><p className="mt-1 text-xs text-[#827587]">Know what each service includes</p></div>
+          </div>
+          <div className="flex items-center justify-center gap-3 sm:justify-start">
+            <span className="grid h-11 w-11 place-items-center rounded-full bg-[#f1e5ff] text-lg text-purple-700">03</span>
+            <div><p className="text-sm font-medium text-[#171018]">Send a booking request</p><p className="mt-1 text-xs text-[#827587]">Keep your booking in one place</p></div>
+          </div>
         </div>
       </section>
 
-      <TopBookedArtists />
-
-      <section id="occasions" className="px-6 py-24">
+      <section id="artists" className="scroll-mt-28 px-5 py-24 sm:px-8">
         <div className="mx-auto max-w-7xl">
-          <div className="mb-12 text-center">
-            <p className="text-sm uppercase tracking-[0.2em] text-purple-700">
-              choose your moment
-            </p>
-            <h2 className="mx-auto mt-4 max-w-4xl text-6xl font-light leading-none tracking-[-0.08em]">
-              Every plan has a different kind of glam.
-            </h2>
-          </div>
-
-          <div className="grid gap-5 md:grid-cols-4">
-            {occasions.map((item, index) => (
-              <Link
-                href="/register/bride"
-                key={item.title}
-                className={`group rounded-[3rem] border border-[#eadff5] bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-xl ${
-                  index === 0 ? "md:col-span-2 md:row-span-2" : ""
-                }`}
-              >
-                <div className="relative">
-                  <img
-                    src={item.image}
-                    alt={item.title}
-                    className={`w-full rounded-t-full rounded-b-[2rem] object-cover ${
-                      index === 0 ? "h-80" : "h-44"
-                    }`}
-                  />
-                  <span className="absolute left-4 top-4 rounded-full bg-white px-4 py-2 text-xs uppercase tracking-[0.16em] text-purple-700 shadow">
-                    {item.label}
-                  </span>
-                </div>
-
-                <div className="p-3">
-                  <p className="mt-5 text-xs uppercase tracking-[0.2em] text-purple-700">
-                    0{index + 1}
-                  </p>
-                  <h3 className="mt-3 text-3xl font-light tracking-[-0.05em]">
-                    {item.title}
-                  </h3>
-                  <p className="mt-3 text-sm leading-7 text-[#6f6077]">
-                    {item.text}
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="styles" className="relative overflow-hidden bg-[#f1e5ff] px-6 py-24">
-        <div className="absolute -right-24 top-0 h-80 w-80 rounded-full bg-[#ffe3ef] blur-3xl" />
-        <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[0.9fr_1.1fr]">
-          <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-purple-700">A little Beaura inspiration</p>
-            <h2 className="mt-5 max-w-xl text-6xl font-light leading-[0.92] tracking-[-0.08em] md:text-7xl">
-              Your moment. Your mood. Your kind of beautiful.
-            </h2>
-            <p className="mt-6 max-w-lg text-sm leading-8 text-[#655968]">
-              From the first look in the mirror to the last photo of the night, find an artist who understands how you want to feel.
-            </p>
-            <Link href="/bride/home" className="mt-8 inline-flex rounded-full bg-[#171018] px-7 py-4 text-sm text-white transition hover:bg-purple-700">
-              Find your artist
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-4 pt-12">
-              <img src="/Landing/bridal.jpg" alt="Bridal makeup inspiration" className="h-64 w-full rounded-t-full rounded-b-[2rem] object-cover shadow-lg" />
-              <div className="rounded-[2rem] bg-white p-5">
-                <p className="text-xs uppercase tracking-[0.18em] text-purple-700">The feeling</p>
-                <p className="mt-2 text-2xl font-light tracking-[-0.05em]">Effortlessly you.</p>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div className="rounded-[2rem] bg-[#171018] p-5 text-white">
-                <p className="text-xs uppercase tracking-[0.18em] text-white/55">The Beaura promise</p>
-                <p className="mt-2 text-2xl font-light tracking-[-0.05em]">Beauty with a little more meaning.</p>
-              </div>
-              <img src="/Landing/engagement.jpg" alt="Soft engagement makeup inspiration" className="h-80 w-full rounded-t-full rounded-b-[2rem] object-cover shadow-lg" />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="edits" className="px-6 py-24">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-12 flex flex-col justify-between gap-6 md:flex-row md:items-end">
+          <div className="mb-10 flex flex-col justify-between gap-6 md:flex-row md:items-end">
             <div>
-              <p className="text-sm uppercase tracking-[0.2em] text-purple-700">
-                beaura edits
-              </p>
-              <h2 className="mt-4 max-w-3xl text-6xl font-light leading-none tracking-[-0.08em]">
-                Made for the girls who need options.
-              </h2>
+              <p className="text-xs uppercase tracking-[0.22em] text-purple-700">Find your makeup artist</p>
+              <h2 className="mt-4 max-w-3xl text-5xl font-light leading-[0.95] tracking-[-0.075em] md:text-7xl">Meet artists. See their work. Find your match.</h2>
+              <p className="mt-5 max-w-2xl text-sm leading-7 text-[#6f6077]">Explore makeup artists in Egypt, view their portfolios, compare services and prices, and choose who feels right for your occasion.</p>
             </div>
-
-            <Link
-              href="/register"
-              className="w-fit rounded-full bg-[#171018] px-7 py-3.5 text-sm text-white hover:bg-purple-700"
-            >
-              Start browsing
-            </Link>
+            <Link href="/bride/home" className="inline-flex w-fit items-center gap-3 rounded-full bg-[#171018] px-6 py-3.5 text-sm text-white transition hover:bg-purple-700">Browse all artists <span aria-hidden="true">↗</span></Link>
           </div>
+          <TopBookedArtists />
+        </div>
+      </section>
 
-          <div className="grid gap-5 md:grid-cols-3">
-            {edits.map((edit) => (
-              <Link
-                href={edit.href}
-                key={edit.title}
-                className="rounded-[3rem] border border-[#eadff5] bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
-              >
-                <img
-                  src={edit.image}
-                  alt={edit.title}
-                  className="mb-8 h-64 w-full rounded-t-full rounded-b-[2rem] object-cover"
-                />
-                <div className="p-3">
-                  <h3 className="text-4xl font-light leading-none tracking-[-0.06em]">
-                    {edit.title}
-                  </h3>
-                  <p className="mt-5 text-sm leading-7 text-[#6f6077]">
-                    {edit.text}
-                  </p>
+      <section id="occasions" className="scroll-mt-28 bg-[#f1e5ff] px-5 py-24 sm:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-12 max-w-2xl">
+            <p className="text-xs uppercase tracking-[0.22em] text-purple-700">Makeup for every occasion</p>
+            <h2 className="mt-4 text-5xl font-light leading-[0.95] tracking-[-0.075em] md:text-6xl">What are you getting ready for?</h2>
+            <p className="mt-5 text-sm leading-7 text-[#655968]">Choose the occasion and explore artists who offer the service you need.</p>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              {title:"Bridal makeup",desc:"For your wedding day and bridal trials.",image:"/Landing/bridal.jpg"},
+              {title:"Engagement makeup",desc:"For your engagement and katb ketab.",image:"/Landing/engagement.jpg"},
+              {title:"Soirée makeup",desc:"For parties, dinners and celebrations.",image:"/Landing/soiree.jpg"},
+              {title:"Photoshoot makeup",desc:"For professional photos and special shoots.",image:"/Landing/photoshoot.jpg"}
+            ].map((item,index)=>(
+              <Link key={item.title} href="/bride/home" className="group overflow-hidden rounded-[2rem] border border-white/80 bg-white p-3 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+                <div className="relative overflow-hidden rounded-[1.5rem]">
+                  <img src={item.image} alt={item.title} className="h-64 w-full object-cover transition duration-700 group-hover:scale-105"/>
+                  <span className="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] text-purple-700">0{index+1}</span>
+                </div>
+                <div className="px-3 pb-4 pt-5">
+                  <h3 className="text-2xl font-light tracking-[-0.045em] text-[#171018]">{item.title}</h3>
+                  <p className="mt-2 min-h-12 text-sm leading-6 text-[#6f6077]">{item.desc}</p>
+                  <span className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-purple-700">Explore artists <span aria-hidden="true">↗</span></span>
                 </div>
               </Link>
             ))}
@@ -422,155 +275,67 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="how" className="bg-[#171018] px-6 py-24 text-white">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-14 text-center">
-            <p className="text-sm uppercase tracking-[0.2em] text-white/45">
-              how it works
-            </p>
-            <h2 className="mx-auto mt-4 max-w-4xl text-6xl font-light leading-none tracking-[-0.08em]">
-              From “who should I book?” to booked.
-            </h2>
+      <section id="how-it-works" className="scroll-mt-28 px-5 py-24 sm:px-8">
+        <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+          <div>
+            <p className="text-xs uppercase tracking-[0.22em] text-purple-700">Simple from start to finish</p>
+            <h2 className="mt-4 text-5xl font-light leading-[0.95] tracking-[-0.075em] md:text-6xl">Booking your makeup artist should be easy.</h2>
+            <p className="mt-6 max-w-lg text-sm leading-7 text-[#6f6077]">Everything you need to choose an artist and send your request is organised in one place.</p>
+            <Link href="/bride/home" className="mt-8 inline-flex rounded-full border border-[#d9cbe6] bg-white px-6 py-3.5 text-sm text-[#171018] transition hover:border-purple-400 hover:text-purple-700">Start exploring</Link>
           </div>
-
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="space-y-3">
             {[
-              ["Discover", "Browse by city, service, and style."],
-              ["Save", "Keep favorite artists in one place."],
-              ["Request", "Send your booking details clearly."],
-              ["Confirm", "Wait for artist confirmation and support."],
-            ].map(([title, text], index) => (
-              <div key={title} className="rounded-[2.5rem] bg-white/[0.07] p-7">
-                <p className="text-sm text-white/35">0{index + 1}</p>
-                <h3 className="mt-16 text-3xl font-light tracking-[-0.05em]">
-                  {title}
-                </h3>
-                <p className="mt-4 text-sm leading-7 text-white/55">{text}</p>
+              ["01","Choose your artist","Browse portfolios, locations, services and prices."],
+              ["02","Choose your service and date","Review the details and send your booking request."],
+              ["03","Track your booking","See updates, communicate with your artist and follow your booking status."]
+            ].map(([number,title,desc])=>(
+              <div key={number} className="flex gap-5 rounded-[1.75rem] border border-[#eadff5] bg-white p-6 sm:p-7">
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#f1e5ff] text-sm text-purple-700">{number}</span>
+                <div><h3 className="text-xl font-medium tracking-[-0.03em]">{title}</h3><p className="mt-2 text-sm leading-6 text-[#6f6077]">{desc}</p></div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section id="artists" className="px-6 py-24">
-        <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-2">
-          <div className="rounded-[3.5rem] bg-white p-10 shadow-sm md:p-14">
-            <p className="text-sm uppercase tracking-[0.2em] text-purple-700">
-              for brides
-            </p>
-            <h2 className="mt-5 text-6xl font-light leading-none tracking-[-0.08em]">
-              Less searching. Better screenshots.
-            </h2>
-            <p className="mt-6 text-sm leading-7 text-[#6f6077]">
-              Browse artists, compare styles, send requests, and keep your
-              booking details organized without losing the vibe.
-            </p>
-
-            <Link
-              href="/register/bride"
-              className="mt-9 inline-block rounded-full bg-purple-600 px-8 py-4 text-sm text-white hover:bg-purple-700"
-            >
-              Register as bride
-            </Link>
+      <section className="px-5 pb-24 sm:px-8">
+        <div className="mx-auto grid max-w-7xl overflow-hidden rounded-[2.5rem] bg-[#171018] text-white md:grid-cols-[1fr_0.8fr]">
+          <div className="p-8 sm:p-12 lg:p-16">
+            <p className="text-xs uppercase tracking-[0.22em] text-[#d8b9f5]">For makeup artists</p>
+            <h2 className="mt-5 max-w-xl text-5xl font-light leading-[0.95] tracking-[-0.07em] md:text-6xl">Showcase your work. Reach new clients.</h2>
+            <p className="mt-6 max-w-lg text-sm leading-7 text-white/65">Create your Beaura profile, add your portfolio and services, set your prices, and manage booking requests in one place.</p>
+            <Link href="/register/mua" className="mt-8 inline-flex rounded-full bg-white px-7 py-3.5 text-sm text-[#171018] transition hover:bg-[#f1e5ff]">Join Beaura as an artist</Link>
           </div>
-
-          <div className="overflow-hidden rounded-[3.5rem] bg-[#f1e5ff]">
-            <img
-              src="/Landing/artist.jpg"
-              alt="Makeup artist"
-              className="h-72 w-full object-cover"
-            />
-            <div className="p-10 md:p-14">
-              <p className="text-sm uppercase tracking-[0.2em] text-purple-700">
-                for artists
-              </p>
-              <h2 className="mt-5 text-6xl font-light leading-none tracking-[-0.08em]">
-                Your work deserves to be discovered.
-              </h2>
-              <p className="mt-6 text-sm leading-7 text-[#6f6077]">
-                Showcase your services, prices, cities, and portfolio inside a
-                platform designed for beauty bookings.
-              </p>
-
-              <Link
-                href="/register/mua"
-                className="mt-9 inline-block rounded-full bg-[#171018] px-8 py-4 text-sm text-white hover:bg-purple-700"
-              >
-                Join as artist
-              </Link>
+          <div className="relative min-h-[320px]">
+            <img src="/Landing/artist.jpg" alt="Makeup artist at work" className="absolute inset-0 h-full w-full object-cover"/>
+            <div className="absolute inset-0 bg-gradient-to-t from-[#171018]/50 to-transparent"/>
+            <div className="absolute bottom-6 left-6 rounded-2xl border border-white/30 bg-white/90 px-5 py-4 text-[#171018] backdrop-blur">
+              <p className="text-xs uppercase tracking-[0.16em] text-purple-700">Your artist profile</p>
+              <p className="mt-1 text-lg">Portfolio · Services · Bookings</p>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="overflow-hidden bg-[#f1e5ff] py-5 text-xl font-light tracking-[-0.04em] text-[#171018]">
-        <div className="marquee-track flex w-max gap-10 whitespace-nowrap">
-          {Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="flex gap-10">
-              <Link href="/register/bride" className="hover:text-purple-700">
-                Find your bridal artist
-              </Link>
-              <span>soft glam approved</span>
-              <Link href="/register/bride" className="hover:text-purple-700">
-                Browse engagement looks
-              </Link>
-              <span>clean bridal makeup</span>
-              <Link href="/register/mua" className="hover:text-purple-700">
-                artists, join Beaura
-              </Link>
-              <span>evening glam without the stress</span>
-            </div>
-          ))}
+      <section className="bg-white px-5 py-20 sm:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-8 rounded-[2rem] bg-[#f1e5ff] px-7 py-12 text-center md:flex-row md:text-left lg:px-14">
+          <div>
+            <p className="text-xs uppercase tracking-[0.22em] text-purple-700">Your next step</p>
+            <h2 className="mt-3 text-4xl font-light tracking-[-0.06em] md:text-5xl">Ready to find your makeup artist?</h2>
+            <p className="mt-3 text-sm leading-6 text-[#655968]">Browse artists and choose the one who fits your style, occasion and budget.</p>
+          </div>
+          <Link href="/bride/home" className="shrink-0 rounded-full bg-[#171018] px-8 py-4 text-sm text-white transition hover:bg-purple-700">Find an artist</Link>
         </div>
       </section>
 
-      <section className="px-6 py-24">
-        <div className="mx-auto max-w-7xl rounded-[4rem] bg-white p-10 text-center shadow-sm md:p-20">
-          <p className="text-sm uppercase tracking-[0.2em] text-purple-700">
-            start beaura
-          </p>
-          <h2 className="mx-auto mt-5 max-w-5xl text-7xl font-light leading-[0.9] tracking-[-0.09em]">
-            Your glam era deserves a better booking experience.
-          </h2>
-
-          <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link
-              href="/register/bride"
-              className="rounded-full bg-purple-600 px-8 py-4 text-sm text-white hover:bg-purple-700"
-            >
-              Sign up as bride
-            </Link>
-            <Link
-              href="/register/mua"
-              className="rounded-full border border-[#d9cbe6] px-8 py-4 text-sm hover:border-purple-400 hover:text-purple-700"
-            >
-              Sign up as artist
-            </Link>
+      <footer className="border-t border-[#eadff5] bg-white px-5 py-12 sm:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr]">
+            <div><Link href="/" className="text-4xl font-light tracking-[-0.09em]">Beaura<span className="text-purple-600">.</span></Link><p className="mt-4 max-w-sm text-sm leading-7 text-[#6f6077]">A simpler way to discover makeup artists and organise your beauty bookings.</p></div>
+            <div><p className="text-xs uppercase tracking-[0.18em] text-purple-700">Explore</p><div className="mt-4 flex flex-col gap-3 text-sm text-[#6f6077]"><a href="#artists" className="hover:text-purple-700">Makeup artists</a><a href="#occasions" className="hover:text-purple-700">Services</a><a href="#how-it-works" className="hover:text-purple-700">How it works</a><Link href="/register/mua" className="hover:text-purple-700">Join as an artist</Link></div></div>
+            <div><p className="text-xs uppercase tracking-[0.18em] text-purple-700">Beaura</p><div className="mt-4 flex flex-col gap-3 text-sm text-[#6f6077]"><Link href="/about" className="hover:text-purple-700">About us</Link><Link href="/contact" className="hover:text-purple-700">Contact</Link><Link href="/faqs" className="hover:text-purple-700">FAQs</Link><Link href="/privacy" className="hover:text-purple-700">Privacy</Link><Link href="/terms" className="hover:text-purple-700">Terms</Link></div></div>
           </div>
-        </div>
-      </section>
-
-      <footer className="border-t border-[#eadff5] bg-white px-6 py-10">
-        <div className="mx-auto flex max-w-7xl flex-col justify-between gap-6 text-sm text-[#6f6077] md:flex-row">
-          <p>© 2026 Beaura</p>
-
-          <div className="flex flex-wrap gap-5">
-            <Link href="/about" className="hover:text-purple-700">
-              About
-            </Link>
-            <Link href="/contact" className="hover:text-purple-700">
-              Contact
-            </Link>
-            <Link href="/faqs" className="hover:text-purple-700">
-              FAQ
-            </Link>
-            <Link href="/privacy" className="hover:text-purple-700">
-              Privacy
-            </Link>
-            <Link href="/terms" className="hover:text-purple-700">
-              Terms
-            </Link>
-          </div>
+          <div className="mt-10 border-t border-[#eadff5] pt-6 text-xs text-[#8a7d91]">© {new Date().getFullYear()} Beaura Egypt. All rights reserved.</div>
         </div>
       </footer>
     </main>
