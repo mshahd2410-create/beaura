@@ -11,6 +11,7 @@ export default function TopBookedArtists() {
   const [artists, setArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
   const [bookingCountsAvailable, setBookingCountsAvailable] = useState(true);
+  const [hasCompletedBookings, setHasCompletedBookings] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -26,7 +27,10 @@ export default function TopBookedArtists() {
           return;
         }
         if (bookingError) console.error("Unable to load completed booking counts:", bookingError);
-        if (active) setBookingCountsAvailable(!bookingError);
+        if (active) {
+          setBookingCountsAvailable(!bookingError);
+          setHasCompletedBookings(!bookingError && (bookings || []).length > 0);
+        }
         const counts = new Map<string, number>();
         (bookings || []).forEach((b: { mua_id: string | null }) => { if (b.mua_id) counts.set(b.mua_id, (counts.get(b.mua_id) || 0) + 1); });
         const ranked: Artist[] = profiles.map((p: any) => ({
@@ -48,7 +52,7 @@ export default function TopBookedArtists() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-12 flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div>
-            <p className="flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-purple-700"><Sparkles size={14} /> {bookingCountsAvailable ? "Most booked on Beaura" : "Discover Beaura artists"}</p>
+            <p className="flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-purple-700"><Sparkles size={14} /> {bookingCountsAvailable && hasCompletedBookings ? "Most booked on Beaura" : "Discover Beaura artists"}</p>
             <h2 className="mt-4 max-w-3xl text-5xl font-light leading-[0.95] tracking-[-0.08em] md:text-7xl">Meet your makeup artist.</h2>
             <p className="mt-5 max-w-xl text-sm leading-7 text-[#6f6077]">Browse artist portfolios, locations and services. Find the right match for your occasion.</p>
           </div>
