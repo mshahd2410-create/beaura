@@ -1,0 +1,670 @@
+﻿diff --git a/app/bride/booking/[muaId]/page.tsx b/app/bride/booking/[muaId]/page.tsx
+index 5ed64a5..11c587f 100644
+--- a/app/bride/booking/[muaId]/page.tsx
++++ b/app/bride/booking/[muaId]/page.tsx
+@@ -4,6 +4,7 @@
+ import { useEffect, useMemo, useState, type ReactNode } from "react";
+ import { useParams, useRouter } from "next/navigation";
+ import { supabase } from "@/lib/supabaseClient";
++import GoogleLocationPicker from "@/components/GoogleLocationPicker";
+ import {
+   ArrowLeft,
+   CalendarDays,
+@@ -80,9 +81,27 @@ type BookingData = {
+   booking_date: string | null;
+   booking_time: string | null;
+   location: string | null;
+-  total_price: number | null;
++  location_latitude?: number | null;
++  location_longitude?: number | null;
++  location_place_id?: string | null;
++  total_price: number | string | null;
+ };
+ 
++function roundMoney(value: number) {
++  return Math.round((value + Number.EPSILON) * 100) / 100;
++}
++
++// Always calculate the minimum date using Egypt time,
++// regardless of the visitor's browser timezone.
++function getTodayInCairo() {
++  return new Intl.DateTimeFormat("en-CA", {
++    timeZone: "Africa/Cairo",
++    year: "numeric",
++    month: "2-digit",
++    day: "2-digit",
++  }).format(new Date());
++}
++
+ export default function BookingPage() {
+   const params = useParams<{ muaId: string }>();
+   const router = useRouter();
+@@ -99,6 +118,14 @@ export default function BookingPage() {
+   const [bookingTime, setBookingTime] = useState("");
+   const [location, setLocation] = useState("");
+ 
++  // Google Maps selected location
++  const [locationLatitude, setLocationLatitude] =
++    useState<number | null>(null);
++  const [locationLongitude, setLocationLongitude] =
++    useState<number | null>(null);
++  const [locationPlaceId, setLocationPlaceId] =
++    useState<string | null>(null);
++
+   const [acceptedLocations, setAcceptedLocations] = useState<
+     ArtistLocation[]
+   >([]);
+@@ -126,6 +153,8 @@ export default function BookingPage() {
+   const [loading, setLoading] = useState(false);
+   const [error, setError] = useState<string | null>(null);
+   const [bookingComplete, setBookingComplete] = useState(false);
++  const [createdBooking, setCreatedBooking] =
++    useState<BookingData | null>(null);
+ 
+   const selectedService = services.find(
+     (service) => service.id === serviceId
+@@ -157,33 +186,29 @@ export default function BookingPage() {
+   const invalidGroupSize =
+     groupPricingRequired && !matchingGroupTier;
+ 
+-  // Group tier prices are PER PERSON.
+-  // The service price used for the booking is the full group total.
+-  // For one person, the normal service price applies.
++  // These calculations are for the price preview only.
++  // The database independently calculates and saves all prices.
+   const servicePrice = selectedService
+     ? matchingGroupTier
+-      ? matchingGroupTier.price_per_person * groupSize
++      ? roundMoney(
++          matchingGroupTier.price_per_person * groupSize
++        )
+       : selectedService.price
+     : 0;
+ 
+-  // Existing platform fee and tax calculations remain unchanged.
+-  const platformFee = Math.round(servicePrice * 0.1);
+-  const taxFee = Math.round(servicePrice * 0.01);
++  const platformFee = roundMoney(servicePrice * 0.1);
++  const taxFee = roundMoney(servicePrice * 0.01);
+ 
+-  // Promo codes apply to the existing service, platform fee and tax.
+-  // Travel fee is added separately and is not discounted.
+   const discountableTotal =
+     servicePrice + platformFee + taxFee;
+ 
+   const totalBeforeDiscount =
+     discountableTotal + travelFee;
+ 
+-  const totalAfterDiscount =
++  const totalAfterDiscount = roundMoney(
+     Math.max(discountableTotal - promoDiscount, 0) +
+-    travelFee;
+-
+-  // Artist payout remains based on the service price.
+-  const muaPayout = Math.round(servicePrice * 0.9);
++      travelFee
++  );
+ 
+   const canPayWithCredit =
+     walletBalance >= totalAfterDiscount &&
+@@ -192,14 +217,6 @@ export default function BookingPage() {
+   const useWalletCredit =
+     paymentMethod === "credit_balance";
+ 
+-  const walletCreditAmount = useWalletCredit
+-    ? totalAfterDiscount
+-    : 0;
+-
+-  const amountDueAfterWallet = useWalletCredit
+-    ? 0
+-    : totalAfterDiscount;
+-
+   const artistName =
+     `${mua?.first_name || ""} ${mua?.last_name || ""}`.trim() ||
+     "Makeup artist";
+@@ -301,7 +318,6 @@ export default function BookingPage() {
+           ),
+       }));
+ 
+-      // Load only the locations accepted by this artist.
+       const { data: locationData, error: locationError } =
+         await supabase
+           .from("mua_service_locations")
+@@ -386,13 +402,13 @@ export default function BookingPage() {
+     let discount = 0;
+ 
+     if (promo.discount_type === "percentage") {
+-      discount = Math.round(
++      discount = roundMoney(
+         baseTotal * (Number(promo.discount_value) / 100)
+       );
+     }
+ 
+     if (promo.discount_type === "fixed") {
+-      discount = Math.round(
++      discount = roundMoney(
+         Number(promo.discount_value)
+       );
+     }
+@@ -408,12 +424,6 @@ export default function BookingPage() {
+     setPromoSuccess(null);
+   }
+ 
+-  function addMinutes(date: Date, minutes: number) {
+-    return new Date(
+-      date.getTime() + minutes * 60000
+-    );
+-  }
+-
+   function getFullName(
+     profile: BasicProfile | null | undefined,
+     fallback: string
+@@ -493,7 +503,7 @@ export default function BookingPage() {
+             bookingTime: bookingData.booking_time,
+             serviceName: getEmailServiceName(),
+             location: bookingData.location,
+-            totalPrice: bookingData.total_price,
++            totalPrice: Number(bookingData.total_price || 0),
+           }),
+         }
+       );
+@@ -542,7 +552,7 @@ export default function BookingPage() {
+             bookingTime: bookingData.booking_time,
+             serviceName: getEmailServiceName(),
+             location: bookingData.location,
+-            totalPrice: bookingData.total_price,
++            totalPrice: Number(bookingData.total_price || 0),
+           }),
+         }
+       );
+@@ -588,7 +598,7 @@ export default function BookingPage() {
+       const { data, error } = await supabase
+         .from("promo_codes")
+         .select("*")
+-        .eq("code", normalizedCode)
++        .ilike("code", normalizedCode)
+         .maybeSingle();
+ 
+       if (error) {
+@@ -610,7 +620,7 @@ export default function BookingPage() {
+ 
+       if (
+         promo.expires_at &&
+-        new Date(promo.expires_at) < new Date()
++        new Date(promo.expires_at) <= new Date()
+       ) {
+         setPromoError("This promo code has expired.");
+         return;
+@@ -626,7 +636,6 @@ export default function BookingPage() {
+         return;
+       }
+ 
+-      // Promo discount does not apply to travel fee.
+       const discount = calculatePromoDiscount(
+         promo,
+         discountableTotal
+@@ -671,7 +680,24 @@ export default function BookingPage() {
+       return;
+     }
+ 
+-    // Make sure the selected location is still accepted.
++    // Require the bride to confirm a pin on the map.
++    if (
++      locationLatitude === null ||
++      locationLongitude === null
++    ) {
++      setError(
++        "Please select your address and confirm your exact location on the map."
++      );
++      return;
++    }
++
++    if (bookingDate < getTodayInCairo()) {
++      setError(
++        "Please choose today or a future date in Egypt time."
++      );
++      return;
++    }
++
+     if (
+       !acceptedLocations.some(
+         (item) => item.location_type === locationType
+@@ -710,71 +736,99 @@ export default function BookingPage() {
+     try {
+       const {
+         data: { user },
++        error: authError,
+       } = await supabase.auth.getUser();
+ 
+-      if (!user) {
+-        setError("You must be logged in.");
++      if (authError || !user) {
++        setError(
++          "You must be logged in to send a booking request."
++        );
+         return;
+       }
+ 
+-      const startTime = new Date(
+-        `${bookingDate}T${bookingTime}`
+-      );
+-
+-      const durationMinutes =
+-        selectedService.duration_minutes || 90;
+-
+-      const endTime = addMinutes(
+-        startTime,
+-        durationMinutes
+-      );
++      // IMPORTANT:
++      // The database function handles:
++      // - MUA and service validation
++      // - Group pricing
++      // - Travel fee
++      // - Platform fee and tax
++      // - Promo validation and usage
++      // - Egypt timezone conversion
++      // - Availability checking and conflict prevention
++      // - Booking insertion
++      //
++      // Never insert calculated prices directly from this page.
++
++      const { data, error: bookingError } =
++        await supabase.rpc("create_beaura_booking", {
++          p_service_id: serviceId,
++          p_booking_date: bookingDate,
++          p_booking_time: bookingTime,
++          p_group_size: groupSize,
++          p_location_type: locationType,
++          p_location: location.trim(),
++          p_notes: notes.trim() || null,
++          p_promo_code: appliedPromo?.code || null,
++
++          // The SQL function accepts "card" or "wallet".
++          // The UI uses "credit_balance" for the wallet option.
++          p_payment_method:
++            paymentMethod === "credit_balance"
++              ? "wallet"
++              : "card",
++
++          p_use_wallet_credit: useWalletCredit,
++
++          // Google Maps location data
++          p_location_latitude: locationLatitude,
++          p_location_longitude: locationLongitude,
++          p_location_place_id: locationPlaceId,
++        });
++
++      if (bookingError) {
++        console.error(
++          "SECURE BOOKING RPC ERROR:",
++          bookingError
++        );
+ 
+-      if (
+-        Number.isNaN(startTime.getTime()) ||
+-        Number.isNaN(endTime.getTime())
+-      ) {
+-        setError("Please choose a valid date and time.");
++        setError(
++          bookingError.message ||
++            "We couldn't create your booking request."
++        );
+         return;
+       }
+ 
+-      const { data: conflicts, error: conflictError } =
+-        await supabase.rpc(
+-          "check_mua_time_conflict",
+-          {
+-            p_mua_id: muaId,
+-            p_start_time: startTime.toISOString(),
+-            p_end_time: endTime.toISOString(),
+-          }
+-        );
++      // A function returning public.bookings should return
++      // the created booking row. Handle either response shape.
++      const bookingRow = (
++        Array.isArray(data) ? data[0] : data
++      ) as BookingData | null;
+ 
+-      if (conflictError) {
+-        console.warn(
+-          "AVAILABILITY CHECK ERROR:",
+-          conflictError
++      if (!bookingRow?.id) {
++        console.error(
++          "BOOKING RPC RETURNED NO BOOKING:",
++          data
+         );
+-        setError(conflictError.message);
+-        return;
+-      }
+ 
+-      if (conflicts && conflicts.length > 0) {
+         setError(
+-          "Sorry, this makeup artist already has a booking or blocked time during this slot. Please choose another time."
++          "The booking response was incomplete. Please contact support before trying again."
+         );
+         return;
+       }
+ 
+-      const [brideProfile, muaProfile] =
+-        await Promise.all([
+-          getBrideProfile(user.id),
+-          getMuaProfile(muaId),
+-        ]);
++      setCreatedBooking(bookingRow);
++
++      // Load profiles only after the database confirms creation.
++      const [brideProfile, muaProfile] = await Promise.all([
++        getBrideProfile(user.id),
++        getMuaProfile(muaId),
++      ]);
+ 
+       const brideProfileWithFallback: BasicProfile =
+         brideProfile
+           ? {
+               ...brideProfile,
+-              email:
+-                brideProfile.email || user.email || null,
++              email: brideProfile.email || user.email || null,
+             }
+           : {
+               id: user.id,
+@@ -783,81 +837,17 @@ export default function BookingPage() {
+               email: user.email || null,
+             };
+ 
+-      const { data: bookingData, error: insertError } =
+-        await supabase
+-          .from("bookings")
+-          .insert({
+-            bride_id: user.id,
+-            mua_id: muaId,
+-            service_id: serviceId,
+-
+-            // Save the number of people in the booking.
+-            group_size: groupSize,
+-
+-            booking_date: bookingDate,
+-            booking_time: bookingTime,
+-            start_time: startTime.toISOString(),
+-            end_time: endTime.toISOString(),
+-            service_duration_minutes: durationMinutes,
+-
+-            // Address and selected location type.
+-            location: location.trim(),
+-            location_type: locationType,
+-
+-            // Save the travel fee separately.
+-            travel_fee: travelFee,
+-
+-            notes: notes || null,
+-
+-            // Full group service amount when group pricing applies.
+-            service_price: servicePrice,
+-            platform_fee: platformFee,
+-            tax_fee: taxFee,
+-
+-            // Travel fee is already included in totalAfterDiscount.
+-            // Do not add it a second time here.
+-            total_price: totalAfterDiscount,
+-
+-            promo_code_id: appliedPromo?.id || null,
+-            discount_amount: promoDiscount,
+-            bride_total_before_discount: totalBeforeDiscount,
+-            bride_total_after_discount: totalAfterDiscount,
+-
+-            // Artist payout remains based on the service amount.
+-            mua_payout: muaPayout,
+-
+-            payment_method: paymentMethod,
+-            use_wallet_credit: useWalletCredit,
+-            wallet_credit_amount: walletCreditAmount,
+-            amount_due_after_wallet: amountDueAfterWallet,
+-            wallet_charged: false,
+-            wallet_charged_at: null,
+-
+-            status: "pending",
+-          })
+-          .select(
+-            "id, booking_date, booking_time, location, total_price"
+-          )
+-          .single();
+-
+-      if (insertError) {
+-        setError(insertError.message);
+-        return;
+-      }
+-
+-      const finalBookingData =
+-        bookingData as BookingData;
+-
++      // Email failures should not undo a successfully created booking.
+       await sendNewBookingEmailToMua({
+         muaProfile,
+         brideProfile: brideProfileWithFallback,
+-        bookingData: finalBookingData,
++        bookingData: bookingRow,
+       });
+ 
+       await sendBookingRequestEmailToBride({
+         muaProfile,
+         brideProfile: brideProfileWithFallback,
+-        bookingData: finalBookingData,
++        bookingData: bookingRow,
+       });
+ 
+       setBookingComplete(true);
+@@ -913,6 +903,10 @@ export default function BookingPage() {
+ 
+   // SUCCESS PAGE
+   if (bookingComplete) {
++    const confirmedTotal = Number(
++      createdBooking?.total_price ?? totalAfterDiscount
++    );
++
+     return (
+       <main className="min-h-screen bg-[#fffafc] px-5 py-20 text-[#171018]">
+         <div className="mx-auto max-w-2xl rounded-[2.5rem] border border-[#eadff5] bg-white px-7 py-14 text-center sm:px-14">
+@@ -962,9 +956,14 @@ export default function BookingPage() {
+             <div className="mt-3 flex justify-between gap-4 text-sm">
+               <span className="text-[#806f85]">Total</span>
+               <strong>
+-                EGP {totalAfterDiscount.toLocaleString("en-EG")}
++                EGP {confirmedTotal.toLocaleString("en-EG")}
+               </strong>
+             </div>
++
++            <p className="mt-4 border-t border-[#eadff5] pt-4 text-xs leading-5 text-[#806f85]">
++              This is your booking total. No payment or wallet
++              deduction has been made yet.
++            </p>
+           </div>
+ 
+           <button
+@@ -1373,7 +1372,7 @@ export default function BookingPage() {
+                     <input
+                       type="date"
+                       value={bookingDate}
+-                      min={new Date().toLocaleDateString("en-CA")}
++                      min={getTodayInCairo()}
+                       onChange={(e) =>
+                         setBookingDate(e.target.value)
+                       }
+@@ -1383,7 +1382,7 @@ export default function BookingPage() {
+                   </div>
+                 </Field>
+ 
+-                <Field label="Preferred time">
++                <Field label="Preferred time (Egypt time)">
+                   <div className="relative">
+                     <Clock
+                       size={17}
+@@ -1402,7 +1401,6 @@ export default function BookingPage() {
+                 </Field>
+               </div>
+ 
+-              {/* ACCEPTED LOCATION TYPE */}
+               <div className="mt-5">
+                 <Field label="Where would you like your makeup done?">
+                   <select
+@@ -1450,7 +1448,6 @@ export default function BookingPage() {
+                   </p>
+                 )}
+ 
+-              {/* TRAVEL FEE DISPLAY */}
+               {selectedLocation && (
+                 <div className="mt-4 rounded-2xl bg-[#f7efff] p-5">
+                   <div className="flex items-center justify-between gap-4">
+@@ -1472,26 +1469,41 @@ export default function BookingPage() {
+                 </div>
+               )}
+ 
+-              {/* ADDRESS */}
+-              <div className="mt-5">
+-                <Field label="Location or venue address">
+-                  <div className="relative">
+-                    <MapPin
+-                      size={17}
+-                      className="pointer-events-none absolute left-4 top-4 text-[#9876a9]"
+-                    />
+-                    <input
+-                      value={location}
+-                      onChange={(e) =>
+-                        setLocation(e.target.value)
+-                      }
+-                      placeholder="Enter your address or venue name"
+-                      disabled={loading}
+-                      className="booking-input pl-11"
+-                    />
+-                  </div>
+-                </Field>
+-              </div>
++              {/* APPOINTMENT ADDRESS AND MAP PICKER */}
++<div className="mt-5">
++  <GoogleLocationPicker
++    value={location}
++    disabled={loading}
++    onChange={(address) => {
++      setLocation(address);
++    }}
++    onLocationChange={(selected) => {
++      setLocationLatitude(selected?.latitude ?? null);
++      setLocationLongitude(selected?.longitude ?? null);
++      setLocationPlaceId(selected?.placeId ?? null);
++    }}
++  />
++
++  {location.trim() &&
++    locationLatitude !== null &&
++    locationLongitude !== null && (
++      <div className="mt-3 rounded-xl border border-green-200 bg-green-50 p-4">
++        <div className="flex items-center gap-2 text-sm font-medium text-green-700">
++          <CheckCircle2 size={17} />
++          Appointment location confirmed
++        </div>
++
++        <p className="mt-2 break-words text-sm text-green-800">
++          {location}
++        </p>
++
++        <p className="mt-1 text-xs text-green-700">
++          Coordinates: {locationLatitude.toFixed(6)},{" "}
++          {locationLongitude.toFixed(6)}
++        </p>
++      </div>
++    )}
++</div>
+ 
+               <div className="mt-5">
+                 <Field label="Additional notes (optional)">
+@@ -1576,7 +1588,7 @@ export default function BookingPage() {
+               <SectionCard
+                 number={selectedService.group_pricing_enabled ? "05" : "04"}
+                 title="Payment preference"
+-                description="Choose how you would prefer to pay."
++                description="Choose how you would prefer to pay after the artist confirms your booking."
+                 icon={<ShieldCheck size={20} />}
+               >
+                 <div className="grid gap-3 sm:grid-cols-2">
+@@ -1619,8 +1631,10 @@ export default function BookingPage() {
+ 
+                 <p className="mt-5 text-xs leading-6 text-[#806f85]">
+                   Your booking request is sent to the artist for
+-                  confirmation. Payment is not taken when you
+-                  submit this request.
++                  confirmation. Your selected payment method is
++                  only a preference at this stage. No payment
++                  or wallet deduction is made when you submit
++                  this request.
+                 </p>
+               </SectionCard>
+             )}
+@@ -1728,7 +1742,11 @@ export default function BookingPage() {
+ 
+                   <SummaryDetail
+                     icon={<Clock size={16} />}
+-                    value={bookingTime || "Time not selected"}
++                    value={
++                      bookingTime
++                        ? `${bookingTime} (Egypt time)`
++                        : "Time not selected"
++                    }
+                   />
+ 
+                   <SummaryDetail
+@@ -1743,6 +1761,13 @@ export default function BookingPage() {
+                     icon={<MapPin size={16} />}
+                     value={location || "Address not entered"}
+                   />
++
++                  {locationLatitude !== null &&
++                    locationLongitude !== null && (
++                      <p className="ml-7 text-xs font-medium text-green-700">
++                        Map location confirmed
++                      </p>
++                    )}
+                 </div>
+ 
+                 <div className="h-px bg-[#eee5f1]" />
+@@ -1806,17 +1831,19 @@ export default function BookingPage() {
+                 {selectedService && (
+                   <div className="rounded-2xl bg-[#fffafc] p-5">
+                     <p className="text-xs text-[#806f85]">
++                      Selected payment preference
++                    </p>
++
++                    <p className="mt-2 text-lg font-semibold">
+                       {paymentMethod === "credit_balance"
+-                        ? "Credit balance payment"
+-                        : "Amount due by card"}
++                        ? "Credit balance"
++                        : "Card"}
+                     </p>
+ 
+-                    <p className="mt-2 text-2xl font-semibold">
+-                      EGP{" "}
+-                      {(paymentMethod === "credit_balance"
+-                        ? walletCreditAmount
+-                        : amountDueAfterWallet
+-                      ).toLocaleString("en-EG")}
++                    <p className="mt-2 text-xs leading-5 text-[#806f85]">
++                      EGP {totalAfterDiscount.toLocaleString("en-EG")}{" "}
++                      is your booking total. Nothing is charged
++                      when you send the request.
+                     </p>
+                   </div>
+                 )}
+@@ -1837,7 +1864,9 @@ export default function BookingPage() {
+                     services.length === 0 ||
+                     !locationType ||
+                     !selectedLocation ||
+-                    locationsLoading
++                    locationsLoading ||
++                    locationLatitude === null ||
++                    locationLongitude === null
+                   }
+                   className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-[#171018] px-6 text-sm font-medium text-white transition hover:bg-[#4a3553] disabled:cursor-not-allowed disabled:opacity-50"
+                 >
