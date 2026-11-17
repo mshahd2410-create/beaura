@@ -195,7 +195,10 @@ export default function MuaProfilePage() {
       console.error("Error getting current user:", userError);
     }
 
-    if (!user) return;
+    if (!user) {
+      router.push("/login");
+      return;
+    }
 
     const { data: existingConversation, error: conversationError } =
       await supabase
@@ -250,7 +253,10 @@ export default function MuaProfilePage() {
         return;
       }
 
-      if (!user) return;
+      if (!user) {
+        router.push("/login");
+        return;
+      }
 
       if (isFavorite) {
         const { error } = await supabase

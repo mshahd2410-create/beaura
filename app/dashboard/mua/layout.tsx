@@ -37,9 +37,34 @@ export default function MuaLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
+  const [accessReady, setAccessReady] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [firstName, setFirstName] = useState("Artist");
   const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    async function verifyArtistAccess() {
+      setAccessReady(false);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!active) return;
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+      const { data: mua } = await supabase.from("mua_profiles").select("id").eq("id", user.id).maybeSingle();
+      if (!active) return;
+      if (!mua) {
+        const { data: bride } = await supabase.from("bride_profiles").select("id").eq("id", user.id).maybeSingle();
+        if (!active) return;
+        router.replace(bride ? "/bride/home" : "/");
+        return;
+      }
+      setAccessReady(true);
+    }
+    void verifyArtistAccess();
+    return () => { active = false; };
+  }, [router]);
 
   useEffect(() => {
     let activeChannel: ReturnType<typeof supabase.channel> | null = null;
@@ -103,6 +128,8 @@ export default function MuaLayout({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
     router.push("/login");
   }
+
+  if (!accessReady) return <main className="grid min-h-screen place-items-center bg-[#fffafc] text-sm text-[#6f6077]">Opening your artist space...</main>;
 
   return (
     <div className="min-h-screen bg-[#fffafc] text-[#171018]">

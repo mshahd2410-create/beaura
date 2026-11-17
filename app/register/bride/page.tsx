@@ -261,7 +261,8 @@ export default function RegisterClient() {
               I agree to the{" "}
               <Link href="/terms" className="text-purple-700 underline">
                 Terms & Conditions
-              </Link>
+              </Link>{" "}and{" "}
+              <Link href="/privacy" className="text-purple-700 underline">Privacy Policy</Link>
             </span>
           </label>
 
@@ -325,6 +326,8 @@ function Input({
 
       <input
         type={type}
+        minLength={type === "password" ? 8 : undefined}
+        autoComplete={type === "password" ? "new-password" : type === "email" ? "email" : "off"}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required={label.includes("*")}

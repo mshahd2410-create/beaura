@@ -179,24 +179,45 @@ export default function RegisterMUA() {
       }
     }
 
+    let uploadedCount = 0;
+    let portfolioUploadFailed = false;
+
     for (const file of portfolio) {
       const uniqueName =
-  typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-const path = `${user.id}/${uniqueName}-${file.name}`;
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const safeExtension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `${user.id}/${uniqueName}.${safeExtension}`;
 
       const { error: uploadError } = await supabase.storage
         .from("mua-portfolio")
-        .upload(path, file);
+        .upload(path, file, { contentType: file.type, upsert: false });
 
-      if (uploadError) continue;
+      if (uploadError) {
+        console.error("Portfolio upload failed:", uploadError);
+        portfolioUploadFailed = true;
+        continue;
+      }
 
-      await supabase.from("mua_portfolio").insert({
+      const { error: imageRecordError } = await supabase.from("mua_portfolio").insert({
         mua_id: user.id,
         image_path: path,
       });
+
+      if (imageRecordError) {
+        console.error("Portfolio record save failed:", imageRecordError);
+        portfolioUploadFailed = true;
+        continue;
+      }
+
+      uploadedCount += 1;
+    }
+
+    if (portfolioUploadFailed || uploadedCount < 5) {
+      setError(`Your account was created, but only ${uploadedCount} portfolio photos were saved. Please sign in and finish adding at least 5 photos from your artist Portfolio page.`);
+      setLoading(false);
+      return;
     }
 
     router.push("/dashboard/mua");
@@ -376,7 +397,8 @@ const path = `${user.id}/${uniqueName}-${file.name}`;
               I agree to the{" "}
               <Link href="/terms" className="text-purple-700 underline">
                 Terms & Conditions
-              </Link>
+              </Link>{" "}and{" "}
+              <Link href="/privacy" className="text-purple-700 underline">Privacy Policy</Link>
             </span>
           </label>
 
@@ -431,6 +453,8 @@ function Input({
       <label className="mb-2 block text-sm text-[#554a5c]">{label}</label>
       <input
         type={type}
+        minLength={type === "password" ? 8 : undefined}
+        autoComplete={type === "password" ? "new-password" : type === "email" ? "email" : "off"}
         onChange={(e) => onChange(e.target.value)}
         required={label.includes("*")}
         className="w-full rounded-2xl border border-[#eadff5] bg-white px-4 py-3 text-sm outline-none transition focus:border-purple-500"

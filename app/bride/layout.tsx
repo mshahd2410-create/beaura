@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Bell, Heart, Menu, Wallet, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -20,10 +20,41 @@ export default function BrideLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+  const [accessReady, setAccessReady] = useState(false);
   const [open, setOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Array<{ id: string; title: string; message: string; href: string | null; is_read: boolean; created_at: string }>>([]);
   const pathname = usePathname();
+
+  useEffect(() => {
+    let active = true;
+    async function verifyBrideAccess() {
+      // Artist profiles are intentionally public so visitors can discover artists.
+      if (pathname.startsWith("/bride/mua/")) {
+        setAccessReady(true);
+        return;
+      }
+      setAccessReady(false);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!active) return;
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+      const { data: bride } = await supabase.from("bride_profiles").select("id").eq("id", user.id).maybeSingle();
+      if (!active) return;
+      if (!bride) {
+        const { data: mua } = await supabase.from("mua_profiles").select("id").eq("id", user.id).maybeSingle();
+        if (!active) return;
+        router.replace(mua ? "/dashboard/mua" : "/");
+        return;
+      }
+      setAccessReady(true);
+    }
+    void verifyBrideAccess();
+    return () => { active = false; };
+  }, [pathname, router]);
 
   useEffect(() => {
     setOpen(false);
@@ -72,6 +103,8 @@ export default function BrideLayout({
   }
 
   const unreadCount = notifications.filter((item) => !item.is_read).length;
+
+  if (!accessReady) return <main className="grid min-h-screen place-items-center bg-[#fffafc] text-sm text-[#6f6077]">Opening your Beaura space...</main>;
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#fffafc] text-[#171018]">
