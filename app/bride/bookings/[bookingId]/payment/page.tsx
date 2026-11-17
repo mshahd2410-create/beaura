@@ -87,26 +87,19 @@ export default function BookingPaymentPage() {
         .upload(path, file, { contentType: file.type, upsert: false });
       if (uploadError) throw uploadError;
 
-      const { data: updatedBooking, error: updateError } = await supabase
-        .from("bookings")
-        .update({
-          payment_proof_path: path,
-          payment_proof_status: "pending_review",
-          payment_proof_uploaded_at: new Date().toISOString(),
-          payment_proof_reviewed_at: null,
-          payment_proof_reviewed_by: null,
-          payment_proof_rejection_reason: null,
-        })
-        .eq("id", booking.id)
-        .eq("bride_id", user.id)
-        .select("id, payment_proof_status")
-        .maybeSingle();
-      if (updateError) throw updateError;
-      if (!updatedBooking) {
+      const { data: saved, error: saveError } = await supabase.rpc(
+        "submit_booking_payment_proof",
+        {
+          p_booking_id: booking.id,
+          p_proof_path: path,
+        }
+      );
+      if (saveError) throw saveError;
+      if (saved !== true) {
         throw new Error("Your receipt uploaded, but Beaura could not save it to this booking. Please contact support before trying again.");
       }
 
-      setBooking((current) => current ? { ...current, payment_proof_status: updatedBooking.payment_proof_status, payment_proof_path: path, payment_proof_uploaded_at: new Date().toISOString(), payment_proof_rejection_reason: null } : current);
+      setBooking((current) => current ? { ...current, payment_proof_status: "pending_review", payment_proof_path: path, payment_proof_uploaded_at: new Date().toISOString(), payment_proof_rejection_reason: null } : current);
       setFile(null);
       setSuccess("Your transfer proof was submitted and saved. Beaura will review it and update your booking.");
     } catch (err) {
