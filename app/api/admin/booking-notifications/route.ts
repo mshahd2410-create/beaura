@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email";
 import { bookingStatusUpdateTemplate } from "@/lib/emailTemplates";
 
@@ -8,29 +7,24 @@ type EventType = "confirmed" | "cancelled";
 
 export async function POST(req: Request) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
+    const authorization = req.headers.get("authorization") || "";
+    const accessToken = authorization.startsWith("Bearer ")
+      ? authorization.slice(7)
+      : "";
+    if (!accessToken) {
+      return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+    }
+
+    const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) =>
-                cookieStore.set(name, value, options)
-              );
-            } catch {
-              // Route handlers may not need to write refreshed cookies.
-            }
-          },
-        },
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { headers: { Authorization: `Bearer ${accessToken}` } },
       }
     );
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
     if (authError || !user) {
       return NextResponse.json({ error: "Authentication required." }, { status: 401 });
     }
