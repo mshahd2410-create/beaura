@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -88,7 +89,7 @@ export default function AdminPaymentProofsPage() {
       setBusyId(null);
       return;
     }
-    const { error: updateError } = await supabase
+    const { data: updated, error: updateError } = await supabase
       .from("bookings")
       .update({
         payment_proof_status: decision,
@@ -97,10 +98,13 @@ export default function AdminPaymentProofsPage() {
         payment_proof_rejection_reason: decision === "rejected" ? rejectionReason : null,
       })
       .eq("id", item.id)
-      .eq("payment_proof_status", "pending_review");
-    if (updateError) {
-      setError(updateError.message);
+      .eq("payment_proof_status", "pending_review")
+      .select("id")
+      .maybeSingle();
+    if (updateError || !updated) {
+      setError(updateError?.message || "This proof has already changed. Refresh the queue and try again.");
       setBusyId(null);
+      await loadProofs();
       return;
     }
     setMessage(decision === "approved" ? "Deposit proof approved." : "Proof rejected. The bride can upload a new receipt.");
@@ -116,6 +120,7 @@ export default function AdminPaymentProofsPage() {
         <p className="text-xs uppercase tracking-[0.2em] text-purple-700">Admin · payments</p>
         <h1 className="mt-3 text-4xl font-light tracking-[-0.06em]">Transfer proof review</h1>
         <p className="mt-3 text-sm leading-6 text-[#6f6077]">Review each bride's 50% deposit receipt. Approving a proof records the deposit approval only; it does not mark the full booking as paid.</p>
+        <Link href="/admin/bookings" className="mt-5 inline-flex rounded-full border border-[#eadff5] px-5 py-3 text-sm text-[#6f6077] hover:bg-[#fffafc]">← Back to bookings</Link>
       </div>
       {error && <p className="rounded-2xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
       {message && <p className="rounded-2xl bg-green-50 p-4 text-sm text-green-800">{message}</p>}
