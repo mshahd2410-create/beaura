@@ -401,7 +401,7 @@ export default function MuaProfilePage() {
                 />
               ) : (
                 <div className="grid h-[420px] place-items-center bg-[#f7efff] text-[#6f6077] sm:h-[560px]">
-                  Portfolio coming soon
+                  Portfolio photos will appear here when available
                 </div>
               )}
 
@@ -476,7 +476,7 @@ export default function MuaProfilePage() {
                 onClick={goToBooking}
                 className="rounded-full bg-[#171018] px-6 py-3.5 text-sm font-medium text-white transition hover:opacity-90"
               >
-                Request booking
+                Request a booking
               </button>
 
               <button
@@ -518,7 +518,7 @@ export default function MuaProfilePage() {
               </p>
 
               <h2 className="mt-3 text-4xl font-light tracking-[-0.07em]">
-                Choose your glam.
+                Services offered
               </h2>
             </div>
 
@@ -607,18 +607,18 @@ export default function MuaProfilePage() {
             </p>
 
             <h2 className="mt-4 text-4xl font-light leading-none tracking-[-0.07em]">
-              Pretty work. Clear details. Easier planning.
+              View the artist’s work, check the details, and request a booking.
             </h2>
           </div>
 
           <div className="rounded-[2.5rem] border border-[#eadff5] bg-white p-6 shadow-sm sm:p-8">
             <h2 className="text-3xl font-light tracking-[-0.06em]">
-              About {mua.first_name || "this artist"}
+              About the artist
             </h2>
 
             <p className="mt-5 text-sm leading-8 text-[#6f6077]">
               {mua.bio ||
-                "This artist is part of Beaura’s beauty booking experience. You can message them, request a booking, and keep everything organized in one place."}
+                "View the artist’s portfolio and services, or send a message if you have a question before booking."}
             </p>
 
             {mua.instagram && (
@@ -639,7 +639,7 @@ export default function MuaProfilePage() {
             onClick={() => setGalleryOpen(true)}
             className="w-full rounded-full border border-[#eadff5] bg-white px-6 py-3.5 text-sm font-medium transition hover:border-purple-300"
           >
-            Open full portfolio
+            View all portfolio photos
           </button>
         )}
       </section>
