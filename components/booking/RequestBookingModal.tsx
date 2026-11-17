@@ -16,7 +16,7 @@ type Props = {
   }[];
 };
 
-type PaymentMethod = "card" | "credit_balance";
+type PaymentMethod = "transfer" | "credit_balance";
 
 type PromoCode = {
   id: string;
@@ -69,7 +69,7 @@ export default function RequestBookingModal({
   const [groupTierLoading, setGroupTierLoading] = useState(false);
   const [groupTierError, setGroupTierError] = useState<string | null>(null);
 
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("transfer");
   const [walletBalance, setWalletBalance] = useState(0);
 
   const [promoCodeInput, setPromoCodeInput] = useState("");
@@ -191,13 +191,13 @@ export default function RequestBookingModal({
 
   useEffect(() => {
     if (!selectedService) {
-      setPaymentMethod("card");
+      setPaymentMethod("transfer");
       removePromo();
       return;
     }
 
     if (paymentMethod === "credit_balance" && !canPayWithCredit) {
-      setPaymentMethod("card");
+      setPaymentMethod("transfer");
     }
   }, [
     selectedService,
@@ -558,7 +558,7 @@ export default function RequestBookingModal({
 
       if (paymentMethod === "credit_balance" && !canPayWithCredit) {
         setError(
-          "Your credit balance is not enough for this booking. Please choose card payment."
+          "Your credit balance is not enough for this booking. Please choose transfer payment."
         );
         return;
       }
@@ -709,7 +709,7 @@ export default function RequestBookingModal({
     setGroupTiers([]);
     setGroupTierError(null);
     setGroupTierLoading(false);
-    setPaymentMethod("card");
+    setPaymentMethod("transfer");
     removePromo();
     setError(null);
   }
@@ -732,8 +732,7 @@ export default function RequestBookingModal({
         </h2>
 
         <p className="mt-3 text-sm leading-6 text-[#6f6077]">
-          Send your date, time, location, and payment preference. The artist will
-          confirm or decline before payment is taken.
+          Send your date, time, and location. The artist will confirm or decline your request before any payment is taken.
         </p>
 
         <div className="mt-7 space-y-4">
@@ -982,27 +981,25 @@ export default function RequestBookingModal({
 
                 <button
                   type="button"
-                  onClick={() => setPaymentMethod("card")}
+                  onClick={() => setPaymentMethod("transfer")}
                   disabled={loading}
                   className={`rounded-[1.3rem] border p-4 text-left transition disabled:opacity-60 ${
-                    paymentMethod === "card"
+                    paymentMethod === "transfer"
                       ? "border-purple-400 bg-[#f7efff]"
                       : "border-[#eadff5] bg-[#fffafc] hover:border-purple-300"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-medium text-[#171018]">
-                        Card
-                      </p>
+                      <p className="text-sm font-medium text-[#171018]">Transfer</p>
                       <p className="mt-1 text-xs leading-5 text-[#6f6077]">
-                        Pay securely by card after the MUA confirms your booking.
+                        Pay the 50% deposit after the MUA accepts your request.
+                        You will then upload your transfer proof.
                       </p>
                     </div>
-
                     <span
                       className={`mt-1 h-4 w-4 rounded-full border ${
-                        paymentMethod === "card"
+                        paymentMethod === "transfer"
                           ? "border-purple-700 bg-purple-600"
                           : "border-[#cfc3d8] bg-white"
                       }`}
@@ -1013,21 +1010,13 @@ export default function RequestBookingModal({
 
               <div className="mt-4 rounded-2xl border border-[#eadff5] bg-[#fffafc] p-4">
                 <PriceRow
-                  label={
-                    paymentMethod === "credit_balance"
-                      ? "Credit balance payment"
-                      : "Card payment"
-                  }
-                  value={
-                    paymentMethod === "credit_balance"
-                      ? walletCreditAmount
-                      : totalAfterDiscount
-                  }
+                  label={paymentMethod === "credit_balance" ? "Credit balance payment" : "Transfer deposit (after MUA accepts)"}
+                  value={paymentMethod === "credit_balance" ? walletCreditAmount : Math.ceil(totalAfterDiscount / 2)}
                 />
 
                 <div className="mt-2 flex justify-between border-t border-[#eadff5] pt-2 text-sm font-semibold text-[#171018]">
-                  <span>Amount due by card</span>
-                  <span>EGP {amountDueAfterWallet.toLocaleString()}</span>
+                  <span>{paymentMethod === "credit_balance" ? "Amount deducted after MUA accepts" : "50% deposit after MUA accepts"}</span>
+                  <span>EGP {(paymentMethod === "credit_balance" ? walletCreditAmount : Math.ceil(totalAfterDiscount / 2)).toLocaleString()}</span>
                 </div>
               </div>
             </div>
