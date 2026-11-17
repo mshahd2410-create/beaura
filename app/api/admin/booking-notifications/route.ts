@@ -29,16 +29,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Authentication required." }, { status: 401 });
     }
 
-    const { data: admin } = await supabase
-      .from("admins")
-      .select("user_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!admin) {
-      return NextResponse.json({ error: "Admin access required." }, { status: 403 });
-    }
-
     const body = await req.json();
     const bookingId = typeof body.bookingId === "string" ? body.bookingId : "";
     const event = body.event as EventType;
@@ -56,6 +46,20 @@ export async function POST(req: Request) {
 
     if (bookingError || !booking) {
       return NextResponse.json({ error: bookingError?.message || "Booking not found." }, { status: 404 });
+    }
+
+    const { data: admin } = await supabase
+      .from("admins")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const isBookingParticipant = booking.bride_id === user.id || booking.mua_id === user.id;
+
+    if (event === "confirmed" && !admin) {
+      return NextResponse.json({ error: "Admin access required to email booking confirmations." }, { status: 403 });
+    }
+    if (event === "cancelled" && !admin && !isBookingParticipant) {
+      return NextResponse.json({ error: "You cannot send notifications for this booking." }, { status: 403 });
     }
 
     if (event === "confirmed" && booking.status !== "confirmed") {
