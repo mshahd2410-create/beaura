@@ -453,6 +453,8 @@ function Input({
       <label className="mb-2 block text-sm text-[#554a5c]">{label}</label>
       <input
         type={type}
+        minLength={type === "password" ? 8 : undefined}
+        autoComplete={type === "password" ? "new-password" : type === "email" ? "email" : "off"}
         onChange={(e) => onChange(e.target.value)}
         required={label.includes("*")}
         className="w-full rounded-2xl border border-[#eadff5] bg-white px-4 py-3 text-sm outline-none transition focus:border-purple-500"
