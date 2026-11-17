@@ -1,4 +1,5 @@
 import Link from "next/link";
+import TopBookedArtists from "@/components/TopBookedArtists";
 
 const occasions = [
   {
@@ -23,7 +24,7 @@ const occasions = [
     title: "Camera ready",
     label: "For shoots",
     text: "Polished looks for photoshoots, content days, and beauty moments.",
-    image: "/anding/photoshoot.jpg",
+    image: "/Landing/photoshoot.jpg",
   },
 ];
 
@@ -152,7 +153,7 @@ export default function HomePage() {
 
         <div className="border-t border-[#eadff5] bg-white/70">
           <div className="mx-auto flex max-w-7xl justify-center gap-8 overflow-x-auto px-6 py-3 text-xs uppercase tracking-[0.2em] text-[#7a6b82]">
-            <a href="#occasions">Bridal</a>
+            <a href="#top-artists">Top artists</a>\n            <a href="#occasions">Bridal</a>
             <a href="#occasions">Engagement</a>
             <a href="#occasions">Soirée</a>
             <a href="#styles">Glam styles</a>
@@ -168,11 +169,11 @@ export default function HomePage() {
         <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[1fr_0.9fr]">
           <div>
             <p className="mb-5 w-fit rounded-full border border-[#eadff5] bg-white px-5 py-2 text-xs uppercase tracking-[0.22em] text-purple-700">
-              Beauty booking, but make it cute
+              A softer way to find your artist
             </p>
 
             <h1 className="max-w-4xl text-[4.2rem] font-light leading-[0.84] tracking-[-0.09em] md:text-[7.5rem]">
-              Find the makeup artist you’ll obsess over.
+              Your next glam crush is closer than you think.
             </h1>
 
             <p className="mt-8 max-w-xl text-lg leading-8 text-[#655968]">
@@ -288,7 +289,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="occasions" className="px-6 py-24">
+      <TopBookedArtists />\n\n      <section id="occasions" className="px-6 py-24">
         <div className="mx-auto max-w-7xl">
           <div className="mb-12 text-center">
             <p className="text-sm uppercase tracking-[0.2em] text-purple-700">
