@@ -8,6 +8,7 @@ import { createNotification } from "@/lib/createNotification";
 type Booking = {
   id: string;
   bride_id: string;
+  mua_id: string;
   service_id: string | null;
   booking_date: string | null;
   booking_time: string | null;
