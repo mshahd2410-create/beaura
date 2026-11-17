@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import SupportHelpButton from "@/components/support/SupportHelpButton";
 import { supabase } from "@/lib/supabaseClient";
 import MasonryGrid from "@/components/MasonryGrid";
@@ -49,7 +49,6 @@ export default function BrideHome() {
   const [muas, setMuas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("Beautiful");
-  const [showPopup, setShowPopup] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCity, setSelectedCity] = useState("");
@@ -61,15 +60,6 @@ export default function BrideHome() {
         setName(data.user.user_metadata.first_name);
       }
     });
-  }, []);
-
-  useEffect(() => {
-    const seen = sessionStorage.getItem("beaura_welcome_seen");
-
-    if (!seen) {
-      setShowPopup(true);
-      sessionStorage.setItem("beaura_welcome_seen", "true");
-    }
   }, []);
 
   useEffect(() => {
@@ -158,235 +148,118 @@ export default function BrideHome() {
   };
 
   return (
-    <main className="min-h-screen bg-[#fffafc] px-5 pb-28 pt-24 text-[#171018] sm:px-8">
+    <main className="min-h-screen bg-[#fffafc] pb-24 pt-24 text-[#171018]">
       <style>{`
-        @keyframes beauraMarquee {
-          from { transform: translateX(0); }
-          to { transform: translateX(-50%); }
-        }
-
-        .beaura-marquee {
-          animation: beauraMarquee 28s linear infinite;
-        }
+        @keyframes beauraMarquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+        .beaura-marquee { animation: beauraMarquee 30s linear infinite; }
       `}</style>
 
-      <AnimatePresence>
-        {showPopup && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ scale: 0.96, opacity: 0, y: 10 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.96, opacity: 0, y: 10 }}
-              className="w-full max-w-sm rounded-[2rem] border border-[#eadff5] bg-white p-8 text-center shadow-2xl"
-            >
-              <p className="text-xs uppercase tracking-[0.22em] text-purple-700">
-                welcome back
-              </p>
-
-              <h2 className="mt-4 text-4xl font-light tracking-[-0.06em]">
-                A little glam treat.
-              </h2>
-
-              <p className="mt-3 text-sm leading-6 text-[#6f6077]">
-                Use this code on your first booking.
-              </p>
-
-              <div className="my-6 rounded-2xl bg-[#f7efff] p-5">
-                <p className="text-xs uppercase tracking-[0.18em] text-[#8a7d91]">
-                  promo code
-                </p>
-                <p className="mt-2 text-2xl tracking-[0.2em] text-purple-700">
-                  BEAURA15
-                </p>
-              </div>
-
-              <button
-                onClick={() => setShowPopup(false)}
-                className="w-full rounded-full bg-purple-600 py-3 text-sm text-white transition hover:bg-purple-700"
-              >
-                Start browsing
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <section className="mx-auto max-w-7xl">
-        {/* HERO */}
+      <div className="mx-auto max-w-7xl px-5 sm:px-8">
         <motion.section
-          initial={{ opacity: 0, y: 14 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.55 }}
-          className="rounded-[2.5rem] border border-[#eadff5] bg-white p-7 shadow-sm sm:p-10"
+          transition={{ duration: 0.5 }}
+          className="relative overflow-hidden rounded-[2.5rem] bg-[#f1e5ff] px-7 py-10 sm:px-12 sm:py-14"
         >
-          <p className="text-xs uppercase tracking-[0.22em] text-purple-700">
-            {getGreeting()}, {name}
-          </p>
-
-          <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <h1 className="max-w-3xl text-5xl font-light leading-[0.95] tracking-[-0.08em] sm:text-7xl">
-                Find your next glam artist.
-              </h1>
-
-              <p className="mt-5 max-w-xl text-sm leading-7 text-[#6f6077]">
-                Browse verified makeup artists by city, service, or portfolio.
-                Save your favorites and book without the DM chaos.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <a
-                href="#artists"
-                className="rounded-full bg-purple-600 px-6 py-3 text-sm text-white hover:bg-purple-700"
-              >
-                Browse artists
-              </a>
-
+          <div className="absolute -right-20 -top-24 h-80 w-80 rounded-full bg-[#ffe3ef] blur-3xl" />
+          <div className="relative max-w-3xl">
+            <p className="text-xs uppercase tracking-[0.22em] text-purple-700">{getGreeting()}, {name}</p>
+            <h1 className="mt-5 max-w-3xl text-5xl font-light leading-[0.94] tracking-[-0.075em] sm:text-7xl">Find the makeup artist who gets your look.</h1>
+            <p className="mt-6 max-w-xl text-sm leading-7 text-[#655968]">Explore verified artists, see their makeup work, compare services and prices, and send a booking request when you’re ready.</p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <a href="#artists" className="rounded-full bg-[#171018] px-7 py-3.5 text-sm text-white transition hover:bg-purple-700">Explore makeup artists</a>
               <SupportHelpButton userType="bride" />
             </div>
           </div>
-        </motion.section>
-
-        {/* MOVING STRIP */}
-        <div className="mt-5 overflow-hidden rounded-full bg-[#171018] py-3 text-xs uppercase tracking-[0.2em] text-white">
-          <div className="beaura-marquee flex w-max gap-10 whitespace-nowrap">
-            {[1, 2].map((item) => (
-              <div key={item} className="flex gap-10">
-                <span>soft glam approved</span>
-                <span>bridal artists</span>
-                <span>engagement glow</span>
-                <span>save your favorites</span>
-                <span>browse by city</span>
+          <div className="relative mt-10 grid grid-cols-3 gap-2 sm:absolute sm:bottom-8 sm:right-8 sm:mt-0 sm:w-[42%]">
+            {["/Landing/bridal.jpg","/Landing/engagement.jpg","/Landing/soiree.jpg"].map((image,index)=>(
+              <div key={image} className={index===1?"-mt-6 overflow-hidden rounded-t-full rounded-b-2xl":"overflow-hidden rounded-[1.25rem]"}>
+                <img src={image} alt="Makeup inspiration" className="h-28 w-full object-cover sm:h-36"/>
               </div>
             ))}
           </div>
+        </motion.section>
+
+        <div className="mt-6 overflow-hidden rounded-full bg-[#171018] py-3 text-xs uppercase tracking-[0.18em] text-white">
+          <div className="beaura-marquee flex w-max gap-10 whitespace-nowrap">
+            {[1,2].map((item)=><div key={item} className="flex gap-10"><span>Verified makeup artists</span><span>Clear service prices</span><span>Bridal and event makeup</span><span>Your bookings in one place</span><span>Save your favourite artists</span></div>)}
+          </div>
         </div>
 
-        {/* SERVICE SECTIONS */}
-        <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {SERVICE_SECTIONS.map((item) => (
-            <button
-              key={item.title}
-              onClick={() => handleServiceClick(item.value)}
-              className={`group overflow-hidden rounded-[2rem] border bg-white text-left shadow-sm transition hover:-translate-y-1 hover:shadow-xl ${
-                selectedCategory === item.value
-                  ? "border-purple-500"
-                  : "border-[#eadff5]"
-              }`}
-            >
-              <div className="relative aspect-[5/6] overflow-hidden">
-                <img
-                  src={item.image}
-                  alt={item.title}
-                  className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.04]"
-                />
-
-                <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent" />
-
-                <div className="absolute inset-x-0 bottom-0 p-5">
-                  <p className="text-xs uppercase tracking-[0.18em] text-white/85">
-                    {item.title}
-                  </p>
-
-                  <h3 className="mt-2 text-3xl font-light tracking-[-0.05em] text-white">
-                    {item.title} makeup
-                  </h3>
-
-                  <p className="mt-2 max-w-[18rem] text-sm leading-6 text-white/85">
-                    {item.text}
-                  </p>
+        <section className="mt-16">
+          <div className="mb-7 max-w-2xl">
+            <p className="text-xs uppercase tracking-[0.2em] text-purple-700">Browse by occasion</p>
+            <h2 className="mt-3 text-4xl font-light tracking-[-0.065em] sm:text-5xl">What do you need makeup for?</h2>
+            <p className="mt-3 text-sm leading-7 text-[#6f6077]">Choose an occasion to see artists who offer that service.</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {SERVICE_SECTIONS.map((item,index)=>(
+              <button key={item.title} onClick={()=>handleServiceClick(item.value)} className={`group overflow-hidden rounded-[1.75rem] border bg-white text-left transition hover:-translate-y-1 hover:shadow-xl ${selectedCategory===item.value?"border-purple-500 shadow-md":"border-[#eadff5]"}`}>
+                <div className="relative aspect-[5/4] overflow-hidden">
+                  <img src={item.image} alt={item.title} className="h-full w-full object-cover transition duration-700 group-hover:scale-105"/>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 to-transparent"/>
+                  <div className="absolute inset-x-0 bottom-0 p-5"><p className="text-xs uppercase tracking-[0.17em] text-white/80">0{index+1}</p><h3 className="mt-1 text-2xl font-light text-white">{item.title} makeup</h3></div>
                 </div>
-              </div>
-            </button>
-          ))}
+                <p className="p-4 text-sm leading-6 text-[#6f6077]">{item.text}</p>
+              </button>
+            ))}
+          </div>
         </section>
 
-        {/* FILTERS */}
-        <section className="mt-8 rounded-[2rem] border border-[#eadff5] bg-white p-5 shadow-sm">
-          <div className="grid gap-4 lg:grid-cols-[1fr_220px_120px]">
-            <input
-              placeholder="Search artist name, city, or service"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="rounded-2xl border border-[#eadff5] bg-[#fffafc] px-5 py-4 text-sm outline-none focus:border-purple-500"
-            />
-
-            <select
-              value={selectedCity}
-              onChange={(e) => setSelectedCity(e.target.value)}
-              className="rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 py-4 text-sm outline-none focus:border-purple-500"
-            >
+        <section className="mt-16 rounded-[2rem] border border-[#eadff5] bg-white p-5 shadow-sm sm:p-7">
+          <div className="mb-5">
+            <p className="text-xs uppercase tracking-[0.2em] text-purple-700">Find the right artist</p>
+            <h2 className="mt-2 text-3xl font-light tracking-[-0.05em]">Search by name, city or service</h2>
+          </div>
+          <div className="grid gap-3 lg:grid-cols-[1fr_230px_auto]">
+            <input aria-label="Search makeup artists" placeholder="Try an artist name, Cairo, bridal makeup..." value={searchQuery} onChange={(e)=>setSearchQuery(e.target.value)} className="min-w-0 rounded-2xl border border-[#eadff5] bg-[#fffafc] px-5 py-4 text-sm outline-none transition focus:border-purple-500"/>
+            <select aria-label="Filter by city" value={selectedCity} onChange={(e)=>setSelectedCity(e.target.value)} className="rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 py-4 text-sm outline-none focus:border-purple-500">
               <option value="">All cities</option>
-              {CITIES.map((city) => (
-                <option key={city}>{city}</option>
-              ))}
+              {CITIES.map(city=><option key={city} value={city}>{city}</option>)}
             </select>
-
-            <button
-              onClick={() => {
-                setSearchQuery("");
-                setSelectedCity("");
-                setSelectedCategory("All");
-              }}
-              className="rounded-2xl border border-[#eadff5] bg-white px-5 py-4 text-sm hover:bg-[#f7efff]"
-            >
-              Clear
-            </button>
+            <button onClick={()=>{setSearchQuery("");setSelectedCity("");setSelectedCategory("All");}} className="rounded-2xl border border-[#eadff5] px-6 py-4 text-sm transition hover:bg-[#f7efff]">Clear filters</button>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {["All","Bridal makeup","Engagement makeup","Soiree makeup","Photoshoot makeup"].map((category)=>(
+              <button key={category} onClick={()=>setSelectedCategory(category)} className={`rounded-full px-4 py-2 text-xs transition ${selectedCategory===category?"bg-[#171018] text-white":"bg-[#f7efff] text-[#6f6077] hover:text-purple-700"}`}>{category==="All"?"All services":category}</button>
+            ))}
           </div>
         </section>
 
-        {/* ALL ARTISTS */}
-        <section id="artists" className="mt-12">
-          <div className="mb-7 flex items-end justify-between gap-4">
+        <section id="artists" className="mt-16 scroll-mt-28">
+          <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-purple-700">
-                discover artists
-              </p>
-
-              <h2 className="mt-2 text-4xl font-light tracking-[-0.06em]">
-                {selectedCategory === "All"
-                  ? "All makeup artists"
-                  : selectedCategory.replace(" makeup", "") + " artists"}
-              </h2>
+              <p className="text-xs uppercase tracking-[0.2em] text-purple-700">Makeup artists</p>
+              <h2 className="mt-2 text-4xl font-light tracking-[-0.065em] sm:text-5xl">{selectedCategory==="All"?"Explore makeup artists":selectedCategory}</h2>
+              <p className="mt-3 max-w-xl text-sm leading-7 text-[#6f6077]">Open a profile to view the artist’s portfolio, services, prices and booking options.</p>
             </div>
-
-            <p className="rounded-full bg-white px-5 py-3 text-sm text-[#6f6077] shadow-sm">
-              {filteredMuas.length} found
-            </p>
+            <span className="w-fit rounded-full bg-[#f1e5ff] px-5 py-2.5 text-sm text-purple-700">{filteredMuas.length} {filteredMuas.length===1?"artist":"artists"}</span>
           </div>
 
-          {loading && (
-            <div className="rounded-[2rem] border border-[#eadff5] bg-white p-10 text-center text-sm text-[#8a7d91]">
-              Finding artists for you...
+          {loading && <div className="rounded-[2rem] border border-[#eadff5] bg-white p-12 text-center text-sm text-[#6f6077]">Loading makeup artists...</div>}
+          {!loading && filteredMuas.length===0 && (
+            <div className="rounded-[2rem] border border-[#eadff5] bg-white px-6 py-14 text-center">
+              <h3 className="text-3xl font-light tracking-[-0.05em]">No artists match those filters.</h3>
+              <p className="mt-3 text-sm text-[#6f6077]">Try a different city or service, or clear your filters.</p>
+              <button onClick={()=>{setSearchQuery("");setSelectedCity("");setSelectedCategory("All");}} className="mt-6 rounded-full bg-[#171018] px-6 py-3 text-sm text-white">Show all artists</button>
             </div>
           )}
-
-          {!loading && filteredMuas.length === 0 && (
-            <div className="rounded-[2rem] border border-[#eadff5] bg-white p-10 text-center">
-              <h3 className="text-3xl font-light tracking-[-0.05em]">
-                No artists found.
-              </h3>
-              <p className="mt-3 text-sm text-[#6f6077]">
-                Try another city, service, or clear your search.
-              </p>
-            </div>
-          )}
-
-          {!loading && filteredMuas.length > 0 && (
-            <MasonryGrid>
-              {filteredMuas.map((mua) => (
-                <MuaCard key={mua.id} mua={mua} />
-              ))}
-            </MasonryGrid>
+          {!loading && filteredMuas.length>0 && (
+            <>
+              <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                {filteredMuas.slice(0,5).map((mua)=><MuaCard key={mua.id} mua={mua}/>)}
+              </div>
+              {filteredMuas.length>5 && (
+                <details className="mt-7 rounded-[1.5rem] border border-[#eadff5] bg-white p-5">
+                  <summary className="cursor-pointer list-none text-center text-sm font-medium text-purple-700">Show all {filteredMuas.length} artists</summary>
+                  <div className="mt-6"><MasonryGrid>{filteredMuas.slice(5).map((mua)=><MuaCard key={mua.id} mua={mua}/>)}</MasonryGrid></div>
+                </details>
+              )}
+            </>
           )}
         </section>
-      </section>
+      </div>
     </main>
   );
+
 }
