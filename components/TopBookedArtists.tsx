@@ -10,6 +10,7 @@ type Artist = { id: string; first_name: string | null; last_name: string | null;
 export default function TopBookedArtists() {
   const [artists, setArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
+  const [bookingCountsAvailable, setBookingCountsAvailable] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -25,6 +26,7 @@ export default function TopBookedArtists() {
           return;
         }
         if (bookingError) console.error("Unable to load completed booking counts:", bookingError);
+        if (active) setBookingCountsAvailable(!bookingError);
         const counts = new Map<string, number>();
         (bookings || []).forEach((b: { mua_id: string | null }) => { if (b.mua_id) counts.set(b.mua_id, (counts.get(b.mua_id) || 0) + 1); });
         const ranked: Artist[] = profiles.map((p: any) => ({
@@ -46,9 +48,9 @@ export default function TopBookedArtists() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-12 flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div>
-            <p className="flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-purple-700"><Sparkles size={14} /> The Beaura edit</p>
-            <h2 className="mt-4 max-w-3xl text-5xl font-light leading-[0.95] tracking-[-0.08em] md:text-7xl">The artists everyone is booking.</h2>
-            <p className="mt-5 max-w-xl text-sm leading-7 text-[#6f6077]">Five artists loved by brides on Beaura, ranked by completed bookings.</p>
+            <p className="flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-purple-700"><Sparkles size={14} /> {bookingCountsAvailable ? "Most booked on Beaura" : "Discover Beaura artists"}</p>
+            <h2 className="mt-4 max-w-3xl text-5xl font-light leading-[0.95] tracking-[-0.08em] md:text-7xl">Meet your makeup artist.</h2>
+            <p className="mt-5 max-w-xl text-sm leading-7 text-[#6f6077]">Browse artist portfolios, locations and services. Find the right match for your occasion.</p>
           </div>
           <Link href="/bride/home" className="inline-flex w-fit items-center gap-2 rounded-full border border-[#eadff5] px-6 py-3 text-sm text-[#171018] transition hover:border-purple-300 hover:text-purple-700">Meet all artists <ArrowUpRight size={16} /></Link>
         </div>
@@ -63,7 +65,7 @@ export default function TopBookedArtists() {
                 <div className="p-4">
                   <h3 className="truncate text-xl font-light tracking-[-0.04em] text-[#171018]">{artist.first_name} {artist.last_name}</h3>
                   <p className="mt-2 flex items-center gap-1.5 text-xs text-[#6f6077]"><MapPin size={13} /> {(artist.cities || []).slice(0, 2).join(", ") || "Egypt"}</p>
-                  <p className="mt-4 text-[10px] uppercase tracking-[0.15em] text-purple-700">{artist.bookings} completed {artist.bookings === 1 ? "booking" : "bookings"}</p>
+                  <p className="mt-4 text-[10px] uppercase tracking-[0.15em] text-purple-700">{bookingCountsAvailable && artist.bookings > 0 ? `${artist.bookings} completed ${artist.bookings === 1 ? "booking" : "bookings"}` : "View portfolio & services"}</p>
                 </div>
               </article>
             </Link>
