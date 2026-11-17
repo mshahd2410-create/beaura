@@ -32,23 +32,38 @@ export default function BrideLayout({
 
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
-    async function loadNotifications() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    let active = true;
+
+    async function fetchNotifications(userId: string) {
       const { data } = await supabase
         .from("notifications")
         .select("id, title, message, href, is_read, created_at")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(15);
-      setNotifications((data || []) as typeof notifications);
+      if (active) setNotifications((data || []) as typeof notifications);
+    }
+
+    async function setupNotifications() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !active) return;
+      await fetchNotifications(user.id);
+      if (!active) return;
       channel = supabase
         .channel("bride-notifications")
-        .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, loadNotifications)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+          () => { void fetchNotifications(user.id); }
+        )
         .subscribe();
     }
-    loadNotifications();
-    return () => { if (channel) supabase.removeChannel(channel); };
+
+    void setupNotifications();
+    return () => {
+      active = false;
+      if (channel) supabase.removeChannel(channel);
+    };
   }, []);
 
   async function markNotificationRead(id: string) {
