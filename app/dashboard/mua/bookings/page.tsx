@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { createNotification } from "@/lib/createNotification";
 
 type Booking = {
   id: string;
@@ -256,19 +257,67 @@ export default function BookingsPage() {
       }
 
       if (status === "cancelled") {
+        const cancellationReason =
+          normalizeStatus(booking.status) === "pending"
+            ? "Booking declined by MUA"
+            : "Booking cancelled by MUA";
         const { error } = await supabase.rpc(
           "mua_cancel_booking_and_refund_bride",
           {
             p_booking_id: booking.id,
-            p_reason:
-              normalizeStatus(booking.status) === "pending"
-                ? "Booking declined by MUA"
-                : "Booking cancelled by MUA",
+            p_reason: cancellationReason,
           }
         );
 
         if (error) {
           throw new Error(error.message);
+        }
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const notice = `This booking was cancelled by the makeup artist. Reason: ${cancellationReason}`;
+          const results = await Promise.all([
+            createNotification({
+              userId: booking.bride_id,
+              actorId: user.id,
+              bookingId: booking.id,
+              type: "booking_cancelled",
+              title: "Booking cancelled",
+              message: notice,
+              href: "/bride/bookings",
+            }),
+            createNotification({
+              userId: booking.mua_id,
+              actorId: user.id,
+              bookingId: booking.id,
+              type: "booking_cancelled",
+              title: "Booking cancelled",
+              message: notice,
+              href: "/dashboard/mua/bookings",
+            }),
+          ]);
+          if (results.some((result) => !result.success)) {
+            setPageError("Booking cancelled, but an in-app notification could not be sent.");
+          }
+          try {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const response = await fetch("/api/admin/booking-notifications", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(sessionData.session?.access_token ? { Authorization: `Bearer ${sessionData.session.access_token}` } : {}),
+              },
+              body: JSON.stringify({ bookingId: booking.id, event: "cancelled", reason: cancellationReason }),
+            });
+            const result = await response.json();
+            if (!response.ok || result.failed?.length) {
+              setPageError("Booking cancelled, but email delivery needs attention.");
+              console.error("MUA cancellation email issue:", result);
+            }
+          } catch (emailError) {
+            setPageError("Booking cancelled, but email delivery could not be confirmed.");
+            console.error("MUA cancellation email failed:", emailError);
+          }
         }
       }
 
