@@ -726,7 +726,7 @@ export default function BookingPage() {
       !canPayWithCredit
     ) {
       setError(
-        "Your credit balance is not enough. Please choose card payment."
+        "Your credit balance is not enough. Please choose transfer payment."
       );
       return;
     }
@@ -1593,7 +1593,7 @@ export default function BookingPage() {
               >
                 <div className="grid gap-3 sm:grid-cols-2">
                   <PaymentOption
-                    title="Credit balance"
+                    title="Credit"
                     description={
                       walletLoading
                         ? "Loading your balance..."
@@ -1611,8 +1611,8 @@ export default function BookingPage() {
                   />
 
                   <PaymentOption
-                    title="Card"
-                    description="Pay securely by card after the artist confirms your booking."
+                    title="Transfer"
+                    description="Pay the 50% deposit by bank transfer after the artist confirms your booking, then upload your transfer proof."
                     selected={paymentMethod === "card"}
                     disabled={loading}
                     onClick={() =>
@@ -1633,7 +1633,7 @@ export default function BookingPage() {
                   Your booking request is sent to the artist for
                   confirmation. Your selected payment method is
                   only a preference at this stage. No payment
-                  or wallet deduction is made when you submit
+                  or credit deduction is made when you submit
                   this request.
                 </p>
               </SectionCard>
@@ -1836,8 +1836,8 @@ export default function BookingPage() {
 
                     <p className="mt-2 text-lg font-semibold">
                       {paymentMethod === "credit_balance"
-                        ? "Credit balance"
-                        : "Card"}
+                        ? "Credit"
+                        : "Transfer"}
                     </p>
 
                     <p className="mt-2 text-xs leading-5 text-[#806f85]">
