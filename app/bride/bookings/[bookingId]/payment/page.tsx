@@ -87,7 +87,7 @@ export default function BookingPaymentPage() {
         .upload(path, file, { contentType: file.type, upsert: false });
       if (uploadError) throw uploadError;
 
-      const { error: updateError } = await supabase
+      const { data: updatedBooking, error: updateError } = await supabase
         .from("bookings")
         .update({
           payment_proof_path: path,
@@ -98,12 +98,17 @@ export default function BookingPaymentPage() {
           payment_proof_rejection_reason: null,
         })
         .eq("id", booking.id)
-        .eq("bride_id", user.id);
+        .eq("bride_id", user.id)
+        .select("id, payment_proof_status")
+        .maybeSingle();
       if (updateError) throw updateError;
+      if (!updatedBooking) {
+        throw new Error("Your receipt uploaded, but Beaura could not save it to this booking. Please contact support before trying again.");
+      }
 
+      setBooking((current) => current ? { ...current, payment_proof_status: updatedBooking.payment_proof_status, payment_proof_path: path, payment_proof_uploaded_at: new Date().toISOString(), payment_proof_rejection_reason: null } : current);
       setFile(null);
-      setSuccess("Your transfer proof was submitted. Beaura will review it and update your booking.");
-      await loadBooking();
+      setSuccess("Your transfer proof was submitted and saved. Beaura will review it and update your booking.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not upload your proof. Please try again.");
     } finally {
