@@ -102,11 +102,11 @@ export default function LoginPage() {
         >
           <header className="mb-8 text-center">
             <p className="mx-auto mb-4 w-fit rounded-full bg-[#f7efff] px-4 py-2 text-xs uppercase tracking-[0.18em] text-purple-700">
-              welcome back
+              Your Beaura account
             </p>
 
             <h1 className="text-4xl font-light tracking-[-0.06em]">
-              Back to your glam world.
+              Welcome back.
             </h1>
 
             <p className="mx-auto mt-4 max-w-sm text-sm leading-7 text-[#6f6077]">
@@ -147,7 +147,7 @@ export default function LoginPage() {
             </div>
 
             <div className="flex items-center justify-between text-sm">
-              <span className="text-[#8a7d91]">Keep your glam plans close.</span>
+              <span className="text-[#8a7d91]">Access your Beaura account.</span>
 
               <button
                 type="button"
@@ -177,14 +177,14 @@ export default function LoginPage() {
               href="/register/bride"
               className="rounded-2xl bg-[#fff7fb] px-4 py-3 text-[#6f6077] hover:text-purple-700"
             >
-              Need glam?
+              Looking for an artist?
             </Link>
 
             <Link
               href="/register/mua"
               className="rounded-2xl bg-[#fff7fb] px-4 py-3 text-[#6f6077] hover:text-purple-700"
             >
-              Are you an artist?
+              Makeup artist?
             </Link>
           </div>
         </motion.form>
