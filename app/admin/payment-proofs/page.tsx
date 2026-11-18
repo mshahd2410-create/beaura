@@ -90,21 +90,44 @@ export default function AdminPaymentProofsPage() {
       setBusyId(null);
       return;
     }
-    const { data: updated, error: updateError } = await supabase
-      .from("bookings")
-      .update({
-        payment_proof_status: decision,
-        payment_proof_reviewed_at: new Date().toISOString(),
-        payment_proof_reviewed_by: user.id,
-        payment_proof_rejection_reason: decision === "rejected" ? rejectionReason : null,
-        ...(decision === "approved" ? { status: "confirmed" } : {}),
-      })
-      .eq("id", item.id)
-      .eq("payment_proof_status", "pending_review")
-      .select("id")
-      .maybeSingle();
-    if (updateError || !updated) {
-      setError(updateError?.message || "This proof has already changed. Refresh the queue and try again.");
+    let reviewError: { message: string } | null = null;
+
+    if (decision === "approved") {
+      // Approval must run through the database transaction so the booking,
+      // financial snapshot, and MUA deposit transfer are created atomically.
+      const { error: approvalError } = await supabase.rpc(
+        "admin_approve_booking_payment_proof",
+        {
+          p_booking_id: item.id,
+          p_admin_notes: null,
+        }
+      );
+      reviewError = approvalError;
+    } else {
+      // Rejection does not create financial records or confirm the booking.
+      const { data: updated, error: rejectionError } = await supabase
+        .from("bookings")
+        .update({
+          payment_proof_status: "rejected",
+          payment_proof_reviewed_at: new Date().toISOString(),
+          payment_proof_reviewed_by: user.id,
+          payment_proof_rejection_reason: rejectionReason,
+        })
+        .eq("id", item.id)
+        .eq("payment_proof_status", "pending_review")
+        .select("id")
+        .maybeSingle();
+
+      reviewError = rejectionError;
+      if (!rejectionError && !updated) {
+        reviewError = {
+          message: "This proof has already changed. Refresh the queue and try again.",
+        };
+      }
+    }
+
+    if (reviewError) {
+      setError(reviewError.message);
       setBusyId(null);
       await loadProofs();
       return;
