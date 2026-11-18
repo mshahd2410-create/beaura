@@ -36,11 +36,15 @@ const sections = [
   },
   {
     title: "Prices, fees and payments",
-    body: "Artists set the prices for their services. Any platform fee, taxes, deposit, balance or other amount applicable to a booking should be shown in the booking or checkout breakdown. Review that breakdown before paying. Payments are processed using the payment methods and providers made available through Beaura. Payment-provider terms may also apply."
+    body: "Artists set their service prices. Before a booking becomes payable, the artist reviews the client’s selected location and, for off-studio appointments, submits a travel-fee quote for that specific booking. The client must accept that quote before the final total and deposit are calculated. A studio appointment does not require a travel quote. The booking breakdown shows the service price, any eligible promotion, travel fee and Beaura platform fee. A promotional discount applies to the makeup service price only, not to travel. The client deposit is 50% of the discounted service price plus the full quoted travel fee and the client-side Beaura platform fee. The remaining discounted service balance is paid directly to the makeup artist after the appointment. The makeup artist platform fee is deducted from the artist’s entitlement in accordance with the artist terms. Applicable taxes or other charges, if any, must be displayed before payment. The available payment options include Beaura Wallet and payment by InstaPay or mobile wallet to the payment details shown in the booking. For InstaPay or mobile-wallet payments, the client must upload proof and wait for Beaura review. Do not send cash or payment to an artist outside the stated booking instructions unless Beaura expressly says otherwise."
   },
   {
     title: "Cancellations, refunds and disputes",
-    body: "Cancellation and refund outcomes depend on the booking status, timing, payment status and the cancellation terms presented for the booking. Please review the cancellation information in your account before submitting a cancellation request. If an artist cancels or a service does not take place as agreed, contact Beaura support with the booking reference. Beaura may review the booking record and relevant communications to help resolve a dispute. Any refund or compensation will be handled according to the applicable booking policy and payment-provider process."
+    body: "A client who requests cancellation at least seven days before the appointment submits a cancellation request. Where Beaura has already transferred the deposit to the makeup artist, the artist has 48 hours to return the transferred deposit; if it is not returned within that period, the amount may be recorded as an amount owed to Beaura and recovered from future artist earnings. A client cancellation less than seven days before the appointment is not eligible for a deposit refund under the standard booking policy. If the makeup artist cancels more than seven days before the appointment, the client receives the deposit less the Beaura fees applicable to that booking. If the makeup artist cancels seven days or fewer before the appointment, the client receives the full deposit, including Beaura fees. A declined travel quote cancels the booking before payment is taken and therefore does not create a payment refund. Refund timing may depend on the payment channel and processing provider. These standard terms do not limit any non-waivable rights under Egyptian law. Contact Beaura with the booking reference if the booking record does not reflect the applicable outcome."
+  },
+  {
+    title: "Egyptian consumer rights and complaints",
+    body: "Beaura aims to present material service information, the identity and contact details available for the relevant provider, booking prices and applicable fees clearly before a client pays. Clients should keep their booking confirmation and payment evidence. Nothing in these Terms limits rights or remedies available under Egyptian Consumer Protection Law No. 181 of 2018 or other mandatory law. Clients may contact Beaura at beaura.eg@gmail.com with a complaint and should include the booking reference."
   },
   {
     title: "Reviews and user content",
@@ -65,11 +69,11 @@ const sections = [
   },
   {
     title: "Privacy",
-    body: "Our handling of personal information is explained in the Beaura Privacy Policy. By using the platform, you acknowledge that information is handled as described there."
+    body: "Our handling of personal information is explained in the Beaura Privacy Policy. Beaura intends to handle personal data in accordance with applicable Egyptian requirements, including Personal Data Protection Law No. 151 of 2020 and its Executive Regulations, where applicable. Nothing in these Terms removes rights that cannot lawfully be waived."
   },
   {
     title: "Changes and availability",
-    body: "We may update these terms as Beaura changes. The latest version will appear on this page with its updated date. We may also update, suspend or discontinue parts of the platform. We will not use this section to remove rights that cannot legally be excluded."
+    body: "We may update these terms as Beaura changes. The latest version will appear on this page with its updated date. We may also update, suspend or discontinue parts of the platform. Material changes will be reflected in the published terms. We will not use this section to remove rights that cannot legally be excluded."
   },
   {
     title: "Contact",
@@ -85,7 +89,7 @@ export default function TermsPage() {
           <p className="text-xs uppercase tracking-[0.22em] text-purple-700">The important details</p>
           <h1 className="mt-5 max-w-3xl text-6xl font-light leading-[0.94] tracking-[-0.08em] sm:text-7xl">Terms & conditions.</h1>
           <p className="mt-6 max-w-2xl text-sm leading-7 text-[#655968]">The guidelines for using Beaura, requesting bookings and working with makeup artists.</p>
-          <p className="mt-6 text-xs text-[#76677f]">Last updated: 17 November 2026</p>
+          <p className="mt-6 text-xs text-[#76677f]">Last updated: 18 November 2026</p>
         </div>
       </section>
       <div className="mx-auto grid max-w-6xl gap-12 px-5 py-16 sm:px-8 lg:grid-cols-[230px_1fr]">
@@ -96,7 +100,7 @@ export default function TermsPage() {
           </nav>
         </aside>
         <article className="space-y-10">
-          <p className="text-sm leading-8 text-[#6f6077]">Please read these terms before using Beaura. They explain the basic responsibilities of clients, makeup artists and the platform.</p>
+          <p className="text-sm leading-8 text-[#6f6077]">Please read these terms before using Beaura. They explain the responsibilities of clients, independent makeup artists and the platform. They are intended to be read with the booking-specific price, deposit, travel-quote and cancellation information displayed in your account.</p>
           {sections.map((section,index)=>(
             <section id={`terms-${index}`} key={section.title} className="scroll-mt-28 border-b border-[#eadff5] pb-9">
               <p className="text-xs uppercase tracking-[0.18em] text-purple-700">Section {String(index+1).padStart(2,"0")}</p>
