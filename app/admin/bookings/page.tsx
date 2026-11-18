@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { createNotification } from "@/lib/createNotification";
+import { getBookingNumber } from "@/lib/bookingNumber";
 import { Eye, Search, X } from "lucide-react";
 
 type Booking = {
@@ -533,7 +534,7 @@ export default function AdminBookingsPage() {
                       {getPaymentStatus(booking)}
                     </span>
                     <span className="text-xs text-[#8a7d91]">
-                      #{booking.id.slice(0, 8)}
+                      #{getBookingNumber(booking.id)}
                     </span>
                   </div>
 
@@ -622,7 +623,7 @@ export default function AdminBookingsPage() {
                   booking details
                 </p>
                 <h2 className="mt-1 text-2xl font-light tracking-[-0.05em]">
-                  #{selectedBooking.id.slice(0, 8)}
+                  #{getBookingNumber(selectedBooking.id)}
                 </h2>
               </div>
               <button
