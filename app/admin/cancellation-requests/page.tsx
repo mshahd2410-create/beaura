@@ -21,7 +21,6 @@ type CancellationRequest = {
   mua_repayment_amount: number;
   repayment_deadline: string | null;
   repayment_status: string;
-  refund_status: string;
   request_status: string;
 };
 
