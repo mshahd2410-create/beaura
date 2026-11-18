@@ -136,8 +136,8 @@ export default function AdminPaymentProofsPage() {
     }
 
     const notificationMessage = decision === "approved"
-      ? "The transfer receipt was approved. The booking is now confirmed."
-      : `The transfer receipt was rejected. Reason: ${rejectionReason}`;
+      ? "The InstaPay / mobile-wallet payment proof was approved. The booking is now confirmed."
+      : `The InstaPay / mobile-wallet payment proof was rejected. Reason: ${rejectionReason}`;
     const notificationTargets = decision === "approved"
       ? [
           createNotification({
@@ -168,6 +168,15 @@ export default function AdminPaymentProofsPage() {
             title: "Payment proof needs attention",
             message: notificationMessage,
             href: `/bride/bookings/${item.id}/payment`,
+          }),
+          createNotification({
+            userId: item.mua_id,
+            actorId: user.id,
+            bookingId: item.id,
+            type: "admin_update",
+            title: "Deposit proof was rejected",
+            message: `The bride's InstaPay / mobile-wallet deposit proof was rejected. Reason: ${rejectionReason}`,
+            href: "/dashboard/mua/bookings",
           }),
         ];
     const notificationResults = await Promise.all(notificationTargets);
@@ -221,7 +230,7 @@ export default function AdminPaymentProofsPage() {
     <main className="mx-auto max-w-6xl space-y-6 px-5 pb-16 pt-10 text-[#171018] sm:px-8">
       <div className="rounded-[2rem] border border-[#eadff5] bg-white p-7 shadow-sm">
         <p className="text-xs uppercase tracking-[0.2em] text-purple-700">Admin · payments</p>
-        <h1 className="mt-3 text-4xl font-light tracking-[-0.06em]">Transfer proof review</h1>
+        <h1 className="mt-3 text-4xl font-light tracking-[-0.06em]">Payment proof review</h1>
         <p className="mt-3 text-sm leading-6 text-[#6f6077]">Review the bride’s deposit receipt, booking details, and payment screenshot. Search by bride name, phone number, or order number.</p>
         <Link href="/admin/bookings" className="mt-5 inline-flex rounded-full border border-[#eadff5] px-5 py-3 text-sm text-[#6f6077] hover:bg-[#fffafc]">← Back to bookings</Link>
       </div>
@@ -229,7 +238,7 @@ export default function AdminPaymentProofsPage() {
       {error && <p className="rounded-2xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
       {message && <p className="rounded-2xl bg-green-50 p-4 text-sm text-green-800">{message}</p>}
       {loading ? <p className="p-8 text-center text-sm text-[#6f6077]">Loading proofs...</p> : filteredItems.length === 0 ? (
-        <div className="rounded-[2rem] border border-dashed border-[#eadff5] bg-white p-10 text-center text-sm text-[#6f6077]">No matching transfer proofs waiting for review.</div>
+        <div className="rounded-[2rem] border border-dashed border-[#eadff5] bg-white p-10 text-center text-sm text-[#6f6077]">No matching payment proofs waiting for review.</div>
       ) : filteredItems.map((item) => {
         const brideName = `${item.bride?.first_name || ""} ${item.bride?.last_name || ""}`.trim() || "Bride";
         return (
@@ -258,7 +267,7 @@ export default function AdminPaymentProofsPage() {
               )}
             </div>
             <div>
-              {item.proofUrl ? <a href={item.proofUrl} target="_blank" rel="noreferrer" className="block"><img src={item.proofUrl} alt={`Transfer proof for order ${item.id.slice(0, 8)}`} className="max-h-80 w-full rounded-2xl border border-[#eadff5] object-contain" /><span className="mt-2 block text-center text-sm text-purple-700 underline">Open full image</span></a> : <p className="rounded-2xl bg-[#fffafc] p-6 text-sm text-[#6f6077]">Proof image unavailable. Check storage access.</p>}
+              {item.proofUrl ? <a href={item.proofUrl} target="_blank" rel="noreferrer" className="block"><img src={item.proofUrl} alt={`Payment proof for order ${item.id.slice(0, 8)}`} className="max-h-80 w-full rounded-2xl border border-[#eadff5] object-contain" /><span className="mt-2 block text-center text-sm text-purple-700 underline">Open full image</span></a> : <p className="rounded-2xl bg-[#fffafc] p-6 text-sm text-[#6f6077]">Proof image unavailable. Check storage access.</p>}
             </div>
           </article>
         );
