@@ -83,7 +83,7 @@ export default function PrivacyPage() {
               <p className="text-xs uppercase tracking-[0.18em] text-purple-700">Section {String(index+1).padStart(2,"0")}</p>
               <h2 className="mt-2 text-2xl font-medium tracking-[-0.04em]">{section.title}</h2>
               {"body" in section && <p className="mt-4 text-sm leading-8 text-[#6f6077]">{section.body}</p>}
-              {"bullets" in section && <ul className="mt-4 list-disc space-y-3 pl-5 text-sm leading-7 text-[#6f6077]">{section.bullets.map(item=><li key={item}>{item}</li>)}</ul>}
+              {"bullets" in section && section.bullets && <ul className="mt-4 list-disc space-y-3 pl-5 text-sm leading-7 text-[#6f6077]">{section.bullets.map(item=><li key={item}>{item}</li>)}</ul>}
             </section>
           ))}
           <section className="rounded-[1.75rem] bg-[#f1e5ff] p-7 sm:p-9">
