@@ -438,7 +438,7 @@ export default function BrideBookings() {
 
   function getPaymentMethodLabel(booking: Booking) {
     if (booking.payment_method === "credit_balance") return "Beaura Wallet";
-    return "Transfer";
+    return "InstaPay / Mobile Wallet";
   }
 
   function getPaymentStatusLabel(booking: Booking) {
@@ -734,7 +734,7 @@ export default function BrideBookings() {
                         </>
                       )}
 
-                      {canBrideCancel(b) && (
+                      {canBrideCancel(b) && b.travel_fee_quote_status !== "pending_bride_approval" && (
                         <button
                           onClick={() => openCancelModal(b)}
                           disabled={saving}
