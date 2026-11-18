@@ -191,15 +191,19 @@ export default function BookingPaymentPage() {
                 <div>
                   <p className="text-xs uppercase tracking-[0.16em] text-purple-700">Your price breakdown</p>
                   <h2 className="mt-2 text-2xl font-medium tracking-[-0.04em]">Here’s how your total is calculated</h2>
-                  <p className="mt-2 text-sm leading-6 text-[#6f6077]">Your artist’s travel quote is included in this booking. The discount applies to the makeup service, not the travel fee.</p>
+                  <p className="mt-2 text-sm leading-6 text-[#6f6077]">Your artist’s travel quote is included in this booking. Any promo-code discount is shown separately and applies only when you used a valid promo code.</p>
                 </div>
 
                 <div className="mt-5 space-y-3 text-sm">
-                  <PriceRow label="Original makeup service" value={money(financials.original_service_price)} />
-                  {Number(financials.discount_amount) > 0 && (
-                    <PriceRow label="Discount" value={`− ${money(financials.discount_amount)}`} tone="discount" />
+                  {Number(financials.discount_amount) > 0 ? (
+                    <>
+                      <PriceRow label="Original makeup service" value={money(financials.original_service_price)} />
+                      <PriceRow label="Promo-code discount" value={`− ${money(financials.discount_amount)}`} tone="discount" />
+                      <PriceRow label="Makeup service after promo code" value={money(financials.discounted_service_price)} />
+                    </>
+                  ) : (
+                    <PriceRow label="Makeup service price" value={money(financials.original_service_price)} />
                   )}
-                  <PriceRow label="Discounted makeup service" value={money(financials.discounted_service_price)} />
                   <PriceRow label="Artist’s travel fee" value={money(financials.travel_fee)} />
                   <PriceRow label="Beaura platform fee" value={money(financials.bride_platform_fee)} />
                   <div className="border-t border-[#eadff5] pt-3">
@@ -210,7 +214,7 @@ export default function BookingPaymentPage() {
                 <div className="mt-5 rounded-2xl bg-[#fffafc] p-4">
                   <p className="text-xs uppercase tracking-[0.16em] text-purple-700">Deposit calculation</p>
                   <div className="mt-3 space-y-2 text-sm">
-                    <PriceRow label="50% of discounted makeup service" value={money(financials.bride_deposit_service_amount)} />
+                    <PriceRow label={Number(financials.discount_amount) > 0 ? "50% of makeup service after promo code" : "50% of makeup service"} value={money(financials.bride_deposit_service_amount)} />
                     <PriceRow label="Full travel fee" value={money(financials.bride_deposit_travel_amount)} />
                     <PriceRow label="Beaura platform fee" value={money(financials.bride_platform_fee)} />
                     <div className="border-t border-[#eadff5] pt-3">
