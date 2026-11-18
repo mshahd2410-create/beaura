@@ -15,7 +15,6 @@ import {
   Wallet,
   Settings,
   LogOut,
-  Bell,
   LayoutGrid,
   Menu,
   X,
@@ -244,15 +243,7 @@ export default function MuaLayout({ children }: { children: React.ReactNode }) {
               </div>
 
               <div className="flex items-center gap-2">
-                <Link
-                  href="/dashboard/mua/bookings"
-                  className="relative grid h-11 w-11 place-items-center rounded-full border border-[#eadff5] bg-white text-[#6f6077] transition hover:text-purple-700"
-                >
-                  <Bell size={18} />
-                  {pendingCount > 0 && (
-                    <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-purple-600" />
-                  )}
-                </Link>
+                <NotificationBell />
 
                 <Link
                   href="/dashboard/mua/messages"
