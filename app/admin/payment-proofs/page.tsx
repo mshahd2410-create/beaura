@@ -10,6 +10,10 @@ type ProofBooking = {
   bride_id: string;
   mua_id: string;
   total_price: number | null;
+  service_price: number | null;
+  discount_amount: number | null;
+  travel_fee: number | null;
+  expectedDeposit?: number | null;
   payment_proof_path: string | null;
   payment_proof_status: string | null;
   payment_proof_uploaded_at: string | null;
@@ -41,7 +45,7 @@ export default function AdminPaymentProofsPage() {
     setError(null);
     const { data, error: loadError } = await supabase
       .from("bookings")
-      .select("id, bride_id, mua_id, total_price, payment_proof_path, payment_proof_status, payment_proof_uploaded_at, payment_proof_rejection_reason, booking_date, booking_time")
+      .select("id, bride_id, mua_id, total_price, service_price, discount_amount, travel_fee, payment_proof_path, payment_proof_status, payment_proof_uploaded_at, payment_proof_rejection_reason, booking_date, booking_time")
       .in("payment_proof_status", ["pending_review", "rejected"])
       .order("payment_proof_uploaded_at", { ascending: true });
     if (loadError) {
@@ -68,7 +72,21 @@ export default function AdminPaymentProofsPage() {
         proofUrl = signed?.signedUrl || null;
       }
       const bride = brides?.find((profile: any) => profile.id === row.bride_id) || null;
-      return { ...row, bride, proofUrl };
+      const { data: financials, error: financialError } = await supabase.rpc(
+        "calculate_beaura_booking_financials_v2",
+        {
+          p_original_service_price: Number(row.service_price || 0),
+          p_discount_amount: Number(row.discount_amount || 0),
+          p_travel_fee: Number(row.travel_fee || 0),
+        }
+      );
+      if (financialError) {
+        console.error("Could not calculate expected deposit for booking", row.id, financialError);
+      }
+      const expectedDeposit = Array.isArray(financials)
+        ? Number(financials[0]?.bride_deposit_amount ?? 0)
+        : Number(financials?.bride_deposit_amount ?? 0);
+      return { ...row, bride, proofUrl, expectedDeposit: financialError ? null : expectedDeposit };
     }));
     setItems(hydrated);
     setLoading(false);
@@ -224,7 +242,7 @@ export default function AdminPaymentProofsPage() {
       <div className="rounded-[2rem] border border-[#eadff5] bg-white p-7 shadow-sm">
         <p className="text-xs uppercase tracking-[0.2em] text-purple-700">Admin · payments</p>
         <h1 className="mt-3 text-4xl font-light tracking-[-0.06em]">Transfer proof review</h1>
-        <p className="mt-3 text-sm leading-6 text-[#6f6077]">Review each bride's 50% deposit receipt. Approving a proof records the deposit approval only; it does not mark the full booking as paid.</p>
+        <p className="mt-3 text-sm leading-6 text-[#6f6077]">Compare each bank receipt with the calculated deposit amount. Approval confirms the deposit and creates the MUA's pending external transfer; it does not mark the full booking as paid.</p>
         <Link href="/admin/bookings" className="mt-5 inline-flex rounded-full border border-[#eadff5] px-5 py-3 text-sm text-[#6f6077] hover:bg-[#fffafc]">← Back to bookings</Link>
       </div>
       {error && <p className="rounded-2xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
@@ -243,9 +261,10 @@ export default function AdminPaymentProofsPage() {
               <h2 className="mt-3 text-2xl font-medium">{brideName}</h2>
               <p className="mt-1 text-sm text-[#6f6077]">{item.bride?.phone || "Phone not available"}</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl bg-[#fffafc] p-4"><p className="text-xs text-[#8a7d91]">Booking total</p><p className="mt-1 font-medium">{money(item.total_price)}</p></div>
-                <div className="rounded-2xl bg-[#f7efff] p-4"><p className="text-xs text-purple-700">50% deposit</p><p className="mt-1 font-semibold">{money(Number(item.total_price || 0) * 0.5)}</p></div>
+                <div className="rounded-2xl bg-[#fffafc] p-4"><p className="text-xs text-[#8a7d91]">Original service price</p><p className="mt-1 font-medium">{money(item.service_price)}</p></div>
+                <div className="rounded-2xl bg-[#f7efff] p-4"><p className="text-xs text-purple-700">Expected bride deposit</p><p className="mt-1 font-semibold">{item.expectedDeposit === null || item.expectedDeposit === undefined ? "Could not calculate" : money(item.expectedDeposit)}</p></div>
               </div>
+              <p className="mt-2 text-xs text-[#8a7d91]">Includes the discounted service deposit, full travel fee, and bride-side Beaura fee.</p>
               <p className="mt-3 text-xs text-[#8a7d91]">Uploaded: {item.payment_proof_uploaded_at ? new Date(item.payment_proof_uploaded_at).toLocaleString() : "—"}</p>
               {item.payment_proof_status === "rejected" && item.payment_proof_rejection_reason && <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">Previous rejection: {item.payment_proof_rejection_reason}</p>}
               {item.payment_proof_status === "pending_review" && (
