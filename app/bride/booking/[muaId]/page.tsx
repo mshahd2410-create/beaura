@@ -704,7 +704,7 @@ export default function BookingPage() {
       !canPayWithCredit
     ) {
       setError(
-        "Your credit balance is not enough. Please choose transfer payment."
+        "Your credit balance is not enough. Please choose InstaPay or mobile wallet payment."
       );
       return;
     }
@@ -1595,8 +1595,8 @@ export default function BookingPage() {
                   />
 
                   <PaymentOption
-                    title="Transfer"
-                    description="Pay the 50% deposit by bank transfer after the artist confirms your booking, then upload your transfer proof."
+                    title="InstaPay / Mobile Wallet"
+                    description="Pay the 50% deposit using InstaPay or a mobile wallet after the artist confirms your booking, then upload your payment proof."
                     selected={paymentMethod === "card"}
                     disabled={loading}
                     onClick={() =>
@@ -1805,7 +1805,7 @@ export default function BookingPage() {
                   <div className="rounded-2xl bg-[#fffafc] p-5">
                     <p className="text-xs text-[#806f85]">Payment preference</p>
                     <p className="mt-2 text-lg font-semibold">
-                      {paymentMethod === "credit_balance" ? "Beaura Wallet" : "Bank Transfer"}
+                      {paymentMethod === "credit_balance" ? "Beaura Wallet" : "InstaPay / Mobile Wallet"}
                     </p>
                     <p className="mt-2 text-xs leading-6 text-[#806f85]">
                       This is only your preferred payment method. The exact deposit amount will appear after you accept the MUA&apos;s travel quote. No payment or wallet deduction happens when you send this request.
