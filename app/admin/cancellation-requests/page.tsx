@@ -33,6 +33,11 @@ type Booking = {
   deposit_amount: number | null;
   travel_fee: number | null;
   status: string;
+  cancelled_at?: string | null;
+  cancelled_by?: string | null;
+  cancellation_reason?: string | null;
+  refund_processed?: boolean | null;
+  refund_amount?: number | null;
 };
 
 type BrideProfile = { id: string; first_name: string | null; last_name: string | null; phone: string | null };
@@ -41,6 +46,7 @@ type QueueFilter = "all" | "repayment" | "overdue" | "decision";
 export default function CancellationRequestsPage() {
   const [requests, setRequests] = useState<CancellationRequest[]>([]);
   const [bookings, setBookings] = useState<Record<string, Booking>>({});
+  const [directCancellations, setDirectCancellations] = useState<Booking[]>([]);
   const [brides, setBrides] = useState<Record<string, BrideProfile>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
@@ -64,20 +70,32 @@ export default function CancellationRequestsPage() {
     }
     const rows = ((data || []) as CancellationRequest[]).filter((row) => row.request_status !== "closed");
     const ids = [...new Set(rows.map((row) => row.booking_id))];
-    const { data: bookingRows, error: bookingError } = ids.length
-      ? await supabase
-          .from("bookings")
-          .select("id, bride_id, mua_id, booking_date, booking_time, service_price, deposit_amount, travel_fee, status")
-          .in("id", ids)
-      : { data: [], error: null };
-    if (bookingError) {
-      setError(bookingError.message);
+    const [{ data: bookingRows, error: bookingError }, { data: cancelledRows, error: cancelledError }] = await Promise.all([
+      ids.length
+        ? supabase
+            .from("bookings")
+            .select("id, bride_id, mua_id, booking_date, booking_time, service_price, deposit_amount, travel_fee, status")
+            .in("id", ids)
+        : Promise.resolve({ data: [], error: null }),
+      supabase
+        .from("bookings")
+        .select("id, bride_id, mua_id, booking_date, booking_time, service_price, deposit_amount, travel_fee, status, cancelled_at, cancelled_by, cancellation_reason, refund_processed, refund_amount")
+        .eq("status", "cancelled")
+        .order("cancelled_at", { ascending: false }),
+    ]);
+    if (bookingError || cancelledError) {
+      setError(bookingError?.message || cancelledError?.message || "Could not load cancelled bookings.");
       setLoading(false);
       return;
     }
-    const brideIds = [...new Set((bookingRows || []).map((row: any) => row.bride_id).filter(Boolean))];
-    const { data: brideRows, error: brideError } = brideIds.length
-      ? await supabase.from("bride_profiles").select("id, first_name, last_name, phone").in("id", brideIds)
+    const requestBookingIds = new Set(ids);
+    const directRows = ((cancelledRows || []) as Booking[]).filter((row) => !requestBookingIds.has(row.id));
+    const allBrideIds = [...new Set([
+      ...(bookingRows || []).map((row: any) => row.bride_id),
+      ...directRows.map((row) => row.bride_id),
+    ].filter(Boolean))];
+    const { data: brideRows, error: brideError } = allBrideIds.length
+      ? await supabase.from("bride_profiles").select("id, first_name, last_name, phone").in("id", allBrideIds)
       : { data: [], error: null };
     if (brideError) {
       setError(brideError.message);
@@ -86,6 +104,7 @@ export default function CancellationRequestsPage() {
     }
     setRequests(rows);
     setBookings(Object.fromEntries((bookingRows || []).map((row) => [row.id, row as Booking])));
+    setDirectCancellations(directRows);
     setBrides(Object.fromEntries(((brideRows || []) as BrideProfile[]).map((row) => [row.id, row])));
     setLoading(false);
   }, []);
@@ -95,6 +114,7 @@ export default function CancellationRequestsPage() {
     const channel = supabase
       .channel("admin-cancellation-requests")
       .on("postgres_changes", { event: "*", schema: "public", table: "booking_cancellation_requests" }, () => void load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "bookings" }, () => void load())
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [load]);
@@ -203,6 +223,39 @@ export default function CancellationRequestsPage() {
           </div>
         </div>
       </section>
+
+      {!loading && directCancellations.length > 0 && (
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-xl font-medium text-[#332733]">Direct cancellations</h2>
+            <p className="mt-1 text-sm text-[#887b86]">Bookings cancelled without a repayment request. These are shown separately and do not automatically require an admin refund decision.</p>
+          </div>
+          <div className="space-y-3">
+            {directCancellations.map((booking) => {
+              const bride = brides[booking.bride_id];
+              const brideName = `${bride?.first_name || ""} ${bride?.last_name || ""}`.trim() || booking.bride_id;
+              return (
+                <article key={booking.id} className="rounded-[1.5rem] border border-[#eadfe5] bg-white p-5 shadow-sm">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#a36f8c]">Cancelled booking · no open request</p>
+                      <h3 className="mt-2 text-lg font-medium text-[#2b202a]">Order #{booking.id.slice(0, 8).toUpperCase()}</h3>
+                      <p className="mt-1 text-sm text-[#756975]">Bride: {brideName}</p>
+                      <p className="mt-1 text-sm text-[#756975]">Appointment: {booking.booking_date || "Not available"} · {booking.booking_time || "Time not available"}</p>
+                      <p className="mt-2 text-sm text-[#756975]">Reason: {booking.cancellation_reason || "No reason recorded"}</p>
+                      <p className="mt-1 text-xs text-[#988b96]">Cancelled: {booking.cancelled_at ? new Date(booking.cancelled_at).toLocaleString() : "Timestamp not recorded"}</p>
+                    </div>
+                    <div className="rounded-xl bg-[#fff8fb] px-4 py-3 sm:min-w-[180px] sm:text-right">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#a08798]">Refund recorded</p>
+                      <p className="mt-1 text-lg font-semibold text-[#332733]">{booking.refund_processed ? money(booking.refund_amount) : "No refund recorded"}</p>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {loading ? (
         <div className="rounded-[1.8rem] border border-[#eadfe5] bg-white p-10 text-center text-sm text-[#887b86]">Loading cancellation requests…</div>
