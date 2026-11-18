@@ -879,8 +879,10 @@ export default function BookingPage() {
 
   // SUCCESS PAGE
   if (bookingComplete) {
-    const confirmedTotal = Number(
-      createdBooking?.total_price ?? totalAfterDiscount
+    // The request total is only the service subtotal: travel and final
+    // platform fees are calculated after the bride accepts the MUA quote.
+    const serviceSubtotal = Number(
+      createdBooking?.total_price ?? servicePrice
     );
 
     return (
@@ -927,9 +929,9 @@ export default function BookingPage() {
             </div>
 
             <div className="mt-3 flex justify-between gap-4 text-sm">
-              <span className="text-[#806f85]">Total</span>
+              <span className="text-[#806f85]">Service subtotal</span>
               <strong>
-                EGP {confirmedTotal.toLocaleString("en-EG")}
+                EGP {serviceSubtotal.toLocaleString("en-EG")}
               </strong>
             </div>
 
