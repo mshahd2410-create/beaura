@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { createNotification } from "@/lib/createNotification";
+import { getBookingNumber } from "@/lib/bookingNumber";
 
 type BookingStatus =
   | "pending"
@@ -614,6 +615,11 @@ export default function BrideBookings() {
                 >
                   <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                     <div className="min-w-0">
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
+                        <span className="rounded-full border border-[#eadff5] bg-[#fffafc] px-3 py-1 text-xs font-semibold tracking-wide text-[#6f6077]">
+                          Booking # {getBookingNumber(b.id)}
+                        </span>
+                      </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="rounded-full bg-[#f7efff] px-3 py-1 text-xs font-medium text-purple-700 capitalize">
                           {cleanStatus(status)}
