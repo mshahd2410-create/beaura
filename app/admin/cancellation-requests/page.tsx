@@ -35,11 +35,13 @@ type Booking = {
   status: string;
 };
 
+type BrideProfile = { id: string; first_name: string | null; last_name: string | null; phone: string | null };
 type QueueFilter = "all" | "repayment" | "overdue" | "decision";
 
 export default function CancellationRequestsPage() {
   const [requests, setRequests] = useState<CancellationRequest[]>([]);
   const [bookings, setBookings] = useState<Record<string, Booking>>({});
+  const [brides, setBrides] = useState<Record<string, BrideProfile>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<QueueFilter>("all");
@@ -73,8 +75,18 @@ export default function CancellationRequestsPage() {
       setLoading(false);
       return;
     }
+    const brideIds = [...new Set((bookingRows || []).map((row: any) => row.bride_id).filter(Boolean))];
+    const { data: brideRows, error: brideError } = brideIds.length
+      ? await supabase.from("bride_profiles").select("id, first_name, last_name, phone").in("id", brideIds)
+      : { data: [], error: null };
+    if (brideError) {
+      setError(brideError.message);
+      setLoading(false);
+      return;
+    }
     setRequests(rows);
     setBookings(Object.fromEntries((bookingRows || []).map((row) => [row.id, row as Booking])));
+    setBrides(Object.fromEntries(((brideRows || []) as BrideProfile[]).map((row) => [row.id, row])));
     setLoading(false);
   }, []);
 
@@ -104,9 +116,11 @@ export default function CancellationRequestsPage() {
     const term = search.trim().toLowerCase();
     return requests.filter((request) => {
       const booking = bookings[request.booking_id];
+      const bride = booking?.bride_id ? brides[booking.bride_id] : undefined;
+      const brideName = `${bride?.first_name || ""} ${bride?.last_name || ""}`.trim();
       const matchesSearch = !term || [
         request.booking_id, request.reason, request.requested_by,
-        booking?.bride_id, booking?.mua_id,
+        booking?.bride_id, booking?.mua_id, brideName, bride?.phone,
       ].some((value) => String(value || "").toLowerCase().includes(term));
       const matchesFilter =
         filter === "all" ||
@@ -115,7 +129,7 @@ export default function CancellationRequestsPage() {
         (filter === "decision" && (request.request_status === "awaiting_admin_decision" || request.repayment_status === "received"));
       return matchesSearch && matchesFilter;
     });
-  }, [requests, bookings, search, filter]);
+  }, [requests, bookings, brides, search, filter]);
 
   async function decide(request: CancellationRequest, decision: "cancel_and_refunded" | "cancel_with_no_refund") {
     setBusyId(request.id);
@@ -182,7 +196,7 @@ export default function CancellationRequestsPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full lg:max-w-md">
             <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#a493a1]" />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search order, bride/MUA ID or reason" className="h-12 w-full rounded-xl border border-[#eee4eb] bg-[#fffafc] pl-11 pr-4 text-sm outline-none transition focus:border-[#c9a9ba]" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search order, bride name, phone, ID or reason" className="h-12 w-full rounded-xl border border-[#eee4eb] bg-[#fffafc] pl-11 pr-4 text-sm outline-none transition focus:border-[#c9a9ba]" />
           </div>
           <div className="flex flex-wrap gap-2">
             {filters.map((item) => <button key={item.id} onClick={() => setFilter(item.id)} className={`rounded-full px-4 py-2.5 text-xs font-medium transition ${filter === item.id ? "bg-[#2b202a] text-white" : "border border-[#eee4eb] bg-white text-[#766875] hover:border-[#c9a9ba]"}`}>{item.label} <span className={filter === item.id ? "ml-1 text-white/70" : "ml-1 text-[#a18f9e]"}>{item.count}</span></button>)}
@@ -224,7 +238,8 @@ export default function CancellationRequestsPage() {
 
                 <div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4 sm:p-6">
                   <Info label="Appointment" value={booking?.booking_date ? `${booking.booking_date} ${booking.booking_time || ""}` : request.event_date || "Not available"} />
-                  <Info label="Bride user ID" value={booking?.bride_id || "Not available"} />
+                  <Info label="Bride" value={booking?.bride_id ? (`${brides[booking.bride_id]?.first_name || ""} ${brides[booking.bride_id]?.last_name || ""}`.trim() || booking.bride_id) : "Not available"} />
+                  <Info label="Bride phone" value={booking?.bride_id ? brides[booking.bride_id]?.phone || "Not available" : "Not available"} />
                   <Info label="MUA user ID" value={booking?.mua_id || "Not available"} />
                   <Info label="Deposit recorded" value={money(booking?.deposit_amount)} />
                   <Info label="Refund eligible" value={request.refund_eligible ? "Yes" : "No"} />
