@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Bell, CheckCheck, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -18,6 +19,7 @@ type Notification = {
 };
 
 export default function NotificationBell() {
+  const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
@@ -93,11 +95,15 @@ export default function NotificationBell() {
   }
 
   useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let active = true;
+
     async function init() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
+      if (!active) return;
       if (!user) {
         setLoading(false);
         return;
@@ -105,48 +111,46 @@ export default function NotificationBell() {
 
       setUserId(user.id);
       await loadNotifications(user.id);
+      if (!active) return;
 
-      const channel = supabase
+      channel = supabase
         .channel(`notifications-${user.id}`)
         .on(
           "postgres_changes",
           {
-            event: "INSERT",
+            event: "*",
             schema: "public",
             table: "notifications",
             filter: `user_id=eq.${user.id}`,
           },
           (payload) => {
-            setNotifications((prev) => [
-              payload.new as Notification,
-              ...prev,
-            ]);
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "UPDATE",
-            schema: "public",
-            table: "notifications",
-            filter: `user_id=eq.${user.id}`,
-          },
-          (payload) => {
-            const updated = payload.new as Notification;
-
-            setNotifications((prev) =>
-              prev.map((n) => (n.id === updated.id ? updated : n))
-            );
+            if (payload.eventType === "INSERT") {
+              const incoming = payload.new as Notification;
+              setNotifications((prev) => [
+                incoming,
+                ...prev.filter((item) => item.id !== incoming.id),
+              ].slice(0, 20));
+            } else if (payload.eventType === "UPDATE") {
+              const updated = payload.new as Notification;
+              setNotifications((prev) =>
+                prev.map((item) => item.id === updated.id ? updated : item)
+              );
+            } else if (payload.eventType === "DELETE") {
+              const removed = payload.old as Partial<Notification>;
+              if (removed.id) {
+                setNotifications((prev) => prev.filter((item) => item.id !== removed.id));
+              }
+            }
           }
         )
         .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
     }
 
-    init();
+    void init();
+    return () => {
+      active = false;
+      if (channel) void supabase.removeChannel(channel);
+    };
   }, []);
 
   return (
@@ -209,7 +213,7 @@ export default function NotificationBell() {
                     await markOneAsRead(notification.id);
 
                     if (notification.href) {
-                      window.location.href = notification.href;
+                      router.push(notification.href);
                     }
                   }}
                   className={`block w-full border-b border-[#f4ebe6] px-5 py-4 text-left transition hover:bg-[#fdf8f5] ${
