@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabaseClient";
 
 export type NotificationType =
   | "booking_created"
+  | "booking_created"
   | "booking_confirmed"
   | "booking_rejected"
   | "booking_cancelled"
