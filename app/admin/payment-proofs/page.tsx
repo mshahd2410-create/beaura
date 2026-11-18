@@ -10,6 +10,7 @@ type ProofBooking = {
   bride_id: string;
   mua_id: string;
   total_price: number | null;
+  deposit_amount?: number | null;
   payment_proof_path: string | null;
   payment_proof_status: string | null;
   payment_proof_uploaded_at: string | null;
@@ -41,7 +42,7 @@ export default function AdminPaymentProofsPage() {
     setError(null);
     const { data, error: loadError } = await supabase
       .from("bookings")
-      .select("id, bride_id, mua_id, total_price, payment_proof_path, payment_proof_status, payment_proof_uploaded_at, payment_proof_rejection_reason, booking_date, booking_time")
+      .select("id, bride_id, mua_id, total_price, deposit_amount, payment_proof_path, payment_proof_status, payment_proof_uploaded_at, payment_proof_rejection_reason, booking_date, booking_time")
       .in("payment_proof_status", ["pending_review", "rejected"])
       .order("payment_proof_uploaded_at", { ascending: true });
     if (loadError) {
@@ -213,7 +214,7 @@ export default function AdminPaymentProofsPage() {
       <div className="rounded-[2rem] border border-[#eadff5] bg-white p-7 shadow-sm">
         <p className="text-xs uppercase tracking-[0.2em] text-purple-700">Admin · payments</p>
         <h1 className="mt-3 text-4xl font-light tracking-[-0.06em]">Transfer proof review</h1>
-        <p className="mt-3 text-sm leading-6 text-[#6f6077]">Review each bride's 50% deposit receipt. Approving a proof records the deposit approval only; it does not mark the full booking as paid.</p>
+        <p className="mt-3 text-sm leading-6 text-[#6f6077]">Review each bride's Deposit due receipt. Approving a proof records the deposit approval only; it does not mark the full booking as paid.</p>
         <Link href="/admin/bookings" className="mt-5 inline-flex rounded-full border border-[#eadff5] px-5 py-3 text-sm text-[#6f6077] hover:bg-[#fffafc]">← Back to bookings</Link>
       </div>
       {error && <p className="rounded-2xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
@@ -233,7 +234,7 @@ export default function AdminPaymentProofsPage() {
               <p className="mt-1 text-sm text-[#6f6077]">{item.bride?.phone || "Phone not available"}</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-2xl bg-[#fffafc] p-4"><p className="text-xs text-[#8a7d91]">Booking total</p><p className="mt-1 font-medium">{money(item.total_price)}</p></div>
-                <div className="rounded-2xl bg-[#f7efff] p-4"><p className="text-xs text-purple-700">50% deposit</p><p className="mt-1 font-semibold">{money(Number(item.total_price || 0) * 0.5)}</p></div>
+                <div className="rounded-2xl bg-[#f7efff] p-4"><p className="text-xs text-purple-700">50% deposit</p><p className="mt-1 font-semibold">{money(item.deposit_amount ?? Number(item.total_price || 0) * 0.5)}</p></div>
               </div>
               <p className="mt-3 text-xs text-[#8a7d91]">Uploaded: {item.payment_proof_uploaded_at ? new Date(item.payment_proof_uploaded_at).toLocaleString() : "—"}</p>
               {item.payment_proof_status === "rejected" && item.payment_proof_rejection_reason && <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">Previous rejection: {item.payment_proof_rejection_reason}</p>}
