@@ -34,6 +34,9 @@ type Booking = {
   booking_time: string | null;
 
   location: string | null;
+  location_type?: string | null;
+  travel_fee?: number | null;
+  travel_fee_quote_status?: string | null;
   location_notes: string | null;
   notes?: string | null;
 
@@ -213,6 +216,39 @@ export default function BrideBookings() {
       setPageError(err?.message || "Could not load bookings.");
     } finally {
       if (showLoading) setLoading(false);
+    }
+  }
+
+  async function respondToTravelQuote(booking: Booking, accept: boolean) {
+    if (saving) return;
+    setSaving(true);
+    setPageError(null);
+    try {
+      const { error } = await supabase.rpc("bride_respond_to_travel_fee_quote", {
+        p_booking_id: booking.id,
+        p_accept: accept,
+      });
+      if (error) throw new Error(error.message);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const result = await createNotification({
+          userId: booking.mua_id,
+          actorId: user.id,
+          bookingId: booking.id,
+          type: accept ? "travel_fee_accepted" : "travel_fee_declined",
+          title: accept ? "Travel quote accepted" : "Travel quote declined",
+          message: accept
+            ? "The bride accepted your travel quote. The booking can proceed to payment."
+            : "The bride declined your travel quote. The booking has been cancelled.",
+          href: "/dashboard/mua/bookings",
+        });
+        if (!result.success) setPageError("Your response was saved, but the MUA notification could not be sent.");
+      }
+      await loadBookings();
+    } catch (err: any) {
+      setPageError(err?.message || "Could not save your response.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -571,20 +607,31 @@ export default function BrideBookings() {
 
                       <div className="mt-4 grid gap-3 sm:grid-cols-3">
                         <InfoCard
-                          label="Total"
+                          label="Service subtotal"
                           value={formatMoney(b.total_price)}
+                        />
+
+                        <InfoCard
+                          label="Travel quote"
+                          value={b.location_type === "own_studio" ? "EGP 0 · Studio" : b.travel_fee_quote_status === "pending_bride_approval" || b.travel_fee_quote_status === "accepted" ? formatMoney(b.travel_fee) : "Pending"}
                         />
 
                         <InfoCard
                           label="Payment"
                           value={getPaymentMethodLabel(b)}
                         />
-
-                        <InfoCard
-                          label="Status"
-                          value={getPaymentStatusLabel(b)}
-                        />
                       </div>
+                      {b.travel_fee_quote_status === "pending_bride_approval" && (
+                        <div className="mt-4 rounded-2xl border border-purple-200 bg-[#f7efff] p-5">
+                          <p className="text-sm font-medium text-purple-900">Your makeup artist sent a travel quote.</p>
+                          <p className="mt-2 text-2xl font-semibold text-[#171018]">{formatMoney(b.travel_fee)}</p>
+                          <p className="mt-2 text-xs leading-5 text-[#6f6077]">Accept this quote to continue to your deposit payment. If you decline, the booking will be cancelled. No payment has been taken.</p>
+                          <div className="mt-4 flex flex-wrap gap-3">
+                            <button type="button" onClick={() => respondToTravelQuote(b, true)} disabled={saving} className="rounded-full bg-[#171018] px-5 py-3 text-sm font-medium text-white disabled:opacity-50">{saving ? "Saving..." : "Accept quote"}</button>
+                            <button type="button" onClick={() => respondToTravelQuote(b, false)} disabled={saving} className="rounded-full border border-red-200 px-5 py-3 text-sm font-medium text-red-700 disabled:opacity-50">Decline & cancel booking</button>
+                          </div>
+                        </div>
+                      )}
 
                       {(b.location_notes || b.notes) && (
                         <p className="mt-4 rounded-2xl bg-[#fffafc] p-4 text-sm italic text-[#6f6077]">
