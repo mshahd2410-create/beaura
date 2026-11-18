@@ -272,6 +272,20 @@ export default function BrideBookings() {
         throw new Error(error.message);
       }
 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const notice = await createNotification({
+          userId: selectedBooking.mua_id,
+          actorId: user.id,
+          bookingId: selectedBooking.id,
+          type: "completion_pending",
+          title: "Bride confirmed appointment completion",
+          message: "The bride confirmed that the makeup appointment is complete. Confirm completion from your bookings to finish the process.",
+          href: "/dashboard/mua/bookings",
+        });
+        if (!notice.success) setPageError("Completion was saved, but the makeup artist notification could not be sent.");
+      }
+
       closeModal();
       await loadBookings();
     } catch (err: any) {
@@ -302,6 +316,20 @@ export default function BrideBookings() {
 
       if (error) {
         throw new Error(error.message);
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const notice = await createNotification({
+          userId: selectedBooking.mua_id,
+          actorId: user.id,
+          bookingId: selectedBooking.id,
+          type: "dispute_opened",
+          title: "Bride reported an issue",
+          message: "The bride reported an issue with this booking. Please review the booking and contact Beaura if action is needed.",
+          href: "/dashboard/mua/bookings",
+        });
+        if (!notice.success) setPageError("Your issue report was saved, but the makeup artist notification could not be sent.");
       }
 
       closeModal();
