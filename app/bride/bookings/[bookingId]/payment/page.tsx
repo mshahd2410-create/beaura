@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { getBookingNumber } from "@/lib/bookingNumber";
 
 type BookingPayment = {
   id: string;
@@ -177,7 +178,7 @@ export default function BookingPaymentPage() {
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl bg-[#fffafc] p-4">
                 <p className="text-xs text-[#8a7d91]">Order number</p>
-                <p className="mt-1 font-semibold">#{booking.id.slice(0, 8)}</p>
+                <p className="mt-1 font-semibold">#{getBookingNumber(booking.id)}</p>
               </div>
               <div className="rounded-2xl bg-[#fffafc] p-4">
                 <p className="text-xs text-[#8a7d91]">Booking total</p>
