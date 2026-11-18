@@ -149,7 +149,7 @@ function BookingPaymentPage() {
 
       setBooking((current) => current ? { ...current, payment_proof_status: "pending_review", payment_proof_path: path, payment_proof_uploaded_at: new Date().toISOString(), payment_proof_rejection_reason: null } : current);
       setFile(null);
-      setSuccess("Your transfer proof was submitted and saved. Beaura will review it and update your booking.");
+      setSuccess("Your payment proof was submitted and saved. Beaura will review it and update your booking.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not upload your proof. Please try again.");
     } finally {
@@ -229,22 +229,22 @@ function BookingPaymentPage() {
             )}
 
             {booking.payment_method !== "transfer" ? (
-              <p className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">This booking does not use transfer payment.</p>
+              <p className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">This booking does not use InstaPay or mobile wallet payment.</p>
             ) : (
               <>
                 <div className="mt-6 rounded-[1.5rem] border border-purple-200 bg-[#f7efff] p-5">
                   <p className="text-xs uppercase tracking-[0.16em] text-purple-700">50% deposit due</p>
                   <p className="mt-2 text-4xl font-semibold tracking-[-0.05em]">EGP {deposit.toLocaleString("en-EG", { maximumFractionDigits: 2 })}</p>
-                  <p className="mt-2 text-sm leading-6 text-[#6f6077]">Please send this deposit to the Beaura payment number below after your makeup artist accepts your request.</p>
+                  <p className="mt-2 text-sm leading-6 text-[#6f6077]">Pay this deposit using InstaPay or a mobile wallet to the Beaura number below after your makeup artist accepts your request.</p>
                 </div>
 
                 <div className="mt-5 rounded-[1.5rem] border border-[#eadff5] p-5">
-                  <p className="text-xs uppercase tracking-[0.16em] text-[#8a7d91]">Beaura Wallet</p>
+                  <p className="text-xs uppercase tracking-[0.16em] text-[#8a7d91]">InstaPay / Mobile Wallet</p>
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
                     <p className="text-2xl font-semibold tracking-wide">{BEAURA_PAYMENT_NUMBER}</p>
                     <button type="button" onClick={() => navigator.clipboard.writeText(BEAURA_PAYMENT_NUMBER)} className="rounded-full border border-[#eadff5] px-4 py-2 text-sm hover:bg-[#fffafc]">Copy number</button>
                   </div>
-                  <p className="mt-3 text-sm leading-6 text-[#6f6077]">Send the exact deposit amount to the Beaura Wallet number above. Keep your payment screenshot so you can upload it below.</p><p className="mt-3 rounded-xl bg-[#fffafc] p-4 text-sm leading-6 text-[#6f6077]">Please include your order number in the transfer note, or send it to us on WhatsApp with your payment screenshot.</p>
+                  <p className="mt-3 text-sm leading-6 text-[#6f6077]">Send the exact deposit amount using InstaPay or a mobile wallet to the Beaura number above. Keep your payment screenshot so you can upload it below.</p><p className="mt-3 rounded-xl bg-[#fffafc] p-4 text-sm leading-6 text-[#6f6077]">Please include your order number in the payment note, or send it to us on WhatsApp with your payment screenshot.</p>
                 </div>
 
                 <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
@@ -253,7 +253,7 @@ function BookingPaymentPage() {
 
                 <div className="mt-6">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h2 className="text-lg font-medium">Transfer proof</h2>
+                    <h2 className="text-lg font-medium">Payment proof</h2>
                     <span className="rounded-full bg-[#f7efff] px-3 py-1 text-xs capitalize text-purple-700">{proofStatus.replaceAll("_", " ")}</span>
                   </div>
                   {proofStatus === "approved" ? (
@@ -266,7 +266,7 @@ function BookingPaymentPage() {
                         <p className="mt-3 rounded-2xl bg-red-50 p-4 text-sm text-red-700">Your previous proof was not approved. {booking.payment_proof_rejection_reason || "Please upload a clearer receipt."}</p>
                       )}
                       <label className="mt-4 block rounded-2xl border border-dashed border-[#cdb9df] bg-[#fffafc] p-5">
-                        <span className="block text-sm font-medium">Upload a screenshot of your transfer</span>
+                        <span className="block text-sm font-medium">Upload a screenshot of your InstaPay or mobile wallet payment</span>
                         <span className="mt-1 block text-xs text-[#8a7d91]">JPG, PNG, or WebP · Maximum 5 MB</span>
                         <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setFile(e.target.files?.[0] || null)} className="mt-4 block w-full text-sm" />
                       </label>
