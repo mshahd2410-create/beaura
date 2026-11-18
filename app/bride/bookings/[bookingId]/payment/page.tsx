@@ -19,14 +19,50 @@ type BookingPayment = {
   payment_proof_uploaded_at: string | null;
 };
 
+type BookingFinancials = {
+  original_service_price: number;
+  discount_amount: number;
+  discounted_service_price: number;
+  travel_fee: number;
+  bride_platform_fee: number;
+  bride_deposit_service_amount: number;
+  bride_deposit_travel_amount: number;
+  bride_deposit_amount: number;
+  remaining_direct_amount: number;
+};
+
 const BEAURA_PAYMENT_NUMBER = "01220346180";
 
-export default function BookingPaymentPage() {
+export default function PriceRow({
+  label,
+  value,
+  strong = false,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+  tone?: "default" | "discount";
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <span className={strong ? "font-semibold text-[#171018]" : tone === "discount" ? "text-green-700" : "text-[#6f6077]"}>
+        {label}
+      </span>
+      <span className={`shrink-0 text-right ${strong ? "font-semibold text-[#171018]" : tone === "discount" ? "font-medium text-green-700" : "text-[#171018]"}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function BookingPaymentPage() {
   const params = useParams<{ bookingId: string }>();
   const router = useRouter();
   const bookingId = params.bookingId;
 
   const [booking, setBooking] = useState<BookingPayment | null>(null);
+  const [financials, setFinancials] = useState<BookingFinancials | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -59,6 +95,17 @@ export default function BookingPaymentPage() {
       return;
     }
     setBooking(data as BookingPayment);
+
+    const { data: financialData, error: financialError } = await supabase
+      .from("booking_financials")
+      .select("original_service_price, discount_amount, discounted_service_price, travel_fee, bride_platform_fee, bride_deposit_service_amount, bride_deposit_travel_amount, bride_deposit_amount, remaining_direct_amount")
+      .eq("booking_id", bookingId)
+      .maybeSingle();
+
+    if (financialError) {
+      console.error("Could not load booking financial breakdown:", financialError);
+    }
+    setFinancials(financialData as BookingFinancials | null);
     setLoading(false);
   }
 
@@ -112,6 +159,8 @@ export default function BookingPaymentPage() {
 
   const deposit = Number(booking?.deposit_amount ?? Number(booking?.total_price || 0) * 0.5);
   const proofStatus = booking?.payment_proof_status || "not_submitted";
+  const money = (value: number | null | undefined) =>
+    `EGP ${Number(value || 0).toLocaleString("en-EG", { maximumFractionDigits: 2 })}`;
 
   return (
     <main className="mx-auto min-h-screen max-w-3xl px-5 pb-16 pt-28 text-[#171018] sm:px-8">
@@ -135,6 +184,49 @@ export default function BookingPaymentPage() {
                 <p className="mt-1 font-semibold">EGP {Number(booking.total_price || 0).toLocaleString()}</p>
               </div>
             </div>
+
+            {financials && (
+              <section className="mt-6 rounded-[1.5rem] border border-[#eadff5] p-5 sm:p-6">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.16em] text-purple-700">Your price breakdown</p>
+                  <h2 className="mt-2 text-2xl font-medium tracking-[-0.04em]">Here’s how your total is calculated</h2>
+                  <p className="mt-2 text-sm leading-6 text-[#6f6077]">Your artist’s travel quote is included in this booking. The discount applies to the makeup service, not the travel fee.</p>
+                </div>
+
+                <div className="mt-5 space-y-3 text-sm">
+                  <PriceRow label="Original makeup service" value={money(financials.original_service_price)} />
+                  {Number(financials.discount_amount) > 0 && (
+                    <PriceRow label="Discount" value={`− ${money(financials.discount_amount)}`} tone="discount" />
+                  )}
+                  <PriceRow label="Discounted makeup service" value={money(financials.discounted_service_price)} />
+                  <PriceRow label="Artist’s travel fee" value={money(financials.travel_fee)} />
+                  <PriceRow label="Beaura platform fee" value={money(financials.bride_platform_fee)} />
+                  <div className="border-t border-[#eadff5] pt-3">
+                    <PriceRow label="Full booking total" value={money(booking.total_price)} strong />
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-2xl bg-[#fffafc] p-4">
+                  <p className="text-xs uppercase tracking-[0.16em] text-purple-700">Deposit calculation</p>
+                  <div className="mt-3 space-y-2 text-sm">
+                    <PriceRow label="50% of discounted makeup service" value={money(financials.bride_deposit_service_amount)} />
+                    <PriceRow label="Full travel fee" value={money(financials.bride_deposit_travel_amount)} />
+                    <PriceRow label="Beaura platform fee" value={money(financials.bride_platform_fee)} />
+                    <div className="border-t border-[#eadff5] pt-3">
+                      <PriceRow label="Deposit to pay now" value={money(financials.bride_deposit_amount)} strong />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-start justify-between gap-4 rounded-2xl border border-[#eadff5] p-4">
+                  <div>
+                    <p className="text-sm font-medium">Remaining service balance</p>
+                    <p className="mt-1 text-xs leading-5 text-[#6f6077]">Paid directly to your makeup artist after your appointment.</p>
+                  </div>
+                  <p className="shrink-0 text-sm font-semibold">{money(financials.remaining_direct_amount)}</p>
+                </div>
+              </section>
+            )}
 
             {booking.payment_method !== "transfer" ? (
               <p className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">This booking does not use transfer payment.</p>
