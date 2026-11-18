@@ -750,18 +750,25 @@ export default function BookingsPage() {
                     {status === "pending" && (
                       <>
                         {b.location_type !== "own_studio" && (
-                          <label className="min-w-[190px] flex-1">
-                            <span className="mb-1 block text-xs font-medium text-[#6f6077]">Travel quote (EGP)</span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={travelQuoteDrafts[b.id] ?? ""}
-                              onChange={(event) => setTravelQuoteDrafts((current) => ({ ...current, [b.id]: event.target.value }))}
-                              placeholder="Enter quote"
-                              className="h-11 w-full rounded-xl border border-[#eadff5] px-3 text-sm outline-none focus:border-purple-400"
-                            />
-                          </label>
+                          <div className="w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-purple-700">Review this booking&apos;s address</p>
+                            <p className="mt-2 text-sm font-medium text-[#171018]">{b.location || "No address was provided"}</p>
+                            <p className="mt-2 text-xs leading-5 text-[#6f6077]">
+                              Enter the travel fee for this specific booking after reviewing the bride&apos;s address. Do not use a default location fee. The bride will see your quote and must accept it before payment begins.
+                            </p>
+                            <label className="mt-3 block max-w-sm">
+                              <span className="mb-1 block text-xs font-medium text-[#6f6077]">Your travel quote (EGP)</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={travelQuoteDrafts[b.id] ?? ""}
+                                onChange={(event) => setTravelQuoteDrafts((current) => ({ ...current, [b.id]: event.target.value }))}
+                                placeholder="Enter your quote for this address"
+                                className="h-11 w-full rounded-xl border border-[#eadff5] bg-white px-3 text-sm outline-none focus:border-purple-400"
+                              />
+                            </label>
+                          </div>
                         )}
                         <button
                           onClick={() => updateStatus(b, "confirmed")}

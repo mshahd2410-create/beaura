@@ -619,12 +619,12 @@ export default function BrideBookings() {
                       <div className="mt-4 grid gap-3 sm:grid-cols-3">
                         <InfoCard
                           label="Service subtotal"
-                          value={formatMoney(b.total_price)}
+                          value={formatMoney(b.service_price ?? b.total_price)}
                         />
 
                         <InfoCard
                           label="Travel quote"
-                          value={b.location_type === "own_studio" ? "EGP 0 · Studio" : b.travel_fee_quote_status === "pending_bride_approval" || b.travel_fee_quote_status === "accepted" ? formatMoney(b.travel_fee) : "Pending"}
+                          value={b.location_type === "own_studio" ? "EGP 0 · Studio" : b.travel_fee_quote_status === "pending_bride_approval" || b.travel_fee_quote_status === "accepted" ? formatMoney(b.travel_fee) : "Awaiting MUA quote"}
                         />
 
                         <InfoCard
@@ -634,9 +634,9 @@ export default function BrideBookings() {
                       </div>
                       {b.travel_fee_quote_status === "pending_bride_approval" && (
                         <div className="mt-4 rounded-2xl border border-purple-200 bg-[#f7efff] p-5">
-                          <p className="text-sm font-medium text-purple-900">Your makeup artist sent a travel quote.</p>
+                          <p className="text-sm font-medium text-purple-900">Your makeup artist has quoted travel for this address.</p>
                           <p className="mt-2 text-2xl font-semibold text-[#171018]">{formatMoney(b.travel_fee)}</p>
-                          <p className="mt-2 text-xs leading-5 text-[#6f6077]">Accept this quote to continue to your deposit payment. If you decline, the booking will be cancelled. No payment has been taken.</p>
+                          <p className="mt-2 text-xs leading-5 text-[#6f6077]">This fee was entered by the artist for your specific booking. Review it before accepting. Only after acceptance will Beaura calculate your final total and deposit. Declining cancels the booking; no payment has been taken.</p>
                           <div className="mt-4 flex flex-wrap gap-3">
                             <button type="button" onClick={() => respondToTravelQuote(b, true)} disabled={saving} className="rounded-full bg-[#171018] px-5 py-3 text-sm font-medium text-white disabled:opacity-50">{saving ? "Saving..." : "Accept quote"}</button>
                             <button type="button" onClick={() => respondToTravelQuote(b, false)} disabled={saving} className="rounded-full border border-red-200 px-5 py-3 text-sm font-medium text-red-700 disabled:opacity-50">Decline & cancel booking</button>

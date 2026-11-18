@@ -194,23 +194,13 @@ export default function BookingPage() {
       : selectedService.price
     : 0;
 
-  const taxFee = 0;
-
+  // The booking request is only a service-price estimate. The MUA must
+  // review the address and submit a per-booking travel quote first.
+  // Platform fees, final total and deposit are calculated server-side only
+  // after the bride accepts that quote.
   const discountableTotal = servicePrice;
-
-  const totalBeforeDiscount =
-    servicePrice + roundMoney(servicePrice * 0.1) + travelFee;
-
   const discountedServicePrice = roundMoney(
     Math.max(servicePrice - promoDiscount, 0)
-  );
-  // Beaura calculates the bride platform fee after applying the promo discount.
-  const platformFee = roundMoney(discountedServicePrice * 0.1);
-  const totalAfterDiscount = roundMoney(
-    discountedServicePrice + platformFee + travelFee
-  );
-  const depositDue = roundMoney(
-    discountedServicePrice * 0.5 + travelFee + platformFee
   );
 
   // Wallet balance is checked against the final deposit after the artist's quote is accepted.
@@ -1751,7 +1741,7 @@ export default function BookingPage() {
 
                 <div className="space-y-3">
                   <p className="text-xs uppercase tracking-wider text-[#9876a9]">
-                    Price breakdown
+                    Service estimate
                   </p>
 
                   <PriceRow
@@ -1763,38 +1753,32 @@ export default function BookingPage() {
                     value={servicePrice}
                   />
 
-                  <PriceRow
-                    label="Travel fee"
-                    value={travelFee}
-                  />
-
-                  <PriceRow
-                    label="Platform fee"
-                    value={platformFee}
-                  />
-
                   {promoDiscount > 0 && (
                     <PriceRow
-                      label="Promo discount"
+                      label="10% promo saving"
                       value={-promoDiscount}
                     />
                   )}
 
-                  <div className="border-t border-[#eadff5] pt-4">
-                    <div className="flex items-end justify-between gap-3">
-                      <span className="text-sm font-medium">
-                        Total
-                      </span>
+                  <div className="rounded-2xl border border-[#eadff5] bg-[#fffafc] p-4">
+                    <p className="text-sm font-medium text-[#171018]">
+                      Travel fee quoted after your request
+                    </p>
+                    <p className="mt-1 text-xs leading-6 text-[#806f85]">
+                      Your makeup artist will review the address you selected and enter a travel quote for this booking. You can accept or decline it before any payment is requested.
+                    </p>
+                  </div>
 
-                      <span className="text-2xl font-semibold tracking-tight">
-                        EGP {totalAfterDiscount.toLocaleString("en-EG")}
+                  <div className="border-t border-[#eadff5] pt-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-medium">Final total</span>
+                      <span className="text-base font-semibold text-[#171018]">
+                        Calculated after quote acceptance
                       </span>
                     </div>
-
                     {promoDiscount > 0 && (
                       <p className="mt-2 text-xs leading-5 text-[#806f85]">
-                        The promo discount does not affect the
-                        artist's payout or travel fee.
+                        Your 10% promotion applies to the service price, not the travel fee. The final platform fees and deposit are calculated after the MUA submits the quote.
                       </p>
                     )}
                   </div>
@@ -1802,29 +1786,12 @@ export default function BookingPage() {
 
                 {selectedService && (
                   <div className="rounded-2xl bg-[#fffafc] p-5">
-                    <p className="text-xs text-[#806f85]">
-                      Payment summary
-                    </p>
-
+                    <p className="text-xs text-[#806f85]">Payment preference</p>
                     <p className="mt-2 text-lg font-semibold">
-                      {paymentMethod === "credit_balance"
-                        ? "Beaura Credit"
-                        : "Bank Transfer"}
+                      {paymentMethod === "credit_balance" ? "Beaura Wallet" : "Bank Transfer"}
                     </p>
-
-                    <div className="mt-3 flex items-center justify-between gap-3">
-                      <span className="text-sm text-[#806f85]">
-                        {paymentMethod === "credit_balance"
-                          ? "Amount to be deducted"
-                          : "50% deposit to pay"}
-                      </span>
-                      <span className="text-lg font-semibold text-[#171018]">
-                        EGP {depositDue.toLocaleString("en-EG")}
-                      </span>
-                    </div>
-
-                    <p className="mt-2 text-xs leading-5 text-[#806f85]">
-                      "You will pay the deposit only after the artist confirms the location and travel quote. The deposit includes 50% of the discounted service price, the full travel fee, and the 10% platform fee. No payment is taken when you send the request."
+                    <p className="mt-2 text-xs leading-6 text-[#806f85]">
+                      This is only your preferred payment method. The exact deposit amount will appear after you accept the MUA&apos;s travel quote. No payment or wallet deduction happens when you send this request.
                     </p>
                   </div>
                 )}
