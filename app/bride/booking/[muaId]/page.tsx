@@ -194,18 +194,23 @@ export default function BookingPage() {
       : selectedService.price
     : 0;
 
-  const platformFee = roundMoney(servicePrice * 0.1);
-  const taxFee = roundMoney(servicePrice * 0.01);
+  const taxFee = 0;
 
-  const discountableTotal =
-    servicePrice + platformFee + taxFee;
+  const discountableTotal = servicePrice;
 
   const totalBeforeDiscount =
-    discountableTotal + travelFee;
+    servicePrice + roundMoney(servicePrice * 0.1) + travelFee;
 
+  const discountedServicePrice = roundMoney(
+    Math.max(servicePrice - promoDiscount, 0)
+  );
+  // Beaura calculates the bride platform fee after applying the promo discount.
+  const platformFee = roundMoney(discountedServicePrice * 0.1);
   const totalAfterDiscount = roundMoney(
-    Math.max(discountableTotal - promoDiscount, 0) +
-      travelFee
+    discountedServicePrice + platformFee + travelFee
+  );
+  const depositDue = roundMoney(
+    discountedServicePrice * 0.5 + travelFee + platformFee
   );
 
   // Wallet balance is checked against the final deposit after the artist's quote is accepted.
@@ -244,7 +249,7 @@ export default function BookingPage() {
 
     const discount = calculatePromoDiscount(
       appliedPromo,
-      discountableTotal
+      servicePrice
     );
 
     setPromoDiscount(discount);
@@ -392,24 +397,10 @@ export default function BookingPage() {
   }
 
   function calculatePromoDiscount(
-    promo: PromoCode,
-    baseTotal: number
+    _promo: PromoCode,
+    originalServicePrice: number
   ) {
-    let discount = 0;
-
-    if (promo.discount_type === "percentage") {
-      discount = roundMoney(
-        baseTotal * (Number(promo.discount_value) / 100)
-      );
-    }
-
-    if (promo.discount_type === "fixed") {
-      discount = roundMoney(
-        Number(promo.discount_value)
-      );
-    }
-
-    return Math.min(discount, baseTotal);
+    return roundMoney(originalServicePrice * 0.1);
   }
 
   function removePromo() {
@@ -634,7 +625,7 @@ export default function BookingPage() {
 
       const discount = calculatePromoDiscount(
         promo,
-        discountableTotal
+        servicePrice
       );
 
       if (discount <= 0) {
@@ -1782,11 +1773,6 @@ export default function BookingPage() {
                     value={platformFee}
                   />
 
-                  <PriceRow
-                    label="Tax"
-                    value={taxFee}
-                  />
-
                   {promoDiscount > 0 && (
                     <PriceRow
                       label="Promo discount"
@@ -1833,17 +1819,12 @@ export default function BookingPage() {
                           : "50% deposit to pay"}
                       </span>
                       <span className="text-lg font-semibold text-[#171018]">
-                        EGP {(paymentMethod === "credit_balance"
-                          ? totalAfterDiscount
-                          : totalAfterDiscount * 0.5
-                        ).toLocaleString("en-EG")}
+                        EGP {depositDue.toLocaleString("en-EG")}
                       </span>
                     </div>
 
                     <p className="mt-2 text-xs leading-5 text-[#806f85]">
-                      {paymentMethod === "credit_balance"
-                        ? "The full booking amount will be deducted from your Beaura Credit only after the artist accepts your request."
-                        : "You will pay this 50% deposit by bank transfer only after the artist accepts your request. The remaining 50% will be due later. No payment is taken when you send the request."}
+                      "You will pay the deposit only after the artist confirms the location and travel quote. The deposit includes 50% of the discounted service price, the full travel fee, and the 10% platform fee. No payment is taken when you send the request."
                     </p>
                   </div>
                 )}

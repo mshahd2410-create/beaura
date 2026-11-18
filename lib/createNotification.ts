@@ -12,7 +12,10 @@ export type NotificationType =
   | "refund_issued"
   | "payout_eligible"
   | "new_message"
-  | "admin_update";
+  | "admin_update"
+  | "travel_fee_quote"
+  | "travel_fee_accepted"
+  | "travel_fee_declined";
 
 type CreateNotificationInput = {
   userId: string;

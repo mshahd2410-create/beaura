@@ -238,10 +238,14 @@ export default function BookingsPage() {
         if (!isStudio && (!Number.isFinite(quote) || quote < 0 || travelQuoteDrafts[booking.id]?.trim() === "")) {
           throw new Error("Enter a valid travel quote of EGP 0 or more.");
         }
-        const { error } = await supabase.rpc("mua_submit_travel_fee_quote", {
-          p_booking_id: booking.id,
-          p_travel_fee: quote,
-        });
+        const { error } = isStudio
+          ? await supabase.rpc("confirm_booking_and_handle_payment", {
+              p_booking_id: booking.id,
+            })
+          : await supabase.rpc("mua_submit_travel_fee_quote", {
+              p_booking_id: booking.id,
+              p_travel_fee: quote,
+            });
         if (error) throw new Error(error.message);
 
         const { data: { user } } = await supabase.auth.getUser();

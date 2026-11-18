@@ -30,6 +30,8 @@ type WalletTransaction = {
   created_at: string;
 };
 
+type WalletDebt = { id: string; booking_id: string; original_amount: number; remaining_amount: number; status: string; reason: string; created_at: string };
+
 type PayoutRequest = {
   id: string;
   wallet_id: string;
@@ -49,6 +51,7 @@ export default function MuaWalletPage() {
   const [wallet, setWallet] = useState<MuaWallet | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [payouts, setPayouts] = useState<PayoutRequest[]>([]);
+  const [debts, setDebts] = useState<WalletDebt[]>([]);
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -142,6 +145,14 @@ export default function MuaWalletPage() {
     setWallet(walletData as MuaWallet);
     setTransactions((transactionsRes.data as WalletTransaction[]) || []);
     setPayouts((payoutsRes.data as PayoutRequest[]) || []);
+    const { data: debtRows, error: debtError } = await supabase
+      .from("mua_wallet_debts")
+      .select("id, booking_id, original_amount, remaining_amount, status, reason, created_at")
+      .eq("mua_id", user.id)
+      .in("status", ["outstanding", "partially_recovered"])
+      .order("created_at", { ascending: false });
+    if (debtError) console.error("MUA WALLET DEBTS ERROR:", debtError);
+    setDebts((debtRows as WalletDebt[]) || []);
     setLoading(false);
   }
 
@@ -285,6 +296,16 @@ export default function MuaWalletPage() {
               icon={<ArrowDownToLine size={17} />}
             />
           </div>
+
+          {debts.length > 0 && (
+            <section className="rounded-[2rem] border border-amber-200 bg-amber-50 p-6">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div><p className="text-xs font-medium uppercase tracking-[0.16em] text-amber-800">Cancellation balance</p><h2 className="mt-2 text-2xl font-medium text-amber-950">Outstanding debt</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-amber-900">You can continue accepting bookings. Beaura automatically recovers outstanding cancellation debt from future earnings before those earnings become available for withdrawal.</p></div>
+                <p className="text-2xl font-semibold text-amber-950">{formatMoney(debts.reduce((sum, debt) => sum + Number(debt.remaining_amount || 0), 0))}</p>
+              </div>
+              <div className="mt-4 space-y-2">{debts.map((debt) => <div key={debt.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-white/70 p-3 text-sm"><span className="text-amber-950">Booking #{debt.booking_id.slice(0, 8)} · {debt.reason}</span><strong className="text-amber-950">{formatMoney(debt.remaining_amount)} remaining</strong></div>)}</div>
+            </section>
+          )}
 
           <div className="grid gap-6 xl:grid-cols-[1fr_0.7fr]">
             <section className="space-y-5">

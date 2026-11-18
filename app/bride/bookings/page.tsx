@@ -336,7 +336,7 @@ export default function BrideBookings() {
 
     try {
       const cancellationReason = cancelReason.trim() || "Cancelled by bride";
-      const { error } = await supabase.rpc("bride_cancel_booking_and_refund", {
+      const { data: cancellationResult, error } = await supabase.rpc("bride_cancel_booking_and_refund", {
         p_booking_id: cancelBooking.id,
         p_reason: cancellationReason,
       });
@@ -345,50 +345,61 @@ export default function BrideBookings() {
         throw new Error(error.message);
       }
 
+      const isCancellationRequest =
+        cancellationResult?.request_created === true ||
+        cancellationResult?.request_status === "requested" ||
+        cancellationResult?.request_status === "awaiting_mua_repayment";
+
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const notice = `This booking was cancelled by the bride. Reason: ${cancellationReason}`;
+        const notice = isCancellationRequest
+          ? "The bride submitted a cancellation request. Please review it and return the full deposit Beaura transferred to your wallet within 48 hours."
+          : `This booking was cancelled by the bride. Reason: ${cancellationReason}`;
         const results = await Promise.all([
           createNotification({
             userId: cancelBooking.bride_id,
             actorId: user.id,
             bookingId: cancelBooking.id,
-            type: "booking_cancelled",
-            title: "Booking cancelled",
-            message: notice,
+            type: isCancellationRequest ? "admin_update" : "booking_cancelled",
+            title: isCancellationRequest ? "Cancellation request submitted" : "Booking cancelled",
+            message: isCancellationRequest
+              ? "Your cancellation request has been submitted. The makeup artist has 48 hours to return the deposit transferred by Beaura."
+              : notice,
             href: "/bride/bookings",
           }),
           createNotification({
             userId: cancelBooking.mua_id,
             actorId: user.id,
             bookingId: cancelBooking.id,
-            type: "booking_cancelled",
-            title: "Booking cancelled",
+            type: isCancellationRequest ? "admin_update" : "booking_cancelled",
+            title: isCancellationRequest ? "Cancellation request received" : "Booking cancelled",
             message: notice,
             href: "/dashboard/mua/bookings",
           }),
         ]);
         if (results.some((result) => !result.success)) {
-          setPageError("Booking cancelled, but an in-app notification could not be sent.");
+          setPageError("Your cancellation action was saved, but an in-app notification could not be sent.");
         }
-        try {
-          const { data: sessionData } = await supabase.auth.getSession();
-          const response = await fetch("/api/admin/booking-notifications", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(sessionData.session?.access_token ? { Authorization: `Bearer ${sessionData.session.access_token}` } : {}),
-            },
-            body: JSON.stringify({ bookingId: cancelBooking.id, event: "cancelled", reason: cancellationReason }),
-          });
-          const result = await response.json();
-          if (!response.ok || result.failed?.length) {
-            setPageError("Booking cancelled, but email delivery needs attention.");
-            console.error("Bride cancellation email issue:", result);
+        if (!isCancellationRequest) {
+          try {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const response = await fetch("/api/admin/booking-notifications", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(sessionData.session?.access_token ? { Authorization: `Bearer ${sessionData.session.access_token}` } : {}),
+              },
+              body: JSON.stringify({ bookingId: cancelBooking.id, event: "cancelled", reason: cancellationReason }),
+            });
+            const result = await response.json();
+            if (!response.ok || result.failed?.length) {
+              setPageError("Booking cancelled, but email delivery needs attention.");
+              console.error("Bride cancellation email issue:", result);
+            }
+          } catch (emailError) {
+            setPageError("Booking cancelled, but email delivery could not be confirmed.");
+            console.error("Bride cancellation email failed:", emailError);
           }
-        } catch (emailError) {
-          setPageError("Booking cancelled, but email delivery could not be confirmed.");
-          console.error("Bride cancellation email failed:", emailError);
         }
       }
 

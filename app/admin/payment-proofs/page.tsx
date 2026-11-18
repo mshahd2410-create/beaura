@@ -28,6 +28,7 @@ export default function AdminPaymentProofsPage() {
   const [reason, setReason] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     loadProofs();
@@ -208,20 +209,28 @@ export default function AdminPaymentProofsPage() {
   }
 
   const money = (value: number | null) => `EGP ${Number(value || 0).toLocaleString("en-EG", { maximumFractionDigits: 2 })}`;
+  const filteredItems = items.filter((item) => {
+    const name = `${item.bride?.first_name || ""} ${item.bride?.last_name || ""}`.toLowerCase();
+    const phone = item.bride?.phone || "";
+    const order = item.id.toLowerCase();
+    const query = search.trim().toLowerCase().replace("#", "");
+    return !query || name.includes(query) || phone.toLowerCase().includes(query) || order.includes(query) || order.slice(0, 8).includes(query);
+  });
 
   return (
     <main className="mx-auto max-w-6xl space-y-6 px-5 pb-16 pt-10 text-[#171018] sm:px-8">
       <div className="rounded-[2rem] border border-[#eadff5] bg-white p-7 shadow-sm">
         <p className="text-xs uppercase tracking-[0.2em] text-purple-700">Admin · payments</p>
         <h1 className="mt-3 text-4xl font-light tracking-[-0.06em]">Transfer proof review</h1>
-        <p className="mt-3 text-sm leading-6 text-[#6f6077]">Review each bride's Deposit due receipt. Approving a proof records the deposit approval only; it does not mark the full booking as paid.</p>
+        <p className="mt-3 text-sm leading-6 text-[#6f6077]">Review the bride’s deposit receipt, booking details, and payment screenshot. Search by bride name, phone number, or order number.</p>
         <Link href="/admin/bookings" className="mt-5 inline-flex rounded-full border border-[#eadff5] px-5 py-3 text-sm text-[#6f6077] hover:bg-[#fffafc]">← Back to bookings</Link>
       </div>
+      <div className="rounded-2xl border border-[#eadff5] bg-white p-4"><label className="block"><span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-[#806f85]">Search payment proofs</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Bride name, phone number, or order number" className="w-full rounded-xl border border-[#eadff5] px-4 py-3 text-sm outline-none focus:border-purple-400" /></label></div>
       {error && <p className="rounded-2xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
       {message && <p className="rounded-2xl bg-green-50 p-4 text-sm text-green-800">{message}</p>}
-      {loading ? <p className="p-8 text-center text-sm text-[#6f6077]">Loading proofs...</p> : items.length === 0 ? (
-        <div className="rounded-[2rem] border border-dashed border-[#eadff5] bg-white p-10 text-center text-sm text-[#6f6077]">No transfer proofs waiting for review.</div>
-      ) : items.map((item) => {
+      {loading ? <p className="p-8 text-center text-sm text-[#6f6077]">Loading proofs...</p> : filteredItems.length === 0 ? (
+        <div className="rounded-[2rem] border border-dashed border-[#eadff5] bg-white p-10 text-center text-sm text-[#6f6077]">No matching transfer proofs waiting for review.</div>
+      ) : filteredItems.map((item) => {
         const brideName = `${item.bride?.first_name || ""} ${item.bride?.last_name || ""}`.trim() || "Bride";
         return (
           <article key={item.id} className="grid gap-6 rounded-[2rem] border border-[#eadff5] bg-white p-6 shadow-sm lg:grid-cols-[1fr_280px]">
@@ -242,8 +251,8 @@ export default function AdminPaymentProofsPage() {
                 <div className="mt-5 space-y-3">
                   <textarea value={reason[item.id] || ""} onChange={(e) => setReason((prev) => ({ ...prev, [item.id]: e.target.value }))} rows={2} placeholder="Reason (required only when rejecting)" className="w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] p-3 text-sm outline-none focus:border-purple-500" />
                   <div className="flex flex-wrap gap-3">
-                    <button onClick={() => review(item, "approved")} disabled={busyId === item.id} className="rounded-full bg-[#171018] px-5 py-3 text-sm text-white disabled:opacity-50">{busyId === item.id ? "Saving..." : "Approve deposit proof"}</button>
-                    <button onClick={() => review(item, "rejected")} disabled={busyId === item.id} className="rounded-full border border-red-200 px-5 py-3 text-sm text-red-700 disabled:opacity-50">Reject proof</button>
+                    <button onClick={() => review(item, "approved")} disabled={busyId === item.id} className="rounded-full bg-[#171018] px-5 py-3 text-sm text-white disabled:opacity-50">{busyId === item.id ? "Saving..." : "Confirm payment"}</button>
+                    <button onClick={() => review(item, "rejected")} disabled={busyId === item.id} className="rounded-full border border-red-200 px-5 py-3 text-sm text-red-700 disabled:opacity-50">Deny payment</button>
                   </div>
                 </div>
               )}

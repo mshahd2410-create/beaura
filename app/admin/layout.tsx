@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { ReactNode, useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 import {
   LayoutGrid,
   Users,
@@ -15,6 +16,7 @@ import {
   Menu,
   X,
   Wallet,
+  LogOut,
   Tag,
   CreditCard,
   ReceiptText,
@@ -27,7 +29,8 @@ const NAV_ITEMS = [
   { href: "/admin/brides", label: "Brides", icon: Users },
   { href: "/admin/bookings", label: "Bookings", icon: CalendarCheck },
   { href: "/admin/payment-proofs", label: "Payment Proofs", icon: ReceiptText },
-  { href: "/admin/wallet-requests", label: "Money Requests", icon: Wallet },
+  { href: "/admin/pending-deposits", label: "Pending Deposits", icon: Wallet },
+  { href: "/admin/cancellation-requests", label: "Cancellation Requests", icon: Clock },
   { href: "/admin/wallets", label: "Wallets", icon: CreditCard },
   { href: "/admin/promotions", label: "Promotions", icon: Tag },
   { href: "/admin/support", label: "Support", icon: MessageSquare },
@@ -38,6 +41,7 @@ const NAV_ITEMS = [
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     setOpen(false);
@@ -67,7 +71,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
       <div className="flex min-h-screen">
         <aside className="hidden w-[290px] shrink-0 border-r border-[#eadff5] bg-white lg:flex lg:flex-col">
-          <SidebarContent pathname={pathname} />
+          <SidebarContent pathname={pathname} onLogout={async () => { await supabase.auth.signOut(); router.replace("/login"); }} />
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
@@ -87,8 +91,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     Beaura admin
                   </p>
                   <p className="text-sm text-[#6f6077]">
-                    Manage approvals, users, bookings, money requests,
-                    promotions, and support.
+                    Manage approvals, users, bookings, deposits, wallets, and support.
                   </p>
                 </div>
               </div>
@@ -106,10 +109,12 @@ function SidebarContent({
   pathname,
   onClose,
   mobile = false,
+  onLogout,
 }: {
   pathname: string;
   onClose?: () => void;
   mobile?: boolean;
+  onLogout: () => void;
 }) {
   return (
     <>
@@ -172,8 +177,9 @@ function SidebarContent({
         })}
       </nav>
 
-      <div className="border-t border-[#eadff5] p-5 text-xs text-[#8a7d91]">
-        Beaura Admin v1.0
+      <div className="border-t border-[#eadff5] p-5">
+        <button onClick={onLogout} className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm text-red-600 transition hover:bg-red-50"><LogOut size={18} />Log out</button>
+        <p className="px-4 pt-2 text-xs text-[#8a7d91]">Beaura Admin v1.0</p>
       </div>
     </>
   );

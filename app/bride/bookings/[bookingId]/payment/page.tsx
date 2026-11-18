@@ -12,6 +12,7 @@ type BookingPayment = {
   payment_method: string | null;
   payment_status: string | null;
   total_price: number | null;
+  deposit_amount: number | null;
   payment_proof_path: string | null;
   payment_proof_status: string | null;
   payment_proof_rejection_reason: string | null;
@@ -47,7 +48,7 @@ export default function BookingPaymentPage() {
 
     const { data, error: bookingError } = await supabase
       .from("bookings")
-      .select("id, bride_id, status, payment_method, payment_status, total_price, payment_proof_path, payment_proof_status, payment_proof_rejection_reason, payment_proof_uploaded_at")
+      .select("id, bride_id, status, payment_method, payment_status, total_price, deposit_amount, payment_proof_path, payment_proof_status, payment_proof_rejection_reason, payment_proof_uploaded_at")
       .eq("id", bookingId)
       .eq("bride_id", user.id)
       .maybeSingle();
@@ -109,7 +110,7 @@ export default function BookingPaymentPage() {
     }
   }
 
-  const deposit = Number(booking?.total_price || 0) * 0.5;
+  const deposit = Number(booking?.deposit_amount ?? Number(booking?.total_price || 0) * 0.5);
   const proofStatus = booking?.payment_proof_status || "not_submitted";
 
   return (
@@ -126,7 +127,7 @@ export default function BookingPaymentPage() {
           <>
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl bg-[#fffafc] p-4">
-                <p className="text-xs text-[#8a7d91]">Booking number</p>
+                <p className="text-xs text-[#8a7d91]">Order number</p>
                 <p className="mt-1 font-semibold">#{booking.id.slice(0, 8)}</p>
               </div>
               <div className="rounded-2xl bg-[#fffafc] p-4">
@@ -146,12 +147,12 @@ export default function BookingPaymentPage() {
                 </div>
 
                 <div className="mt-5 rounded-[1.5rem] border border-[#eadff5] p-5">
-                  <p className="text-xs uppercase tracking-[0.16em] text-[#8a7d91]">Beaura payment number</p>
+                  <p className="text-xs uppercase tracking-[0.16em] text-[#8a7d91]">Beaura Wallet</p>
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
                     <p className="text-2xl font-semibold tracking-wide">{BEAURA_PAYMENT_NUMBER}</p>
                     <button type="button" onClick={() => navigator.clipboard.writeText(BEAURA_PAYMENT_NUMBER)} className="rounded-full border border-[#eadff5] px-4 py-2 text-sm hover:bg-[#fffafc]">Copy number</button>
                   </div>
-                  <p className="mt-3 text-sm leading-6 text-[#6f6077]">Use your preferred transfer or wallet app to send the exact deposit amount. Keep your transfer receipt so you can upload it below.</p>
+                  <p className="mt-3 text-sm leading-6 text-[#6f6077]">Send the exact deposit amount to the Beaura Wallet number above. Keep your payment screenshot so you can upload it below.</p><p className="mt-3 rounded-xl bg-[#fffafc] p-4 text-sm leading-6 text-[#6f6077]">Please include your order number in the transfer note, or send it to us on WhatsApp with your payment screenshot.</p>
                 </div>
 
                 <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
@@ -166,7 +167,7 @@ export default function BookingPaymentPage() {
                   {proofStatus === "approved" ? (
                     <p className="mt-3 rounded-2xl bg-green-50 p-4 text-sm text-green-800">Your deposit proof has been approved by Beaura.</p>
                   ) : proofStatus === "pending_review" ? (
-                    <p className="mt-3 rounded-2xl bg-[#fffafc] p-4 text-sm text-[#6f6077]">Your proof is awaiting review. You can return to this page later to check its status.</p>
+                    <p className="mt-3 rounded-2xl bg-[#fffafc] p-4 text-sm text-[#6f6077]">Pending admin verification. Your proof is awaiting review. You can return to this page later to check its status.</p>
                   ) : (
                     <>
                       {proofStatus === "rejected" && (

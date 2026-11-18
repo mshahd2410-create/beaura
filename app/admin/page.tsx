@@ -24,7 +24,8 @@ type DashboardStats = {
   brides: number;
   supportTickets: number;
   bookings: number;
-  moneyRequests: number;
+  pendingDeposits: number;
+  cancellationRequests: number;
   promotions: number;
   reports: number;
 };
@@ -36,7 +37,8 @@ export default function AdminDashboardPage() {
     brides: 0,
     supportTickets: 0,
     bookings: 0,
-    moneyRequests: 0,
+    pendingDeposits: 0,
+    cancellationRequests: 0,
     promotions: 0,
     reports: 0,
   });
@@ -74,7 +76,8 @@ export default function AdminDashboardPage() {
       brides,
       supportTickets,
       bookings,
-      moneyRequests,
+      pendingDeposits,
+      cancellationRequests,
       promotions,
       reports,
     ] = await Promise.all([
@@ -87,7 +90,8 @@ export default function AdminDashboardPage() {
       getCount("bride_profiles"),
       getCount("support_tickets", (q) => q.eq("status", "open")),
       getCount("bookings"),
-      getCount("wallet_cash_requests", (q) => q.eq("status", "pending")),
+      getCount("booking_deposit_transfers", (q) => q.eq("status", "pending")),
+      getCount("booking_cancellation_requests", (q) => q.in("request_status", ["requested", "awaiting_mua_repayment", "awaiting_admin_decision"])),
       getCount("promo_codes"),
       getCount("reports", (q) => q.neq("status", "resolved")),
     ]);
@@ -98,7 +102,8 @@ export default function AdminDashboardPage() {
       brides,
       supportTickets,
       bookings,
-      moneyRequests,
+      pendingDeposits,
+      cancellationRequests,
       promotions,
       reports,
     });
@@ -136,11 +141,18 @@ export default function AdminDashboardPage() {
       href: "/admin/bookings",
     },
     {
-      title: "Money requests",
-      value: stats.moneyRequests,
-      description: "Pending MUA payout requests",
+      title: "Pending deposits",
+      value: stats.pendingDeposits,
+      description: "Approved deposits to transfer to MUAs",
       icon: Wallet,
-      href: "/admin/wallet-requests",
+      href: "/admin/pending-deposits",
+    },
+    {
+      title: "Cancellation requests",
+      value: stats.cancellationRequests,
+      description: "Requests awaiting repayment or admin decision",
+      icon: Clock,
+      href: "/admin/cancellation-requests",
     },
     {
       title: "Promotions",
@@ -262,14 +274,20 @@ export default function AdminDashboardPage() {
                 />
 
                 <AttentionItem
-                  show={stats.moneyRequests > 0}
-                  emptyText="No pending money requests."
-                  title={`${stats.moneyRequests} pending money request${
-                    stats.moneyRequests === 1 ? "" : "s"
-                  }`}
-                  text="Review MUA cash-out and payout requests."
-                  href="/admin/wallet-requests"
-                  badge="Money"
+                  show={stats.pendingDeposits > 0}
+                  emptyText="No pending MUA deposits."
+                  title={`${stats.pendingDeposits} pending deposit${stats.pendingDeposits === 1 ? "" : "s"}`}
+                  text="Record external deposit transfers to makeup artists."
+                  href="/admin/pending-deposits"
+                  badge="Deposits"
+                />
+                <AttentionItem
+                  show={stats.cancellationRequests > 0}
+                  emptyText="No open cancellation requests."
+                  title={`${stats.cancellationRequests} cancellation request${stats.cancellationRequests === 1 ? "" : "s"}`}
+                  text="Review repayment and refund decisions."
+                  href="/admin/cancellation-requests"
+                  badge="Review"
                 />
 
                 <AttentionItem
@@ -307,7 +325,8 @@ export default function AdminDashboardPage() {
 
               <div className="mt-6 grid gap-3">
                 <Shortcut href="/admin/approvals" label="MUA Approval Queue" />
-                <Shortcut href="/admin/wallet-requests" label="Money Requests" />
+                <Shortcut href="/admin/pending-deposits" label="Pending Deposits" />
+                <Shortcut href="/admin/cancellation-requests" label="Cancellation Requests" />
                 <Shortcut href="/admin/brides" label="Manage Clients" />
                 <Shortcut href="/admin/muas" label="Manage MUAs" />
                 <Shortcut href="/admin/bookings" label="Bookings" />
