@@ -486,7 +486,7 @@ export default function BookingsPage() {
   }
 
   function getPaymentMethodLabel(booking: Booking) {
-    return isWalletPayment(booking) ? "Beaura Wallet" : "Transfer";
+    return isWalletPayment(booking) ? "Beaura Wallet" : "InstaPay / Mobile Wallet";
   }
 
   function getPaymentStatusLabel(booking: Booking) {
