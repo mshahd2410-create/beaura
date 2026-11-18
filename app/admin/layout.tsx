@@ -66,6 +66,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           pathname={pathname}
           onClose={() => setOpen(false)}
           mobile
+          onLogout={async () => {
+            await supabase.auth.signOut();
+            router.replace("/login");
+          }}
         />
       </aside>
 
