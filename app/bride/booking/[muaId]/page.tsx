@@ -44,7 +44,6 @@ type LocationType =
 
 type ArtistLocation = {
   location_type: LocationType;
-  travel_fee: number;
 };
 
 const LOCATION_OPTIONS: {
@@ -164,9 +163,8 @@ export default function BookingPage() {
     (item) => item.location_type === locationType
   );
 
-  const travelFee = selectedLocation
-    ? Number(selectedLocation.travel_fee || 0)
-    : 0;
+  // Travel fees are quoted by the artist per booking after reviewing the address.
+  const travelFee = 0;
 
   const matchingGroupTier = useMemo(() => {
     if (!selectedService || groupSize < 2) return null;
@@ -210,9 +208,8 @@ export default function BookingPage() {
       travelFee
   );
 
-  const canPayWithCredit =
-    walletBalance >= totalAfterDiscount &&
-    totalAfterDiscount > 0;
+  // Wallet balance is checked against the final deposit after the artist's quote is accepted.
+  const canPayWithCredit = walletBalance > 0;
 
   const useWalletCredit =
     paymentMethod === "credit_balance";
@@ -321,7 +318,7 @@ export default function BookingPage() {
       const { data: locationData, error: locationError } =
         await supabase
           .from("mua_service_locations")
-          .select("location_type, travel_fee")
+          .select("location_type")
           .eq("mua_id", muaId)
           .eq("is_accepted", true);
 
@@ -337,7 +334,6 @@ export default function BookingPage() {
           locationData || []
         ).map((item: any) => ({
           location_type: item.location_type as LocationType,
-          travel_fee: Number(item.travel_fee || 0),
         }));
 
         setAcceptedLocations(formattedLocations);
@@ -750,9 +746,8 @@ export default function BookingPage() {
       // The database function handles:
       // - MUA and service validation
       // - Group pricing
-      // - Travel fee
-      // - Platform fee and tax
-      // - Promo validation and usage
+      // - Per-booking travel quote state
+      // - Platform fees and promo validation
       // - Egypt timezone conversion
       // - Availability checking and conflict prevention
       // - Booking insertion
@@ -923,9 +918,10 @@ export default function BookingPage() {
           </h1>
 
           <p className="mx-auto mt-5 max-w-md text-sm leading-7 text-[#806f85]">
-            Your booking request has been sent to{" "}
-            <strong>{artistName}</strong>. You'll be notified
-            when the artist responds.
+            Your booking was sent to <strong>{artistName}</strong>.
+            Please wait for her to review your address and send you the
+            travel quote. You will be able to accept or decline it before
+            any payment is taken.
           </p>
 
           <div className="mx-auto mt-8 max-w-sm rounded-2xl bg-[#fffafc] p-5 text-left">
@@ -946,11 +942,7 @@ export default function BookingPage() {
 
             <div className="mt-3 flex justify-between gap-4 text-sm">
               <span className="text-[#806f85]">Travel fee</span>
-              <strong>
-                {travelFee === 0
-                  ? "Free"
-                  : `EGP ${travelFee.toLocaleString("en-EG")}`}
-              </strong>
+              <strong>{locationType === "own_studio" ? "EGP 0" : "Quote pending"}</strong>
             </div>
 
             <div className="mt-3 flex justify-between gap-4 text-sm">
@@ -961,8 +953,8 @@ export default function BookingPage() {
             </div>
 
             <p className="mt-4 border-t border-[#eadff5] pt-4 text-xs leading-5 text-[#806f85]">
-              This is your booking total. No payment or wallet
-              deduction has been made yet.
+              This is your service subtotal before any travel quote. No payment or wallet
+              deduction has been made yet. Your final deposit will be calculated after you accept the quote.
             </p>
           </div>
 
@@ -1450,22 +1442,16 @@ export default function BookingPage() {
 
               {selectedLocation && (
                 <div className="mt-4 rounded-2xl bg-[#f7efff] p-5">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-xs uppercase tracking-wider text-purple-700">
-                        Travel fee
-                      </p>
-                      <p className="mt-1 text-xs text-[#806f85]">
-                        {selectedLocationLabel}
-                      </p>
-                    </div>
-
-                    <p className="text-xl font-semibold">
-                      {travelFee === 0
-                        ? "Free"
-                        : `EGP ${travelFee.toLocaleString("en-EG")}`}
+                  <p className="text-sm font-medium text-purple-800">
+                    {locationType === "own_studio"
+                      ? "Studio booking — no travel fee."
+                      : "Your makeup artist will review this address and send you a travel quote after you submit your request."}
+                  </p>
+                  {locationType !== "own_studio" && (
+                    <p className="mt-2 text-xs leading-5 text-[#806f85]">
+                      You can accept or decline the quote before any payment is taken.
                     </p>
-                  </div>
+                  )}
                 </div>
               )}
 
