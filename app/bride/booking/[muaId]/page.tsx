@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { createNotification } from "@/lib/createNotification";
 import GoogleLocationPicker from "@/components/GoogleLocationPicker";
 import {
   ArrowLeft,
@@ -793,6 +794,20 @@ export default function BookingPage() {
       }
 
       setCreatedBooking(bookingRow);
+
+      // Notify the artist in-app as soon as the booking is created.
+      const bookingNotice = await createNotification({
+        userId: muaId,
+        actorId: user.id,
+        bookingId: bookingRow.id,
+        type: "booking_created",
+        title: "New booking request",
+        message: "You have received a new booking request. Review the date, service and location in your bookings.",
+        href: "/dashboard/mua/bookings",
+      });
+      if (!bookingNotice.success) {
+        console.error("New booking notification could not be created:", bookingNotice.error);
+      }
 
       // Load profiles only after the database confirms creation.
       const [brideProfile, muaProfile] = await Promise.all([
