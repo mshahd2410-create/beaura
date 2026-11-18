@@ -16,6 +16,9 @@ type Booking = {
   end_time?: string | null;
   service_duration_minutes?: number | null;
   location: string | null;
+  location_type?: string | null;
+  travel_fee?: number | null;
+  travel_fee_quote_status?: string | null;
   location_notes: string | null;
   notes?: string | null;
   status: string;
@@ -95,6 +98,7 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true);
   const [activeStatus, setActiveStatus] = useState("pending");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [travelQuoteDrafts, setTravelQuoteDrafts] = useState<Record<string, string>>({});
   const [pageError, setPageError] = useState<string | null>(null);
 
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -229,31 +233,32 @@ export default function BookingsPage() {
 
     try {
       if (status === "confirmed") {
-        const { error } = await supabase.rpc(
-          "confirm_booking_and_handle_payment",
-          {
-            p_booking_id: booking.id,
-          }
-        );
-
-        if (error) {
-          throw new Error(error.message);
+        const isStudio = booking.location_type === "own_studio";
+        const quote = isStudio ? 0 : Number(travelQuoteDrafts[booking.id]);
+        if (!isStudio && (!Number.isFinite(quote) || quote < 0 || travelQuoteDrafts[booking.id]?.trim() === "")) {
+          throw new Error("Enter a valid travel quote of EGP 0 or more.");
         }
+        const { error } = await supabase.rpc("mua_submit_travel_fee_quote", {
+          p_booking_id: booking.id,
+          p_travel_fee: quote,
+        });
+        if (error) throw new Error(error.message);
 
-        if (
-          booking.promo_code_id &&
-          Number(booking.discount_amount || 0) > 0
-        ) {
-          const { error: promoError } = await supabase.rpc(
-            "finalize_booking_promo_usage",
-            {
-              p_booking_id: booking.id,
-            }
-          );
-
-          if (promoError) {
-            throw new Error(promoError.message);
-          }
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const notice = isStudio
+            ? "Your makeup artist accepted your studio booking. You can now continue to payment."
+            : "Your makeup artist sent your travel quote. Review it and accept or decline it in your bookings.";
+          const result = await createNotification({
+            userId: booking.bride_id,
+            actorId: user.id,
+            bookingId: booking.id,
+            type: "travel_fee_quote",
+            title: isStudio ? "Studio booking accepted" : "Your travel quote is ready",
+            message: notice,
+            href: "/bride/bookings",
+          });
+          if (!result.success) setPageError("Quote saved, but the bride notification could not be sent.");
         }
       }
 
@@ -740,6 +745,20 @@ export default function BookingsPage() {
                   <div className="flex flex-wrap gap-3">
                     {status === "pending" && (
                       <>
+                        {b.location_type !== "own_studio" && (
+                          <label className="min-w-[190px] flex-1">
+                            <span className="mb-1 block text-xs font-medium text-[#6f6077]">Travel quote (EGP)</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={travelQuoteDrafts[b.id] ?? ""}
+                              onChange={(event) => setTravelQuoteDrafts((current) => ({ ...current, [b.id]: event.target.value }))}
+                              placeholder="Enter quote"
+                              className="h-11 w-full rounded-xl border border-[#eadff5] px-3 text-sm outline-none focus:border-purple-400"
+                            />
+                          </label>
+                        )}
                         <button
                           onClick={() => updateStatus(b, "confirmed")}
                           disabled={updatingId === b.id}
@@ -747,9 +766,9 @@ export default function BookingsPage() {
                         >
                           {updatingId === b.id
                             ? "Saving..."
-                            : isWalletPayment(b)
-                              ? "Confirm & charge credit"
-                              : "Confirm booking"}
+                            : b.location_type === "own_studio"
+                              ? "Accept studio booking"
+                              : "Send travel quote"}
                         </button>
 
                         <button
