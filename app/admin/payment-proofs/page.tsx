@@ -90,21 +90,52 @@ export default function AdminPaymentProofsPage() {
       setBusyId(null);
       return;
     }
-    const { data: updated, error: updateError } = await supabase
-      .from("bookings")
-      .update({
-        payment_proof_status: decision,
-        payment_proof_reviewed_at: new Date().toISOString(),
-        payment_proof_reviewed_by: user.id,
-        payment_proof_rejection_reason: decision === "rejected" ? rejectionReason : null,
-        ...(decision === "approved" ? { status: "confirmed" } : {}),
-      })
-      .eq("id", item.id)
-      .eq("payment_proof_status", "pending_review")
-      .select("id")
-      .maybeSingle();
-    if (updateError || !updated) {
-      setError(updateError?.message || "This proof has already changed. Refresh the queue and try again.");
+    let actionError: string | null = null;
+    let approvalResult: {
+      success?: boolean;
+      deposit_amount?: number;
+      mua_deposit_transfer?: number;
+      remaining_direct_amount?: number;
+    } | null = null;
+
+    if (decision === "approved") {
+      const { data, error: rpcError } = await supabase.rpc(
+        "admin_approve_booking_payment_proof",
+        {
+          p_booking_id: item.id,
+          p_admin_notes: null,
+        }
+      );
+      if (rpcError) {
+        actionError = rpcError.message;
+      } else if (!data?.success) {
+        actionError = "The approval function did not confirm success. Refresh and check the booking before retrying.";
+      } else {
+        approvalResult = data;
+      }
+    } else {
+      const { data: updated, error: updateError } = await supabase
+        .from("bookings")
+        .update({
+          payment_proof_status: "rejected",
+          payment_proof_reviewed_at: new Date().toISOString(),
+          payment_proof_reviewed_by: user.id,
+          payment_proof_rejection_reason: rejectionReason,
+        })
+        .eq("id", item.id)
+        .eq("payment_proof_status", "pending_review")
+        .select("id")
+        .maybeSingle();
+
+      if (updateError) {
+        actionError = updateError.message;
+      } else if (!updated) {
+        actionError = "This proof has already changed. Refresh the queue and try again.";
+      }
+    }
+
+    if (actionError) {
+      setError(actionError);
       setBusyId(null);
       await loadProofs();
       return;
@@ -174,8 +205,11 @@ export default function AdminPaymentProofsPage() {
       }
     }
 
+    const approvalDetails = approvalResult
+      ? ` MUA deposit transfer pending: ${money(approvalResult.mua_deposit_transfer ?? null)}. Bride deposit recorded: ${money(approvalResult.deposit_amount ?? null)}.`
+      : "";
     setMessage(
-      (decision === "approved" ? "Deposit approved and booking confirmed." : "Proof rejected. The bride can upload a new receipt.") +
+      (decision === "approved" ? "Deposit approved and booking confirmed." + approvalDetails : "Proof rejected. The bride can upload a new receipt.") +
       (notificationFailed ? " Some in-app notifications could not be sent." : "") +
       emailWarning
     );
