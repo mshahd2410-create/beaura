@@ -260,8 +260,28 @@ export default function AdminPaymentProofsPage() {
                 <div className="mt-5 space-y-3">
                   <textarea value={reason[item.id] || ""} onChange={(e) => setReason((prev) => ({ ...prev, [item.id]: e.target.value }))} rows={2} placeholder="Reason (required only when rejecting)" className="w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] p-3 text-sm outline-none focus:border-purple-500" />
                   <div className="flex flex-wrap gap-3">
-                    <button onClick={() => review(item, "approved")} disabled={busyId === item.id} className="rounded-full bg-[#171018] px-5 py-3 text-sm text-white disabled:opacity-50">{busyId === item.id ? "Saving..." : "Confirm payment"}</button>
-                    <button onClick={() => review(item, "rejected")} disabled={busyId === item.id} className="rounded-full border border-red-200 px-5 py-3 text-sm text-red-700 disabled:opacity-50">Deny payment</button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        void review(item, "approved");
+                      }}
+                      disabled={busyId === item.id}
+                      className="rounded-full bg-[#171018] px-5 py-3 text-sm text-white disabled:opacity-50"
+                    >
+                      {busyId === item.id ? "Saving..." : "Confirm payment"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        void review(item, "rejected");
+                      }}
+                      disabled={busyId === item.id}
+                      className="rounded-full border border-red-200 px-5 py-3 text-sm text-red-700 disabled:opacity-50"
+                    >
+                      Deny payment
+                    </button>
                   </div>
                 </div>
               )}
