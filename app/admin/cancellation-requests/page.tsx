@@ -8,7 +8,9 @@ type CancellationRequest = {
   id: string;
   booking_id: string;
   requested_by: string;
-  requested_by_role: "bride" | "mua";
+  requested_by_role: "bride" | "mua" | "admin";
+  admin_decision: "cancel_and_refunded" | "cancel_with_no_refund" | null;
+  refund_status: string;
   reason: string;
   requested_at: string;
   event_date: string | null;
@@ -80,7 +82,7 @@ export default function CancellationRequestsPage() {
       supabase
         .from("bookings")
         .select("id, bride_id, mua_id, booking_date, booking_time, service_price, deposit_amount, travel_fee, status, cancelled_at, cancelled_by, cancellation_reason, refund_processed, refund_amount")
-        .eq("status", "cancelled")
+        .like("status", "cancelled%")
         .order("cancelled_at", { ascending: false }),
     ]);
     if (bookingError || cancelledError) {
@@ -168,6 +170,20 @@ export default function CancellationRequestsPage() {
         : "Booking cancelled without a refund.");
       await load();
     }
+    setBusyId(null);
+  }
+
+  async function markMoneyTransferred(request: CancellationRequest) {
+    if (!window.confirm(`Confirm that ${money(request.refund_amount)} has actually been transferred to the bride?`)) return;
+    setBusyId(request.id);
+    setError(null);
+    setMessage(null);
+    const { error: transferError } = await supabase.rpc("admin_mark_cancellation_money_transferred", {
+      p_request_id: request.id,
+      p_admin_notes: notes[request.id]?.trim() || null,
+    });
+    if (transferError) setError(transferError.message);
+    else { setMessage("Refund marked as transferred and recorded as completed."); await load(); }
     setBusyId(null);
   }
 
@@ -271,7 +287,8 @@ export default function CancellationRequestsPage() {
             const booking = bookings[request.booking_id];
             const overdue = isOverdue(request);
             const deadline = request.repayment_deadline ? new Date(request.repayment_deadline) : null;
-            const canDecide = request.request_status === "awaiting_admin_decision" || request.repayment_status === "received" || request.repayment_status === "overdue";
+            const canDecide = !request.admin_decision && (request.request_status === "awaiting_admin_decision" || request.repayment_status === "received" || request.repayment_status === "overdue");
+            const canMarkTransferred = request.admin_decision === "cancel_and_refunded" && request.refund_status === "pending";
             return (
               <article key={request.id} className="overflow-hidden rounded-[1.8rem] border border-[#eadfe5] bg-white shadow-sm">
                 <div className="flex flex-col gap-4 border-b border-[#f1e8ee] p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
@@ -313,10 +330,16 @@ export default function CancellationRequestsPage() {
                 <div className="space-y-3 p-5 sm:p-6">
                   <textarea value={notes[request.id] || ""} onChange={(event) => setNotes((current) => ({ ...current, [request.id]: event.target.value }))} rows={2} placeholder="Internal admin notes (optional)" className="w-full resize-y rounded-xl border border-[#eee4eb] bg-white p-3 text-sm outline-none transition focus:border-[#c9a9ba]" />
                   <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                    <button disabled={busyId === request.id || !canDecide} onClick={() => void decide(request, "cancel_and_refunded")} className="rounded-full bg-[#2b202a] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#493747] disabled:cursor-not-allowed disabled:opacity-40">{busyId === request.id ? "Saving…" : "Approve cancellation & refund"}</button>
-                    <button disabled={busyId === request.id || !canDecide} onClick={() => void decide(request, "cancel_with_no_refund")} className="rounded-full border border-[#e7dce4] px-5 py-3 text-sm font-medium text-[#5f5260] transition hover:bg-[#fff8fb] disabled:cursor-not-allowed disabled:opacity-40">Cancel without refund</button>
+                    {!request.admin_decision && <>
+                      <button disabled={busyId === request.id || !canDecide} onClick={() => void decide(request, "cancel_and_refunded")} className="rounded-full bg-[#2b202a] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#493747] disabled:cursor-not-allowed disabled:opacity-40">{busyId === request.id ? "Saving…" : "Refund"}</button>
+                      <button disabled={busyId === request.id || !canDecide} onClick={() => void decide(request, "cancel_with_no_refund")} className="rounded-full border border-[#e7dce4] px-5 py-3 text-sm font-medium text-[#5f5260] transition hover:bg-[#fff8fb] disabled:cursor-not-allowed disabled:opacity-40">No refund needed</button>
+                    </>}
+                    {request.admin_decision === "cancel_and_refunded" && request.refund_status === "pending" && <button disabled={busyId === request.id} onClick={() => void markMoneyTransferred(request)} className="rounded-full bg-emerald-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">{busyId === request.id ? "Saving…" : `Money transferred · ${money(request.refund_amount)}`}</button>}
+                    {request.refund_status === "refunded" && <span className="inline-flex items-center rounded-full bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">Money transferred</span>}
+                    {request.admin_decision === "cancel_with_no_refund" && <span className="inline-flex items-center rounded-full bg-[#f6f3f6] px-4 py-3 text-sm font-medium text-[#6e626d]">No refund needed</span>}
                   </div>
-                  {!canDecide && <p className="text-right text-xs text-[#9a8d98]">Admin decision unlocks when repayment is received, overdue, or the request reaches awaiting admin decision.</p>}
+                  {!request.admin_decision && !canDecide && <p className="text-right text-xs text-[#9a8d98]">Admin decision unlocks when repayment is received, overdue, or the request reaches awaiting admin decision.</p>}
+                  {request.admin_decision === "cancel_and_refunded" && request.refund_status === "pending" && <p className="text-right text-xs text-[#8b7d89]">Refund approved. Click “Money transferred” only after you have actually sent the refund.</p>}
                 </div>
               </article>
             );
