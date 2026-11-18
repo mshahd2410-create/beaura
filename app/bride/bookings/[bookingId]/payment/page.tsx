@@ -33,7 +33,7 @@ type BookingFinancials = {
 
 const BEAURA_PAYMENT_NUMBER = "01220346180";
 
-export default function PriceRow({
+function PriceRow({
   label,
   value,
   strong = false,
@@ -56,7 +56,7 @@ export default function PriceRow({
   );
 }
 
-function BookingPaymentPage() {
+export default function BookingPaymentPage() {
   const params = useParams<{ bookingId: string }>();
   const router = useRouter();
   const bookingId = params.bookingId;
