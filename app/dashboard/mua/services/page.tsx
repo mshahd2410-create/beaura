@@ -38,7 +38,6 @@ type LocationType =
 type LocationSetting = {
   location_type: LocationType;
   is_accepted: boolean;
-  travel_fee: string;
 };
 
 const LOCATION_OPTIONS: {
@@ -72,7 +71,6 @@ const emptyLocationSettings = (): LocationSetting[] =>
   LOCATION_OPTIONS.map((location) => ({
     location_type: location.value,
     is_accepted: false,
-    travel_fee: "0",
   }));
 
 const emptyTier = (): GroupTier => ({
@@ -124,10 +122,10 @@ export default function ServicesPage() {
       return;
     }
 
-    // Load the MUA's location and travel fee settings.
+    // Load only the locations the MUA is willing to serve.
     const { data: locationRows, error: locationError } = await supabase
       .from("mua_service_locations")
-      .select("location_type, is_accepted, travel_fee")
+      .select("location_type, is_accepted")
       .eq("mua_id", user.id);
 
     if (locationError) {
@@ -147,7 +145,6 @@ export default function ServicesPage() {
           return {
             location_type: option.value,
             is_accepted: saved?.is_accepted ?? false,
-            travel_fee: String(saved?.travel_fee ?? 0),
           };
         })
       );
@@ -213,34 +210,18 @@ export default function ServicesPage() {
 
   function updateLocationSetting(
     locationType: LocationType,
-    field: "is_accepted" | "travel_fee",
-    value: boolean | string
+    value: boolean
   ) {
     setLocationSettings((prev) =>
       prev.map((setting) =>
         setting.location_type === locationType
-          ? { ...setting, [field]: value }
+          ? { ...setting, is_accepted: value }
           : setting
       )
     );
   }
 
   async function saveLocationSettings() {
-    for (const setting of locationSettings) {
-      const fee = Number(setting.travel_fee);
-
-      if (
-        setting.travel_fee.trim() === "" ||
-        !Number.isFinite(fee) ||
-        fee < 0
-      ) {
-        alert(
-          "Please enter a valid travel fee of zero or more for every location."
-        );
-        return;
-      }
-    }
-
     setSavingLocations(true);
 
     try {
@@ -258,7 +239,8 @@ export default function ServicesPage() {
         mua_id: user.id,
         location_type: setting.location_type,
         is_accepted: setting.is_accepted,
-        travel_fee: Number(setting.travel_fee),
+        // Keep the legacy database column neutral; quotes are per booking.
+        travel_fee: 0,
         updated_at: new Date().toISOString(),
       }));
 
@@ -270,7 +252,7 @@ export default function ServicesPage() {
 
       if (error) throw error;
 
-      alert("Your service locations and travel fees have been saved.");
+      alert("Your available booking locations have been saved.");
     } catch (error) {
       console.error("Could not save location settings:", error);
       alert(
@@ -610,10 +592,10 @@ export default function ServicesPage() {
               </div>
               <div>
                 <h2 className="text-xl font-medium text-[#171018]">
-                  Service locations & travel fees
+                  Where I accept bookings
                 </h2>
                 <p className="mt-1 text-sm text-[#6f6077]">
-                  Choose where you accept bookings and set your fee for each location.
+                  Select every location where you are happy to provide your services.
                 </p>
               </div>
             </div>
@@ -625,9 +607,9 @@ export default function ServicesPage() {
         </div>
 
         <div className="mt-5 rounded-2xl bg-[#fffafc] p-4 text-sm leading-6 text-[#75657e]">
-          Turn on every location where you are willing to work. You can set a
-          different travel fee for each one. Enter 0 if you do not charge a
-          travel fee for that location.
+          Select all the locations you serve. For homes, hotels and event venues,
+          you will review the exact address and provide a travel quote for each
+          booking request. Studio bookings do not need a travel quote.
         </div>
 
         {loadingLocations ? (
@@ -665,7 +647,6 @@ export default function ServicesPage() {
                         onChange={(e) =>
                           updateLocationSetting(
                             location.value,
-                            "is_accepted",
                             e.target.checked
                           )
                         }
@@ -683,27 +664,9 @@ export default function ServicesPage() {
                       </div>
                     </div>
 
-                    <div className="w-full sm:max-w-[220px]">
-                      <label className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-[#7d6e86]">
-                        Travel fee (EGP)
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="any"
-                        value={setting.travel_fee}
-                        onChange={(e) =>
-                          updateLocationSetting(
-                            location.value,
-                            "travel_fee",
-                            e.target.value
-                          )
-                        }
-                        disabled={!setting.is_accepted}
-                        className="h-11 w-full rounded-xl border border-[#eadff5] bg-white px-3 text-sm text-[#171018] outline-none focus:border-purple-300 disabled:cursor-not-allowed disabled:bg-[#f7f4f9] disabled:text-[#a99eaf]"
-                        placeholder="0"
-                      />
-                    </div>
+                    <span className="rounded-full bg-[#f7efff] px-3 py-2 text-xs font-medium text-purple-700">
+                      {setting.is_accepted ? "Available" : "Not available"}
+                    </span>
                   </div>
                 </div>
               );
@@ -713,7 +676,7 @@ export default function ServicesPage() {
 
         <div className="mt-5 flex flex-col gap-3 border-t border-[#efe6f7] pt-5 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs leading-5 text-[#7d6e86]">
-            These settings are saved once for your profile and apply to all your services.
+            These choices apply to all your services. Travel quotes are entered separately for each booking.
           </p>
 
           <button
