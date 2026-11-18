@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { createNotification } from "@/lib/createNotification";
+import { getBookingNumber } from "@/lib/bookingNumber";
 
 type Booking = {
   id: string;
@@ -619,6 +620,9 @@ export default function BookingsPage() {
                       </div>
 
                       <div>
+                        <p className="mb-1 text-xs font-semibold tracking-wide text-purple-700">
+                          Booking # {getBookingNumber(b.id)}
+                        </p>
                         <h2 className="text-lg font-medium text-[#171018]">
                           {brideName}
                         </h2>
