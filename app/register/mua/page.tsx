@@ -97,6 +97,7 @@ export default function RegisterMUA() {
     const { error: signUpError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
+      options: { data: { terms_accepted: true, terms_accepted_at: new Date().toISOString(), terms_version: "2026-11-18" } },
     });
 
     if (signUpError) {
@@ -373,7 +374,7 @@ const path = `${user.id}/${uniqueName}-${file.name}`;
             />
 
             <span>
-              I agree to the{" "}
+              I have read and agree to the{" "}
               <Link href="/terms" className="text-purple-700 underline">
                 Terms & Conditions
               </Link>
@@ -387,8 +388,8 @@ const path = `${user.id}/${uniqueName}-${file.name}`;
           )}
 
           <button
-            disabled={loading}
-            className="mt-7 w-full rounded-full bg-purple-600 py-4 text-sm text-white transition hover:bg-purple-700 disabled:opacity-60"
+            disabled={loading || !agreed}
+            className="mt-7 w-full rounded-full bg-purple-600 py-4 text-sm text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? "Creating account..." : "Submit artist application"}
           </button>
