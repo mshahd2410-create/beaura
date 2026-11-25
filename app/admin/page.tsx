@@ -15,6 +15,8 @@ import {
   Tag,
   BarChart3,
   Settings,
+  UserPlus,
+  CreditCard,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -28,6 +30,14 @@ type DashboardStats = {
   cancellationRequests: number;
   promotions: number;
   reports: number;
+};
+
+type ActivityOverview = {
+  bookingsToday: number;
+  brideRegistrationsToday: number;
+  muaRegistrationsToday: number;
+  paymentsToday: number;
+  paymentValueToday: number;
 };
 
 export default function AdminDashboardPage() {
@@ -44,6 +54,14 @@ export default function AdminDashboardPage() {
   });
 
   const [loading, setLoading] = useState(true);
+  const [activity, setActivity] = useState<ActivityOverview>({
+    bookingsToday: 0,
+    brideRegistrationsToday: 0,
+    muaRegistrationsToday: 0,
+    paymentsToday: 0,
+    paymentValueToday: 0,
+  });
+  const [activityError, setActivityError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchStats();
@@ -69,6 +87,9 @@ export default function AdminDashboardPage() {
 
   async function fetchStats() {
     setLoading(true);
+    setActivityError(null);
+
+    const { start: todayStart, end: tomorrowStart } = getCairoDayBounds();
 
     const [
       pendingMuas,
@@ -109,6 +130,37 @@ export default function AdminDashboardPage() {
     });
 
     setLoading(false);
+
+    const [bookingsToday, brideRegistrationsToday, muaRegistrationsToday, cardPayments, walletPayments, approvedDeposits] =
+      await Promise.all([
+        getCount("bookings", (q) => q.gte("created_at", todayStart).lt("created_at", tomorrowStart)),
+        getCount("bride_profiles", (q) => q.gte("created_at", todayStart).lt("created_at", tomorrowStart)),
+        getCount("mua_profiles", (q) => q.gte("created_at", todayStart).lt("created_at", tomorrowStart)),
+        supabase.from("bookings").select("id, total_price").eq("card_paid", true).gte("card_paid_at", todayStart).lt("card_paid_at", tomorrowStart),
+        supabase.from("bookings").select("id, total_price").eq("payment_method", "credit_balance").eq("wallet_charged", true).gte("wallet_charged_at", todayStart).lt("wallet_charged_at", tomorrowStart),
+        supabase.from("bookings").select("id, deposit_amount").eq("payment_method", "transfer").eq("payment_proof_status", "approved").gte("payment_proof_reviewed_at", todayStart).lt("payment_proof_reviewed_at", tomorrowStart),
+      ]);
+
+    const paymentErrors = [cardPayments.error, walletPayments.error, approvedDeposits.error].filter(Boolean);
+    if (paymentErrors.length) {
+      setActivityError(paymentErrors.map((item) => item?.message).join(" · "));
+    }
+
+    const cardRows = cardPayments.data || [];
+    const walletRows = walletPayments.data || [];
+    const depositRows = approvedDeposits.data || [];
+    const paymentValueToday =
+      cardRows.reduce((sum, row) => sum + Number(row.total_price || 0), 0) +
+      walletRows.reduce((sum, row) => sum + Number(row.total_price || 0), 0) +
+      depositRows.reduce((sum, row) => sum + Number(row.deposit_amount || 0), 0);
+
+    setActivity({
+      bookingsToday,
+      brideRegistrationsToday,
+      muaRegistrationsToday,
+      paymentsToday: cardRows.length + walletRows.length + depositRows.length,
+      paymentValueToday,
+    });
   }
 
   const cards = [
@@ -205,6 +257,28 @@ export default function AdminDashboardPage() {
           </button>
         </div>
       </div>
+
+      <section className="rounded-[2rem] border border-[#eadff5] bg-white p-6 shadow-sm sm:p-7">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-purple-700">Daily activity</p>
+            <h2 className="mt-2 text-3xl font-light tracking-[-0.06em] text-[#171018]">Today on Beaura</h2>
+            <p className="mt-2 text-sm text-[#6f6077]">{formatCairoToday()}</p>
+          </div>
+          <span className="text-xs text-[#8a7d91]">Refresh the dashboard to update these figures</span>
+        </div>
+        {activityError && (
+          <p role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+            Some payment activity could not be loaded: {activityError}
+          </p>
+        )}
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <ActivityCard label="Bookings created" value={loading ? "…" : activity.bookingsToday.toLocaleString("en-EG")} detail="New bookings today" icon={<CalendarCheck size={18} />} />
+          <ActivityCard label="Bride registrations" value={loading ? "…" : activity.brideRegistrationsToday.toLocaleString("en-EG")} detail="New client accounts today" icon={<UserPlus size={18} />} />
+          <ActivityCard label="MUA registrations" value={loading ? "…" : activity.muaRegistrationsToday.toLocaleString("en-EG")} detail="New artist accounts today" icon={<Users size={18} />} />
+          <ActivityCard label="Payments recorded" value={loading ? "…" : activity.paymentsToday.toLocaleString("en-EG")} detail={loading ? "Loading payment totals" : `EGP ${activity.paymentValueToday.toLocaleString("en-EG", { maximumFractionDigits: 2 })} recorded today, including approved deposits`} icon={<CreditCard size={18} />} />
+        </div>
+      </section>
 
       {loading ? (
         <div className="rounded-[2rem] border border-[#eadff5] bg-white p-8 text-sm text-[#6f6077] shadow-sm">
@@ -341,6 +415,53 @@ export default function AdminDashboardPage() {
         </>
       )}
     </section>
+  );
+}
+
+function getCairoDayBounds() {
+  const dateKey = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+  const nextDate = new Date(`${dateKey}T00:00:00.000Z`);
+  nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+  return {
+    start: cairoMidnightUtc(dateKey),
+    end: cairoMidnightUtc(nextDate.toISOString().slice(0, 10)),
+  };
+}
+
+function cairoMidnightUtc(dateKey: string) {
+  const utcGuess = new Date(`${dateKey}T00:00:00.000Z`);
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).formatToParts(utcGuess);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const cairoAsUtc = Date.UTC(
+    Number(values.year), Number(values.month) - 1, Number(values.day),
+    Number(values.hour), Number(values.minute), Number(values.second)
+  );
+  return new Date(Date.parse(`${dateKey}T00:00:00.000Z`) - (cairoAsUtc - utcGuess.getTime())).toISOString();
+}
+
+function formatCairoToday() {
+  return new Intl.DateTimeFormat("en-EG", {
+    timeZone: "Africa/Cairo", weekday: "long", day: "numeric", month: "long", year: "numeric",
+  }).format(new Date());
+}
+
+function ActivityCard({ label, value, detail, icon }: {
+  label: string; value: string; detail: string; icon: React.ReactNode;
+}) {
+  return (
+    <article className="rounded-[1.5rem] border border-[#eadff5] bg-[#fffafc] p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs uppercase tracking-[0.14em] text-[#8a7d91]">{label}</p>
+        <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#f7efff] text-purple-700">{icon}</span>
+      </div>
+      <p className="mt-3 text-3xl font-light tracking-[-0.05em] text-[#171018]">{value}</p>
+      <p className="mt-2 text-xs leading-5 text-[#6f6077]">{detail}</p>
+    </article>
   );
 }
 
