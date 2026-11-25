@@ -18,9 +18,6 @@ ALTER TABLE public.bookings
   ALTER COLUMN booking_reference
   SET DEFAULT ('BK-' || nextval('public.booking_reference_seq')::text);
 
-ALTER SEQUENCE public.booking_reference_seq
-  OWNED BY public.bookings.booking_reference;
-
 ALTER TABLE public.bookings
   ALTER COLUMN booking_reference SET NOT NULL;
 
