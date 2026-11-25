@@ -49,6 +49,8 @@ type Booking = {
   platform_fee?: number | null;
   tax_fee?: number | null;
   total_price?: number | null;
+  deposit?: number | null;
+  remaining_balance?: number | null;
 
   payment_method?: "transfer" | "credit_balance" | string | null;
   payment_proof_status?: string | null;
@@ -86,6 +88,7 @@ type Booking = {
     id: string;
     first_name: string | null;
     last_name: string | null;
+    portfolio_image?: string | null;
   } | null;
 
   service?: {
@@ -191,7 +194,7 @@ export default function BrideBookings() {
         ...new Set(rows.map((b) => b.service_id).filter(Boolean)),
       ];
 
-      const [{ data: muas }, { data: services }] = await Promise.all([
+      const [{ data: muas }, { data: services }, { data: portfolio }] = await Promise.all([
         muaIds.length
           ? supabase
               .from("mua_profiles")
@@ -205,14 +208,27 @@ export default function BrideBookings() {
               .select("id, name, duration_minutes")
               .in("id", serviceIds)
           : Promise.resolve({ data: [] as any[] }),
+
+        muaIds.length
+          ? supabase.from("mua_portfolio").select("mua_id, image_path").in("mua_id", muaIds).order("created_at", { ascending: true })
+          : Promise.resolve({ data: [] as any[] }),
       ]);
 
-      const enriched: Booking[] = rows.map((b) => ({
-        ...b,
-        status: normalizeStatus(b.status || "pending"),
-        mua: muas?.find((m) => m.id === b.mua_id) || null,
-        service: services?.find((s) => s.id === b.service_id) || null,
-      }));
+      const enriched: Booking[] = rows.map((b) => {
+        const artist = muas?.find((m) => m.id === b.mua_id);
+        const firstPortfolioImage = portfolio?.find((item) => item.mua_id === b.mua_id)?.image_path;
+        return {
+          ...b,
+          status: normalizeStatus(b.status || "pending"),
+          mua: artist ? {
+            ...artist,
+            portfolio_image: firstPortfolioImage
+              ? supabase.storage.from("mua-portfolio").getPublicUrl(firstPortfolioImage).data.publicUrl
+              : null,
+          } : null,
+          service: services?.find((s) => s.id === b.service_id) || null,
+        };
+      });
 
       setBookings(enriched);
     } catch (err: any) {
@@ -616,21 +632,35 @@ export default function BrideBookings() {
                         {b.service?.name || "Makeup service"}
                       </h2>
 
-                      <p className="mt-2 text-sm text-[#6f6077]">
-                        With{" "}
-                        <span className="font-medium text-[#171018]">
-                          {muaName}
-                        </span>
-                      </p>
+                      <div className="mt-3 flex items-center gap-3">
+                        {b.mua?.portfolio_image ? (
+                          <img src={b.mua.portfolio_image} alt={muaName} className="h-12 w-12 rounded-2xl object-cover" />
+                        ) : (
+                          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#f7efff] text-sm font-semibold text-purple-700">
+                            {muaName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-sm text-[#6f6077]">Makeup artist</p>
+                          <p className="font-medium text-[#171018]">{muaName}</p>
+                        </div>
+                      </div>
 
-                      <p className="mt-1 text-sm text-[#6f6077]">
-                        {b.booking_date || "No date"} ·{" "}
-                        {b.booking_time || "No time"}
-                      </p>
+                      <div className="mt-4 grid gap-3 rounded-2xl bg-[#fffafc] p-4 sm:grid-cols-2">
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-[#8a7d91]">Appointment</p>
+                          <p className="mt-1 text-sm font-medium text-[#171018]">{b.booking_date || "Date to be confirmed"}</p>
+                          <p className="text-sm text-[#6f6077]">{b.booking_time || "Time to be confirmed"}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-[#8a7d91]">Booking total</p>
+                          <p className="mt-1 text-lg font-semibold text-[#171018]">{formatMoney(b.total_price ?? b.service_price)}</p>
+                          {Number(b.deposit || 0) > 0 && <p className="mt-1 text-xs text-[#6f6077]">Deposit: {formatMoney(b.deposit)}</p>}
+                          {Number(b.remaining_balance || 0) > 0 && <p className="mt-1 text-xs text-[#6f6077]">Remaining: {formatMoney(b.remaining_balance)}</p>}
+                        </div>
+                      </div>
 
-                      <p className="mt-3 text-sm font-medium text-[#6f6077]">
-                        Total · {formatMoney(b.total_price ?? b.service_price)}
-                      </p>
+                      <p className="mt-3 text-xs font-medium text-[#6f6077]">{getPaymentStatusLabel(b)}</p>
 
                       {b.travel_fee_quote_status === "pending_bride_approval" && (
                         <div className="mt-4 rounded-2xl border border-purple-200 bg-[#f7efff] p-5">
