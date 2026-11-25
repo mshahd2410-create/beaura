@@ -43,6 +43,7 @@ type MuaProfile = {
   instagram: string | null;
   bio: string | null;
   experience: string | null;
+  experience_years: number | null;
   cities: string[] | null;
 };
 
@@ -55,6 +56,7 @@ export default function SettingsPage() {
   const [instagram, setInstagram] = useState("");
   const [bio, setBio] = useState("");
   const [experience, setExperience] = useState("");
+  const [experienceYears, setExperienceYears] = useState("");
   const [cities, setCities] = useState<string[]>([]);
 
   useEffect(() => {
@@ -90,6 +92,7 @@ export default function SettingsPage() {
       setInstagram(data.instagram || "");
       setBio(data.bio || "");
       setExperience(data.experience || "");
+      setExperienceYears(data.experience_years == null ? "" : String(data.experience_years));
       setCities(data.cities || []);
     }
 
@@ -112,7 +115,7 @@ export default function SettingsPage() {
     const [{ error: profileError }, { error: privateError }] = await Promise.all([
       supabase
         .from("mua_profiles")
-        .update({ instagram, bio, experience, cities })
+        .update({ instagram, bio, experience, experience_years: experienceYears === "" ? null : Number(experienceYears), cities })
         .eq("id", profile.id),
       supabase
         .from("mua_private")
@@ -132,11 +135,12 @@ export default function SettingsPage() {
       !!instagram,
       !!bio,
       !!experience,
+      experienceYears !== "",
       cities.length > 0,
     ];
 
     return Math.round((checks.filter(Boolean).length / checks.length) * 100);
-  }, [phone, instagram, bio, experience, cities]);
+  }, [phone, instagram, bio, experience, experienceYears, cities]);
 
   if (loading) {
     return (
@@ -269,6 +273,12 @@ export default function SettingsPage() {
                   <option value="Experienced">Experienced</option>
                   <option value="Advanced">Advanced</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-xs uppercase tracking-[0.18em] text-[#8a7d91]">Years of experience</label>
+                <input type="number" min="0" max="60" step="1" value={experienceYears} onChange={(e) => setExperienceYears(e.target.value)} placeholder="e.g. 5" className="h-12 w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 text-sm text-[#171018] outline-none transition focus:border-purple-500" />
+                <p className="mt-1 text-xs text-[#8a7d91]">Enter the number of years you have worked as a makeup artist.</p>
               </div>
 
               <div className="sm:col-span-2">
