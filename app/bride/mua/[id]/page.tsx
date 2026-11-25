@@ -34,6 +34,11 @@ type MuaProfile = {
   services: any[];
 };
 
+type LocationOption = {
+  location_type: string;
+  is_accepted: boolean;
+};
+
 type ReviewSummary = {
   average: number;
   count: number;
@@ -65,6 +70,7 @@ export default function MuaProfilePage() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [reviewSummary, setReviewSummary] = useState<ReviewSummary>({ average: 0, count: 0 });
+  const [locationOptions, setLocationOptions] = useState<LocationOption[]>([]);
 
   const loadMua = useCallback(async () => {
     if (!id) {
@@ -150,6 +156,19 @@ export default function MuaProfilePage() {
       portfolio,
       services,
     });
+
+    const { data: locationRows, error: locationError } = await supabase
+      .from("mua_service_locations")
+      .select("location_type, is_accepted")
+      .eq("mua_id", id)
+      .eq("is_accepted", true);
+
+    if (locationError) {
+      console.error("Error loading artist service locations:", locationError);
+      setLocationOptions([]);
+    } else {
+      setLocationOptions(locationRows || []);
+    }
 
     const { data: reviewRows, error: reviewsError } = await supabase
       .from("mua_reviews")
@@ -593,14 +612,10 @@ export default function MuaProfilePage() {
                     {service.name}
                   </h3>
 
-                  <div className="mt-4 flex items-center justify-between gap-3 text-sm">
-                    <span className="text-[#6f6077]">
-                      {service.duration_minutes} min
-                    </span>
-
-                    <span className="font-medium text-[#171018]">
-                      {formatEGP(Number(service.price))}
-                    </span>
+                  <div className="mt-4 rounded-2xl bg-white p-4">
+                    <p className="text-xs uppercase tracking-[0.14em] text-[#8a7d91]">Service price</p>
+                    <p className="mt-1 text-xl font-semibold text-[#171018]">{formatEGP(Number(service.price))}</p>
+                    <p className="mt-1 text-xs text-[#6f6077]">Estimated service duration · {service.duration_minutes || "—"} min</p>
                   </div>
 
                   {service.group_pricing_enabled &&
@@ -682,6 +697,29 @@ export default function MuaProfilePage() {
                 </div>
               </div>
             )}
+
+            <div className="mt-6">
+              <p className="text-xs uppercase tracking-[0.16em] text-purple-700">Where the artist works</p>
+              {locationOptions.length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {locationOptions.map((option) => {
+                    const labels: Record<string, string> = {
+                      client_home: "At your home",
+                      hotel: "At your hotel",
+                      event_venue: "At your venue",
+                      own_studio: "At the artist’s studio",
+                    };
+                    return (
+                      <span key={option.location_type} className="rounded-full border border-[#eadff5] bg-white px-3 py-2 text-xs text-[#6f6077]">
+                        {labels[option.location_type] || option.location_type}
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="mt-2 text-sm leading-6 text-[#6f6077]">Ask the artist which location options are available for your appointment.</p>
+              )}
+            </div>
 
             {mua.instagram && (
               <a
