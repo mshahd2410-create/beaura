@@ -64,7 +64,18 @@ export default function AdminDashboardPage() {
   const [activityError, setActivityError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchStats();
+    void fetchStats();
+
+    const channel = supabase
+      .channel("admin-dashboard-activity")
+      .on("postgres_changes", { event: "*", schema: "public", table: "bookings" }, () => void fetchStats())
+      .on("postgres_changes", { event: "*", schema: "public", table: "bride_profiles" }, () => void fetchStats())
+      .on("postgres_changes", { event: "*", schema: "public", table: "mua_profiles" }, () => void fetchStats())
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
   }, []);
 
   async function getCount(table: string, filters?: (query: any) => any) {
@@ -129,8 +140,6 @@ export default function AdminDashboardPage() {
       reports,
     });
 
-    setLoading(false);
-
     const [bookingsToday, brideRegistrationsToday, muaRegistrationsToday, cardPayments, walletPayments, approvedDeposits] =
       await Promise.all([
         getCount("bookings", (q) => q.gte("created_at", todayStart).lt("created_at", tomorrowStart)),
@@ -161,6 +170,7 @@ export default function AdminDashboardPage() {
       paymentsToday: cardRows.length + walletRows.length + depositRows.length,
       paymentValueToday,
     });
+    setLoading(false);
   }
 
   const cards = [
