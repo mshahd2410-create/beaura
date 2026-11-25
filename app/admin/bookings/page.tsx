@@ -9,6 +9,7 @@ import { Eye, Search, X } from "lucide-react";
 
 type Booking = {
   id: string;
+  booking_reference: string;
   booking_date: string | null;
   booking_time: string | null;
   status: string | null;
@@ -578,7 +579,7 @@ export default function AdminBookingsPage() {
                       {getPaymentStatus(booking)}
                     </span>
                     <span className="text-xs text-[#8a7d91]">
-                      #{getBookingNumber(booking.id)}
+                      #{getBookingNumber(booking.booking_reference)}
                     </span>
                   </div>
 
@@ -667,7 +668,7 @@ export default function AdminBookingsPage() {
                   booking details
                 </p>
                 <h2 className="mt-1 text-2xl font-light tracking-[-0.05em]">
-                  #{getBookingNumber(selectedBooking.id)}
+                  #{getBookingNumber(selectedBooking.booking_reference)}
                 </h2>
               </div>
               <button
