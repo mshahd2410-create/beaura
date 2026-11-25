@@ -29,6 +29,8 @@ type PromoCode = {
   updated_at: string;
 };
 
+type PromoFilter = "all" | "active" | "expiring" | "used up" | "expired" | "inactive";
+
 type PromoForm = {
   code: string;
   description: string;
@@ -55,6 +57,7 @@ export default function AdminPromotionsPage() {
   const [saving, setSaving] = useState(false);
 
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<PromoFilter>("all");
   const [showForm, setShowForm] = useState(false);
   const [editingPromo, setEditingPromo] = useState<PromoCode | null>(null);
   const [form, setForm] = useState<PromoForm>(emptyForm);
@@ -62,6 +65,19 @@ export default function AdminPromotionsPage() {
 
   useEffect(() => {
     fetchPromos();
+
+    const channel = supabase
+      .channel("admin-promo-codes-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "promo_codes" },
+        () => fetchPromos()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   async function fetchPromos() {
@@ -83,35 +99,51 @@ export default function AdminPromotionsPage() {
     setLoading(false);
   }
 
-  const filteredPromos = useMemo(() => {
-    const q = search.trim().toLowerCase();
+  function cairoDateKey(value: Date) {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Cairo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(value);
+    const part = (type: string) => parts.find((item) => item.type === type)?.value || "";
+    return `${part("year")}-${part("month")}-${part("day")}`;
+  }
 
-    if (!q) return promos;
+  function isExpired(promo: PromoCode) {
+    if (!promo.expires_at) return false;
+    return promo.expires_at.slice(0, 10) < cairoDateKey(new Date());
+  }
 
-    return promos.filter((promo) => {
-      return (
-        promo.code.toLowerCase().includes(q) ||
-        promo.description?.toLowerCase().includes(q) ||
-        promo.discount_type.toLowerCase().includes(q)
-      );
-    });
-  }, [promos, search]);
+  function isExpiringSoon(promo: PromoCode) {
+    if (!promo.is_active || !promo.expires_at || isExpired(promo)) return false;
+    const today = new Date(`${cairoDateKey(new Date())}T00:00:00+02:00`);
+    const expiry = new Date(`${promo.expires_at.slice(0, 10)}T00:00:00+02:00`);
+    const days = Math.round((expiry.getTime() - today.getTime()) / 86400000);
+    return days >= 0 && days <= 7;
+  }
 
   function getPromoStatus(promo: PromoCode) {
-    const now = new Date();
-
     if (!promo.is_active) return "inactive";
-
-    if (promo.expires_at && new Date(promo.expires_at) < now) {
-      return "expired";
-    }
-
-    if (promo.max_uses !== null && promo.used_count >= promo.max_uses) {
-      return "used up";
-    }
-
+    if (isExpired(promo)) return "expired";
+    if (promo.max_uses !== null && promo.used_count >= promo.max_uses) return "used up";
     return "active";
   }
+
+  const filteredPromos = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return promos.filter((promo) => {
+      const matchesSearch =
+        promo.code.toLowerCase().includes(q) ||
+        (promo.description || "").toLowerCase().includes(q) ||
+        promo.discount_type.toLowerCase().includes(q);
+      const status = getPromoStatus(promo);
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "expiring" ? isExpiringSoon(promo) : status === statusFilter);
+      return matchesSearch && matchesStatus;
+    });
+  }, [promos, search, statusFilter]);
 
   function openCreateForm() {
     setEditingPromo(null);
@@ -265,7 +297,10 @@ export default function AdminPromotionsPage() {
     (promo) => getPromoStatus(promo) === "active"
   ).length;
 
-  const inactiveCount = promos.filter((promo) => !promo.is_active).length;
+  const inactiveCount = promos.filter((promo) => getPromoStatus(promo) === "inactive").length;
+  const expiredCount = promos.filter((promo) => getPromoStatus(promo) === "expired").length;
+  const expiringCount = promos.filter(isExpiringSoon).length;
+  const usedUpCount = promos.filter((promo) => getPromoStatus(promo) === "used up").length;
 
   const totalUses = promos.reduce(
     (sum, promo) => sum + Number(promo.used_count || 0),
@@ -307,10 +342,12 @@ export default function AdminPromotionsPage() {
         </div>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
         <StatCard label="Total codes" value={promos.length} />
         <StatCard label="Active" value={activeCount} />
-        <StatCard label="Inactive" value={inactiveCount} />
+        <StatCard label="Expiring in 7 days" value={expiringCount} />
+        <StatCard label="Expired" value={expiredCount} />
+        <StatCard label="Inactive / used up" value={inactiveCount + usedUpCount} />
         <StatCard label="Total uses" value={totalUses} />
       </section>
 
@@ -325,6 +362,19 @@ export default function AdminPromotionsPage() {
             </p>
           </div>
 
+          <div className="flex flex-col gap-3 xl:items-end">
+            <div className="flex flex-wrap gap-2 xl:justify-end">
+              {(["all", "active", "expiring", "used up", "expired", "inactive"] as PromoFilter[]).map((filter) => (
+                <button
+                  key={filter}
+                  type="button"
+                  onClick={() => setStatusFilter(filter)}
+                  className={`rounded-full px-3 py-2 text-xs font-medium capitalize transition ${statusFilter === filter ? "bg-[#171018] text-white" : "border border-[#eadff5] bg-white text-[#6f6077] hover:border-purple-200"}`}
+                >
+                  {filter === "expiring" ? "Expiring soon" : filter}
+                </button>
+              ))}
+            </div>
           <div className="relative w-full xl:w-[360px]">
             <Search
               className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8a7d91]"
@@ -336,6 +386,7 @@ export default function AdminPromotionsPage() {
               placeholder="Search promo code..."
               className="h-12 w-full rounded-full border border-[#eadff5] bg-[#fffafc] pl-11 pr-4 text-sm text-[#171018] outline-none transition focus:border-purple-400"
             />
+          </div>
           </div>
         </div>
 
@@ -366,10 +417,12 @@ export default function AdminPromotionsPage() {
           <div className="space-y-3">
             {filteredPromos.map((promo) => {
               const status = getPromoStatus(promo);
+              const remainingUses = promo.max_uses === null ? null : Math.max(0, promo.max_uses - promo.used_count);
+              const usagePercent = promo.max_uses ? Math.min(100, (promo.used_count / promo.max_uses) * 100) : 0;
               const usageText =
                 promo.max_uses === null
                   ? `${promo.used_count} used · unlimited`
-                  : `${promo.used_count} / ${promo.max_uses} used`;
+                  : `${promo.used_count} / ${promo.max_uses} used · ${remainingUses} left`;
 
               return (
                 <div
@@ -405,7 +458,15 @@ export default function AdminPromotionsPage() {
 
                     <div className="grid gap-3 sm:grid-cols-3 xl:w-[520px]">
                       <MiniInfo label="Discount" value={formatDiscount(promo)} />
-                      <MiniInfo label="Usage" value={usageText} />
+                      <div className="rounded-2xl border border-[#eadff5] bg-white px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-[0.16em] text-[#8a7d91]">Usage</p>
+                        <p className="mt-1 text-sm font-medium text-[#171018]">{usageText}</p>
+                        {promo.max_uses !== null && (
+                          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#f0e7f1]">
+                            <div className="h-full rounded-full bg-purple-500" style={{ width: `${usagePercent}%` }} />
+                          </div>
+                        )}
+                      </div>
                       <MiniInfo label="Expiry" value={formatDate(promo.expires_at)} />
                     </div>
 
