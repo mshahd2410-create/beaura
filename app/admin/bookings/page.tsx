@@ -232,7 +232,7 @@ export default function AdminBookingsPage() {
         });
         const notificationResult = await notificationResponse.json();
 
-        if (!notificationResponse.ok || notificationResult.whatsapp?.success !== true) {
+        if (notificationResult.whatsapp?.success !== true) {
           const whatsappError =
             notificationResult.whatsapp?.error ||
             notificationResult.error ||
@@ -242,6 +242,9 @@ export default function AdminBookingsPage() {
         } else if (notificationResult.failed?.length) {
           setPageError("Booking confirmed and WhatsApp accepted, but one or more confirmation emails failed.");
           console.error("Booking confirmation email issue:", notificationResult.failed);
+        } else if (!notificationResponse.ok) {
+          setPageError("Booking confirmed, but the notification service returned an unexpected response. Check server logs.");
+          console.error("Booking confirmation notification response:", notificationResult);
         }
       } catch (notificationError) {
         const message =
