@@ -46,6 +46,11 @@ type ReviewSummary = {
   count: number;
 };
 
+type AvailabilityDay = {
+  preview_date: string;
+  availability_status: string;
+};
+
 function formatEGP(value: number) {
   return `EGP ${Number(value || 0).toLocaleString("en-EG")}`;
 }
@@ -74,6 +79,8 @@ export default function MuaProfilePage() {
   const [reviewSummary, setReviewSummary] = useState<ReviewSummary>({ average: 0, count: 0 });
   const [reviews, setReviews] = useState<any[]>([]);
   const [portfolioCategory, setPortfolioCategory] = useState("all");
+  const [availabilityDays, setAvailabilityDays] = useState<AvailabilityDay[]>([]);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [locationOptions, setLocationOptions] = useState<LocationOption[]>([]);
 
   const loadMua = useCallback(async () => {
@@ -163,6 +170,25 @@ export default function MuaProfilePage() {
       portfolio,
       services,
     });
+
+    setAvailabilityLoading(true);
+    const cairoToday = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Cairo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    const { data: availabilityRows, error: availabilityError } = await supabase.rpc(
+      "get_mua_availability_preview",
+      { p_mua_id: id, p_from_date: cairoToday, p_days: 14 }
+    );
+    if (availabilityError) {
+      console.error("Error loading availability preview:", availabilityError);
+      setAvailabilityDays([]);
+    } else {
+      setAvailabilityDays(availabilityRows || []);
+    }
+    setAvailabilityLoading(false);
 
     const { data: locationRows, error: locationError } = await supabase
       .from("mua_service_locations")
@@ -744,6 +770,36 @@ export default function MuaProfilePage() {
               </a>
             )}
           </div>
+        </section>
+
+        {/* AVAILABILITY PREVIEW */}
+        <section className="rounded-[2.5rem] border border-[#eadff5] bg-white p-6 shadow-sm sm:p-8">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-purple-700">Next 14 days</p>
+              <h2 className="mt-2 text-3xl font-light tracking-[-0.06em]">Availability preview</h2>
+              <p className="mt-2 text-sm text-[#6f6077]">Dates with existing appointments or blocked time may have limited availability. All other dates still need confirmation from the artist.</p>
+            </div>
+            <button onClick={goToBooking} className="rounded-full bg-[#171018] px-5 py-3 text-sm font-medium text-white">Request a date</button>
+          </div>
+          {availabilityLoading ? (
+            <p className="mt-5 text-sm text-[#6f6077]">Checking dates…</p>
+          ) : availabilityDays.length > 0 ? (
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+              {availabilityDays.map((day) => {
+                const limited = day.availability_status === "Limited availability";
+                return (
+                  <div key={day.preview_date} className="rounded-2xl border border-[#eadff5] bg-[#fffafc] p-3">
+                    <p className="text-sm font-medium text-[#171018]">{new Date(day.preview_date + "T12:00:00").toLocaleDateString("en-EG", { weekday: "short" })}</p>
+                    <p className="mt-1 text-xs text-[#8a7d91]">{new Date(day.preview_date + "T12:00:00").toLocaleDateString("en-EG", { day: "numeric", month: "short" })}</p>
+                    <p className={`mt-3 text-xs font-medium ${limited ? "text-amber-700" : "text-purple-700"}`}>{limited ? "Limited availability" : "Ask to confirm"}</p>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="mt-5 rounded-2xl bg-[#fffafc] p-4 text-sm text-[#6f6077]">Availability preview is temporarily unavailable. Please request a date and the artist can confirm it.</p>
+          )}
         </section>
 
         {/* CLIENT REVIEWS */}
