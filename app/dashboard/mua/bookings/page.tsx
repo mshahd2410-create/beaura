@@ -631,40 +631,11 @@ export default function BookingsPage() {
                       </span>
                     </div>
 
-                    <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                      <InfoCard
-                        label="Location"
-                        value={b.location || "Not provided"}
-                      />
+                    <p className="mt-3 text-sm font-medium text-[#6f6077]">
+                      Your earning · {formatMoney(getMuaEarning(b))}
+                    </p>
 
-                      <InfoCard
-                        label="Notes"
-                        value={
-                          b.location_notes || b.notes || "No additional notes"
-                        }
-                      />
-
-                      <InfoCard
-                        label="MUA earning"
-                        value={formatMoney(getMuaEarning(b))}
-                      />
-
-                      <InfoCard
-                        label="Payment method"
-                        value={getPaymentMethodLabel(b)}
-                      />
-
-                      <InfoCard
-                        label="Payment status"
-                        value={getPaymentStatusLabel(b)}
-                      />
-
-                      <InfoCard
-                        label="Total booking"
-                        value={formatMoney(b.total_price || b.total_amount)}
-                      />
-
-                      {Number(b.discount_amount || 0) > 0 && (
+                    {Number(b.discount_amount || 0) > 0 && (
                         <InfoCard
                           label="Bride promo discount"
                           value={formatMoney(b.discount_amount)}
