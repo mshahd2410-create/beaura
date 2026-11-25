@@ -2,16 +2,9 @@ import { supabase } from "@/lib/supabaseClient";
 
 export type NotificationType =
   | "booking_created"
-  | "booking_confirmed"
-  | "booking_rejected"
   | "booking_cancelled"
-  | "booking_completed"
   | "completion_pending"
   | "dispute_opened"
-  | "payment_received"
-  | "refund_issued"
-  | "payout_eligible"
-  | "new_message"
   | "admin_update"
   | "travel_fee_quote"
   | "travel_fee_accepted"
