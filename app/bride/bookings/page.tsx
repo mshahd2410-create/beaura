@@ -98,7 +98,7 @@ type Booking = {
   } | null;
 };
 
-type ModalType = "complete" | "issue" | null;
+type ModalType = "complete" | "issue" | "review" | null;
 
 export default function BrideBookings() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -117,6 +117,9 @@ export default function BrideBookings() {
 
   const [cancelBooking, setCancelBooking] = useState<Booking | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [reviewedMuaIds, setReviewedMuaIds] = useState<string[]>([]);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewText, setReviewText] = useState("");
 
   useEffect(() => {
     loadBookings(true);
@@ -194,7 +197,7 @@ export default function BrideBookings() {
         ...new Set(rows.map((b) => b.service_id).filter(Boolean)),
       ];
 
-      const [{ data: muas }, { data: services }, { data: portfolio }] = await Promise.all([
+      const [{ data: muas }, { data: services }, { data: portfolio }, { data: existingReviews }] = await Promise.all([
         muaIds.length
           ? supabase
               .from("mua_profiles")
@@ -212,7 +215,13 @@ export default function BrideBookings() {
         muaIds.length
           ? supabase.from("mua_portfolio").select("mua_id, image_path").in("mua_id", muaIds)
           : Promise.resolve({ data: [] as any[] }),
+
+        muaIds.length
+          ? supabase.from("mua_reviews").select("mua_id").eq("bride_id", user.id).in("mua_id", muaIds)
+          : Promise.resolve({ data: [] as any[] }),
       ]);
+
+      setReviewedMuaIds([...new Set((existingReviews || []).map((review: any) => review.mua_id).filter(Boolean))]);
 
       const enriched: Booking[] = rows.map((b) => {
         const artist = muas?.find((m) => m.id === b.mua_id);
@@ -311,6 +320,36 @@ export default function BrideBookings() {
     } catch (err: any) {
       console.error("BRIDE COMPLETE BOOKING ERROR:", err);
       setModalError(err?.message || "Could not confirm completion.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submitReview() {
+    if (!selectedBooking || !selectedBooking.mua_id) return;
+    if (!reviewText.trim()) {
+      setModalError("Please write a short review before submitting.");
+      return;
+    }
+    setSaving(true);
+    setModalError(null);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Please sign in again to submit your review.");
+      const { error } = await supabase.from("mua_reviews").insert({
+        mua_id: selectedBooking.mua_id,
+        bride_id: user.id,
+        rating: reviewRating,
+        review_text: reviewText.trim(),
+      });
+      if (error) throw new Error(error.message);
+      setReviewedMuaIds((current) => [...new Set([...current, selectedBooking.mua_id])]);
+      setSelectedBooking(null);
+      setModalType(null);
+      setReviewText("");
+      setReviewRating(5);
+    } catch (error: any) {
+      setModalError(error?.message || "Could not submit your review.");
     } finally {
       setSaving(false);
     }
@@ -775,9 +814,14 @@ export default function BrideBookings() {
                       )}
 
                       {status === "completed" && (
-                        <span className="rounded-full border border-green-200 bg-green-50 px-5 py-3 text-sm font-medium text-green-700">
-                          Completed
-                        </span>
+                        <>
+                          <span className="rounded-full border border-green-200 bg-green-50 px-5 py-3 text-sm font-medium text-green-700">Completed</span>
+                          {reviewedMuaIds.includes(b.mua_id) ? (
+                            <span className="rounded-full border border-[#eadff5] bg-[#fffafc] px-5 py-3 text-sm font-medium text-purple-700">Review submitted</span>
+                          ) : (
+                            <button type="button" onClick={() => { setSelectedBooking(b); setModalType("review"); setReviewRating(5); setReviewText(""); setModalError(null); }} className="rounded-full bg-[#171018] px-5 py-3 text-sm font-medium text-white">Review artist</button>
+                          )}
+                        </>
                       )}
 
                       {status === "pending" && (
@@ -806,7 +850,11 @@ export default function BrideBookings() {
         )}
       </section>
 
-      {modalType && selectedBooking && (
+      {modalType === "review" && selectedBooking && (
+        <ReviewModal rating={reviewRating} setRating={setReviewRating} reviewText={reviewText} setReviewText={setReviewText} saving={saving} error={modalError} onClose={closeModal} onSubmit={submitReview} />
+      )}
+
+      {modalType && modalType !== "review" && selectedBooking && (
         <ActionModal
           type={modalType}
           saving={saving}
@@ -869,6 +917,38 @@ type ActionModalProps = {
   onComplete: () => void;
   onReport: () => void;
 };
+
+function ReviewModal({
+  rating, setRating, reviewText, setReviewText, saving, error, onClose, onSubmit,
+}: {
+  rating: number; setRating: (value: number) => void; reviewText: string;
+  setReviewText: (value: string) => void; saving: boolean; error: string | null;
+  onClose: () => void; onSubmit: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-[2rem] border border-[#eadff5] bg-white p-6 shadow-2xl sm:p-7">
+        <p className="text-xs uppercase tracking-[0.22em] text-purple-700">Bride feedback</p>
+        <h2 className="mt-3 text-3xl font-light tracking-[-0.06em] text-[#171018]">Review your artist</h2>
+        <p className="mt-2 text-sm text-[#6f6077]">Your review will appear on the artist’s public Beaura profile.</p>
+        {error && <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+        <div className="mt-5 flex gap-2" aria-label="Rating">
+          {[1, 2, 3, 4, 5].map((value) => (
+            <button key={value} type="button" onClick={() => setRating(value)} aria-label={`${value} stars`} className="rounded-lg p-1">
+              <Star size={28} className={value <= rating ? "fill-[#d4a843] text-[#d4a843]" : "text-[#d8cddd]"} />
+            </button>
+          ))}
+        </div>
+        <textarea value={reviewText} onChange={(e) => setReviewText(e.target.value)} maxLength={1000} rows={5} placeholder="Share what you liked about your experience..." className="mt-4 w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] p-4 text-sm outline-none focus:border-purple-500" />
+        <p className="mt-1 text-right text-xs text-[#8a7d91]">{reviewText.length}/1000</p>
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+          <button type="button" onClick={onSubmit} disabled={saving || !reviewText.trim()} className="flex-1 rounded-full bg-[#171018] py-3 text-sm font-medium text-white disabled:opacity-50">{saving ? "Submitting..." : "Submit review"}</button>
+          <button type="button" onClick={onClose} disabled={saving} className="flex-1 rounded-full border border-[#eadff5] py-3 text-sm disabled:opacity-50">Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ActionModal({
   type,
