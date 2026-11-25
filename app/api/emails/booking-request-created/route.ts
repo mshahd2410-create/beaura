@@ -32,15 +32,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "This booking is no longer awaiting an artist response." }, { status: 409 });
     }
 
-    const [contactsResult, muaResult, serviceResult] = await Promise.all([
+    const [contactsResult, serviceResult] = await Promise.all([
       auth.supabase.rpc("get_booking_notification_contacts", { p_booking_id: bookingId }),
-      auth.supabase.from("mua_profiles").select("first_name,last_name").eq("id", booking.mua_id).maybeSingle(),
       booking.service_id
         ? auth.supabase.from("mua_services").select("name").eq("id", booking.service_id).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
     ]);
 
-    if (contactsResult.error || muaResult.error || serviceResult.error) {
+    if (contactsResult.error || serviceResult.error) {
       return NextResponse.json({ error: "Could not load booking details." }, { status: 500 });
     }
     const contacts = contactsResult.data?.[0];
@@ -49,7 +48,7 @@ export async function POST(request: Request) {
     }
 
     const brideName = [contacts.bride_first_name, contacts.bride_last_name].filter(Boolean).join(" ") || "A bride";
-    const muaName = [muaResult.data?.first_name, muaResult.data?.last_name].filter(Boolean).join(" ") || "artist";
+    const muaName = [contacts.mua_first_name, contacts.mua_last_name].filter(Boolean).join(" ") || "artist";
     const serviceName = serviceResult.data?.name || "Makeup service";
 
     const data = await sendEmail({
