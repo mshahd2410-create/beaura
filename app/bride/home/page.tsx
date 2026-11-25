@@ -9,8 +9,6 @@ import { supabase } from "@/lib/supabaseClient";
 import MasonryGrid from "@/components/MasonryGrid";
 import MuaCard from "@/components/MuaCard";
 
-const CITIES = ["Cairo", "Giza", "Alexandria", "Mansoura", "Tanta", "Sohag"];
-
 const SERVICE_SECTIONS = [
   {
     title: "Bridal",
@@ -322,30 +320,6 @@ export default function BrideHome() {
           </div><div className="mt-4 flex flex-wrap justify-between gap-3"><button type="button" onClick={()=>{setSelectedCity("");setSelectedCategory("All");setMinimumRating("");setMinPrice("");setMaxPrice("");}} className="text-sm text-purple-700 hover:underline">Clear filters</button><span className="text-xs text-[#8a7d91]">Ratings are based on published reviews.</span></div></div>}
           {sortOpen && <div className="mt-4 rounded-2xl border border-[#eadff5] bg-[#fffafc] p-4"><p className="mb-3 text-sm font-medium">Sort artists</p><div className="flex flex-wrap gap-2">{[{value:"recommended",label:"Recommended"},{value:"rating",label:"Highest rated"},{value:"price-low",label:"Price: low to high"},{value:"price-high",label:"Price: high to low"},{value:"name",label:"Name: A to Z"}].map((option)=><button key={option.value} type="button" onClick={()=>{setSortBy(option.value);setSortOpen(false);}} className={`rounded-full px-4 py-2 text-xs ${sortBy===option.value?"bg-[#171018] text-white":"bg-[#f1e5ff] text-[#6f6077]"}`}>{option.label}</button>)}</div></div>}
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-[#8a7d91]">{filteredMuas.length} artists match your search</p><button type="button" onClick={()=>{setSearchQuery("");setSelectedCity("");setSelectedCategory("All");setMinimumRating("");setMinPrice("");setMaxPrice("");setSortBy("recommended");}} className="text-xs text-purple-700 hover:underline">Reset everything</button></div>
-          <div className="mt-4 hidden">
-            <label className="block text-xs font-medium text-[#6f6077]">
-              Minimum price (EGP)
-              <input type="number" min="0" inputMode="numeric" value={minPrice} onChange={(event)=>setMinPrice(event.target.value)} placeholder="No minimum" className="mt-2 w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 py-3 text-sm text-[#171018] outline-none focus:border-purple-500"/>
-            </label>
-            <label className="block text-xs font-medium text-[#6f6077]">
-              Maximum price (EGP)
-              <input type="number" min="0" inputMode="numeric" value={maxPrice} onChange={(event)=>setMaxPrice(event.target.value)} placeholder="No maximum" className="mt-2 w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 py-3 text-sm text-[#171018] outline-none focus:border-purple-500"/>
-            </label>
-            <label className="block text-xs font-medium text-[#6f6077] sm:col-span-2">
-              Sort artists
-              <select aria-label="Sort makeup artists" value={sortBy} onChange={(event)=>setSortBy(event.target.value)} className="mt-2 w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 py-3 text-sm text-[#171018] outline-none focus:border-purple-500">
-                <option value="recommended">Recommended order</option>
-                <option value="price-low">Price: low to high</option>
-                <option value="price-high">Price: high to low</option>
-                <option value="name">Artist name: A to Z</option>
-              </select>
-            </label>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {["All","Bridal makeup","Engagement makeup","Soiree makeup","Photoshoot makeup"].map((category)=> (
-              <button key={category} onClick={()=>setSelectedCategory(category)} className={`rounded-full px-4 py-2 text-xs transition ${selectedCategory===category?"bg-[#171018] text-white":"bg-[#f7efff] text-[#6f6077] hover:text-purple-700"}`}>{category==="All"?"All services":category}</button>
-            ))}
-          </div>
         </section>
 
         <section id="artists" className="mt-16 scroll-mt-28">
