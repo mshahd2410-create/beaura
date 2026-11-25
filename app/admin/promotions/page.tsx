@@ -126,13 +126,13 @@ export default function AdminPromotionsPage() {
 
   function isExpired(promo: PromoCode) {
     if (!promo.expires_at) return false;
-    return promo.expires_at.slice(0, 10) < cairoDateKey(new Date());
+    return cairoDateKey(new Date(promo.expires_at)) < cairoDateKey(new Date());
   }
 
   function isExpiringSoon(promo: PromoCode) {
-    if (!promo.is_active || !promo.expires_at || isExpired(promo)) return false;
+    if (!promo.is_active || !promo.expires_at || isExpired(promo) || (promo.max_uses !== null && promo.used_count >= promo.max_uses)) return false;
     const today = new Date(`${cairoDateKey(new Date())}T00:00:00+02:00`);
-    const expiry = new Date(`${promo.expires_at.slice(0, 10)}T00:00:00+02:00`);
+    const expiry = new Date(`${cairoDateKey(new Date(promo.expires_at))}T00:00:00+02:00`);
     const days = Math.round((expiry.getTime() - today.getTime()) / 86400000);
     return days >= 0 && days <= 7;
   }
@@ -360,7 +360,7 @@ export default function AdminPromotionsPage() {
         </div>
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total codes" value={promos.length} />
         <StatCard label="Active" value={activeCount} />
         <StatCard label="Expiring in 7 days" value={expiringCount} />
