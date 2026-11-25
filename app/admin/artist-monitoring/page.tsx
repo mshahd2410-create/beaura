@@ -168,6 +168,10 @@ export default function AdminArtistMonitoringPage() {
         <SummaryCard label="Disputes involving artists" value={totals.disputes} icon={<AlertTriangle size={18} />} />
       </section>
 
+      <p className="rounded-2xl border border-[#eadff5] bg-[#faf7ff] p-4 text-xs leading-5 text-[#6f6077]">
+        Artist ratings are not included in this view yet. The current connected review data source could not be confirmed, so no rating averages or scores are displayed.
+      </p>
+
       <section className="rounded-[1.6rem] border border-[#eadff5] bg-white p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full lg:max-w-md">
