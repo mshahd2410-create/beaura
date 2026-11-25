@@ -68,7 +68,7 @@ function primaryButton(label: string, href: string) {
     <div style="margin-top:28px; text-align:center;">
       <a href="${escapeHtml(href)}" style="display:inline-block; background:#171018; color:#FFFFFF; padding:14px 28px; border-radius:999px; font-size:14px; font-weight:700; letter-spacing:0.2px; text-decoration:none;">
         ${escapeHtml(label)}
-      </span>
+      </a>
     </div>
   `;
 }
