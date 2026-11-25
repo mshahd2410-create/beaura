@@ -17,6 +17,7 @@ import SupportHelpButton from "@/components/support/SupportHelpButton";
 
 type Booking = {
   id: string;
+  bride_id: string;
   event_date: string | null;
   status: string | null;
   total_amount?: number | null;
@@ -146,10 +147,7 @@ export default function MuaDashboardPage() {
           service_price,
           platform_fee,
           created_at,
-          bride_profiles (
-            first_name,
-            last_name
-          )
+          bride_id
         `
         )
         .eq("mua_id", user.id)
@@ -168,8 +166,28 @@ export default function MuaDashboardPage() {
         .maybeSingle(),
     ]);
 
+    const bookingRows = (bookingsData || []) as Booking[];
+    const brideIds = [...new Set(bookingRows.map((booking) => booking.bride_id).filter(Boolean))];
+    const { data: brideNames, error: brideNamesError } = brideIds.length
+      ? await supabase.rpc("get_mua_client_names", { p_bride_ids: brideIds })
+      : { data: [], error: null };
+
+    if (brideNamesError) {
+      console.error("Could not load booking client names:", brideNamesError);
+    }
+
+    const bookingsWithNames = bookingRows.map((booking) => {
+      const bride = brideNames?.find((item: any) => item.bride_id === booking.bride_id);
+      return {
+        ...booking,
+        bride_profiles: bride
+          ? { first_name: bride.first_name, last_name: bride.last_name }
+          : null,
+      };
+    });
+
     setProfile((profileData as MuaProfile) || null);
-    setBookings((bookingsData as Booking[]) || []);
+    setBookings(bookingsWithNames);
     setServices((servicesData as MuaService[]) || []);
     setWalletData((wallet as MuaWallet) || null);
 
