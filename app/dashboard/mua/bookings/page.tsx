@@ -607,23 +607,16 @@ export default function BookingsPage() {
                 <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#171018] text-sm font-semibold text-white">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#171018] text-sm font-semibold text-white">
                         {brideName.charAt(0).toUpperCase()}
                       </div>
 
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <p className="mb-1 text-xs font-semibold tracking-wide text-purple-700">
                           Booking # {getBookingNumber(b.booking_reference)}
                         </p>
-                        <h2 className="text-lg font-medium text-[#171018]">
-                          {brideName}
-                        </h2>
-
-                        <p className="text-sm text-[#6f6077]">
-                          {b.service?.name || "Service"} ·{" "}
-                          {b.booking_date || "No date"} ·{" "}
-                          {b.booking_time || "No time"}
-                        </p>
+                        <h2 className="text-lg font-medium text-[#171018]">{brideName}</h2>
+                        <p className="text-sm text-[#6f6077]">{b.service?.name || "Service"}</p>
                       </div>
 
                       <span className="rounded-full bg-[#f7efff] px-3 py-1 text-xs font-medium text-purple-700 capitalize">
@@ -631,9 +624,18 @@ export default function BookingsPage() {
                       </span>
                     </div>
 
-                    <p className="mt-3 text-sm font-medium text-[#6f6077]">
-                      Your earning · {formatMoney(getMuaEarning(b))}
-                    </p>
+                    <div className="mt-4 grid gap-3 rounded-2xl bg-[#fffafc] p-4 sm:grid-cols-2">
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-[#8a7d91]">Appointment</p>
+                        <p className="mt-1 text-sm font-medium text-[#171018]">{b.booking_date || "Date to be confirmed"}</p>
+                        <p className="text-sm text-[#6f6077]">{b.booking_time || "Time to be confirmed"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-[#8a7d91]">Your expected earning</p>
+                        <p className="mt-1 text-lg font-semibold text-[#171018]">{formatMoney(getMuaEarning(b))}</p>
+                        <p className="text-xs text-[#6f6077]">Final payout follows Beaura&apos;s completion and payment process.</p>
+                      </div>
+                    </div>
 
                     {Number(b.discount_amount || 0) > 0 && (
                         <InfoCard
