@@ -44,36 +44,29 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (!conversationId) return;
-    init();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let active = true;
+
+    async function start() {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!active || !user) { setLoading(false); return; }
+      setUserId(user.id);
+      await Promise.all([loadConversationMeta(), loadMessages(user.id)]);
+      if (!active) return;
+      channel = subscribeRealtime();
+      setLoading(false);
+    }
+    start();
+    return () => {
+      active = false;
+      if (channel) supabase.removeChannel(channel);
+    };
   }, [conversationId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  async function init() {
-    setLoading(true);
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    setUserId(user.id);
-
-    await Promise.all([loadConversationMeta(), loadMessages(user.id)]);
-    setLoading(false);
-
-    const channel = subscribeRealtime();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }
 
   async function loadConversationMeta() {
     const { data: conversation } = await supabase

@@ -84,21 +84,14 @@ type Booking = {
 
 type ModalType = "complete" | "issue" | null;
 
-const STATUSES = [
-  "pending",
-  "confirmed",
-  "confirmed_payment_pending",
-  "completed",
-  "disputed",
-  "cancelled",
-];
+const STATUSES = ["all", "pending", "confirmed", "completed", "cancelled", "disputed"];
 
 const MAX_PHOTO_SIZE_MB = 8;
 
 export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeStatus, setActiveStatus] = useState("pending");
+  const [activeStatus, setActiveStatus] = useState("all");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [travelQuoteDrafts, setTravelQuoteDrafts] = useState<Record<string, string>>({});
   const [pageError, setPageError] = useState<string | null>(null);
@@ -540,11 +533,9 @@ export default function BookingsPage() {
 
   const filtered = bookings.filter((b) => {
     const status = normalizeStatus(b.status);
-
-    if (activeStatus === "cancelled") {
-      return status.includes("cancelled");
-    }
-
+    if (activeStatus === "all") return true;
+    if (activeStatus === "cancelled") return status.includes("cancelled");
+    if (activeStatus === "confirmed") return ["confirmed", "confirmed_payment_pending"].includes(status);
     return status === activeStatus;
   });
 
@@ -558,20 +549,13 @@ export default function BookingsPage() {
 
   return (
     <section className="space-y-6">
-      <div className="rounded-[2rem] border border-[#eadff5] bg-white p-7 shadow-sm">
-        <p className="text-xs uppercase tracking-[0.22em] text-purple-700">
-          Beaura MUA dashboard
-        </p>
-
-        <h1 className="mt-3 text-4xl font-light tracking-[-0.07em] text-[#171018]">
-          Bookings
-        </h1>
-
-        <p className="mt-3 max-w-2xl text-sm leading-7 text-[#6f6077]">
-          Confirm, decline, complete finished bookings, or report a problem.
-          Payout is released only after both you and the bride confirm
-          completion.
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-[#eadff5] bg-white p-5 shadow-sm sm:p-6">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-purple-700">Your appointments</p>
+          <h1 className="mt-2 text-3xl font-medium tracking-[-0.05em] text-[#171018]">Bookings</h1>
+          <p className="mt-1 text-sm text-[#6f6077]">Manage your bookings and see what needs your attention.</p>
+        </div>
+        <button type="button" onClick={fetchBookings} className="rounded-full border border-[#eadff5] px-4 py-2.5 text-sm font-medium text-[#6f6077] transition hover:bg-[#f7efff] hover:text-purple-700">Refresh</button>
       </div>
 
       {pageError && (
@@ -581,19 +565,19 @@ export default function BookingsPage() {
       )}
 
       <div className="flex gap-2 overflow-x-auto rounded-full border border-[#eadff5] bg-white p-2 shadow-sm">
-        {STATUSES.map((status) => (
-          <button
-            key={status}
-            onClick={() => setActiveStatus(status)}
-            className={`whitespace-nowrap rounded-full px-5 py-2.5 text-sm capitalize transition ${
-              activeStatus === status
-                ? "bg-[#171018] text-white"
-                : "text-[#6f6077] hover:bg-[#f7efff] hover:text-purple-700"
-            }`}
-          >
-            {cleanStatus(status)}
-          </button>
-        ))}
+        {STATUSES.map((status) => {
+          const count = status === "all" ? bookings.length : bookings.filter((item) => {
+            const current = normalizeStatus(item.status);
+            return status === "cancelled" ? current.includes("cancelled") :
+              status === "confirmed" ? ["confirmed", "confirmed_payment_pending"].includes(current) : current === status;
+          }).length;
+          const label = status === "all" ? "All" : status === "disputed" ? "Needs review" : cleanStatus(status);
+          return (
+            <button key={status} onClick={() => setActiveStatus(status)} className={`whitespace-nowrap rounded-full px-4 py-2.5 text-sm capitalize transition ${activeStatus === status ? "bg-[#171018] text-white" : "text-[#6f6077] hover:bg-[#f7efff] hover:text-purple-700"}`}>
+              {label} <span className="ml-1 text-xs opacity-70">{count}</span>
+            </button>
+          );
+        })}
       </div>
 
       {filtered.length === 0 ? (
@@ -647,40 +631,11 @@ export default function BookingsPage() {
                       </span>
                     </div>
 
-                    <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                      <InfoCard
-                        label="Location"
-                        value={b.location || "Not provided"}
-                      />
+                    <p className="mt-3 text-sm font-medium text-[#6f6077]">
+                      Your earning · {formatMoney(getMuaEarning(b))}
+                    </p>
 
-                      <InfoCard
-                        label="Notes"
-                        value={
-                          b.location_notes || b.notes || "No additional notes"
-                        }
-                      />
-
-                      <InfoCard
-                        label="MUA earning"
-                        value={formatMoney(getMuaEarning(b))}
-                      />
-
-                      <InfoCard
-                        label="Payment method"
-                        value={getPaymentMethodLabel(b)}
-                      />
-
-                      <InfoCard
-                        label="Payment status"
-                        value={getPaymentStatusLabel(b)}
-                      />
-
-                      <InfoCard
-                        label="Total booking"
-                        value={formatMoney(b.total_price || b.total_amount)}
-                      />
-
-                      {Number(b.discount_amount || 0) > 0 && (
+                    {Number(b.discount_amount || 0) > 0 && (
                         <InfoCard
                           label="Bride promo discount"
                           value={formatMoney(b.discount_amount)}

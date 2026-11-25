@@ -22,7 +22,7 @@ const STATUSES: BookingStatus[] = [
   "disputed",
   "cancelled",
 ];
-const STATUS_TABS = ["all", ...STATUSES] as const;
+const STATUS_TABS = ["all", "pending", "confirmed", "completed", "cancelled", "disputed"] as const;
 type BookingTab = (typeof STATUS_TABS)[number];
 
 type Booking = {
@@ -525,7 +525,8 @@ export default function BrideBookings() {
   const filtered = [...bookings.filter((b) => {
     const status = normalizeStatus(b.status);
     const matchesStatus = activeStatus === "all" ||
-      (activeStatus === "cancelled" ? status.includes("cancelled") : status === activeStatus);
+      (activeStatus === "cancelled" ? status.includes("cancelled") :
+        activeStatus === "confirmed" ? ["confirmed", "confirmed_payment_pending"].includes(status) : status === activeStatus);
     const query = searchQuery.trim().toLowerCase();
     const matchesSearch = !query ||
       getMuaName(b).toLowerCase().includes(query) ||
@@ -553,35 +554,13 @@ export default function BrideBookings() {
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#fffafc] px-4 pb-28 pt-24 text-[#171018] sm:px-6 lg:px-8">
       <section className="mx-auto max-w-5xl space-y-5">
-        <div className="rounded-[2rem] border border-[#eadff5] bg-white p-6 shadow-sm sm:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-purple-700">
-                your bookings
-              </p>
-
-          <h1 className="mt-3 text-5xl font-light leading-[0.9] tracking-[-0.08em] sm:text-7xl">
-            Your glam plans.
-          </h1>
-
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-[#6f6077]">
-                Keep track of every makeup appointment, payment update, and next step in one place.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => loadBookings(true)}
-              className="rounded-full border border-[#eadff5] bg-white px-5 py-3 text-sm font-medium text-[#6f6077] transition hover:bg-[#f7efff] hover:text-purple-700"
-            >
-              Refresh bookings
-            </button>
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-[#eadff5] bg-white p-5 shadow-sm sm:p-6">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-purple-700">Your bookings</p>
+            <h1 className="mt-2 text-3xl font-medium tracking-[-0.05em] text-[#171018]">Bookings</h1>
+            <p className="mt-1 text-sm text-[#6f6077]">Your appointments and their latest status.</p>
           </div>
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <InfoCard label="All bookings" value={String(bookings.length)} />
-            <InfoCard label="Needs attention" value={String(bookings.filter((item) => ["pending", "confirmed_payment_pending", "disputed"].includes(normalizeStatus(item.status))).length)} />
-            <InfoCard label="Confirmed" value={String(bookings.filter((item) => normalizeStatus(item.status) === "confirmed").length)} />
-            <InfoCard label="Completed" value={String(bookings.filter((item) => normalizeStatus(item.status) === "completed").length)} />
-          </div>
+          <button type="button" onClick={() => loadBookings(true)} className="rounded-full border border-[#eadff5] px-4 py-2.5 text-sm font-medium text-[#6f6077] transition hover:bg-[#f7efff] hover:text-purple-700">Refresh</button>
         </div>
 
         {pageError && (
@@ -592,46 +571,18 @@ export default function BrideBookings() {
 
         <div className="flex gap-2 overflow-x-auto rounded-full border border-[#eadff5] bg-white p-2 shadow-sm">
           {STATUS_TABS.map((status) => {
-            const count = status === "all"
-              ? bookings.length
-              : bookings.filter((item) => normalizeStatus(item.status) === status || (status === "cancelled" && normalizeStatus(item.status).includes("cancelled"))).length;
+            const count = status === "all" ? bookings.length : bookings.filter((item) => {
+              const current = normalizeStatus(item.status);
+              return status === "cancelled" ? current.includes("cancelled") :
+                status === "confirmed" ? ["confirmed", "confirmed_payment_pending"].includes(current) : current === status;
+            }).length;
+            const label = status === "all" ? "All" : status === "disputed" ? "Needs review" : cleanStatus(status);
             return (
-              <button
-                key={status}
-                onClick={() => setActiveStatus(status)}
-                className={`flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2.5 text-sm capitalize transition ${
-                  activeStatus === status
-                    ? "bg-[#171018] text-white"
-                    : "text-[#6f6077] hover:bg-[#f7efff] hover:text-purple-700"
-                }`}
-              >
-                {status === "all" ? "All" : cleanStatus(status)}
-                <span className={`rounded-full px-2 py-0.5 text-[11px] ${activeStatus === status ? "bg-white/15 text-white" : "bg-[#f7efff] text-purple-700"}`}>{count}</span>
+              <button key={status} onClick={() => setActiveStatus(status)} className={`flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2.5 text-sm capitalize transition ${activeStatus === status ? "bg-[#171018] text-white" : "text-[#6f6077] hover:bg-[#f7efff] hover:text-purple-700"}`}>
+                {label}<span className={`rounded-full px-2 py-0.5 text-[11px] ${activeStatus === status ? "bg-white/15 text-white" : "bg-[#f7efff] text-purple-700"}`}>{count}</span>
               </button>
             );
           })}
-        </div>
-
-        <div className="rounded-[2rem] border border-[#eadff5] bg-white p-4 shadow-sm sm:p-5">
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-            <label className="text-xs font-medium text-[#6f6077]">Search bookings
-              <input value={searchQuery} onChange={(event)=>setSearchQuery(event.target.value)} placeholder="Artist, service, booking number or location" className="mt-2 w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 py-3 text-sm text-[#171018] outline-none focus:border-purple-500"/>
-            </label>
-            <label className="text-xs font-medium text-[#6f6077]">Sort by
-              <select value={sortBy} onChange={(event)=>setSortBy(event.target.value)} className="mt-2 w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 py-3 text-sm text-[#171018] sm:min-w-52">
-                <option value="newest">Recently added</option>
-                <option value="oldest">Oldest first</option>
-                <option value="date-soonest">Appointment: soonest</option>
-                <option value="date-latest">Appointment: latest</option>
-                <option value="price-low">Total price: low to high</option>
-                <option value="price-high">Total price: high to low</option>
-              </select>
-            </label>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs text-[#8a7d91]">Showing {filtered.length} of {bookings.length} bookings</span>
-            <button type="button" onClick={()=>{setSearchQuery("");setSortBy("newest");setActiveStatus("all");}} className="text-sm font-medium text-purple-700 hover:underline">Clear search and sorting</button>
-          </div>
         </div>
 
         {filtered.length === 0 ? (
@@ -659,13 +610,6 @@ export default function BrideBookings() {
                           {cleanStatus(status)}
                         </span>
 
-                        <span className="rounded-full border border-[#eadff5] bg-[#fffafc] px-3 py-1 text-xs font-medium text-[#6f6077]">
-                          {getPaymentMethodLabel(b)}
-                        </span>
-
-                        <span className="rounded-full border border-[#eadff5] bg-white px-3 py-1 text-xs font-medium text-[#6f6077]">
-                          {getPaymentStatusLabel(b)}
-                        </span>
                       </div>
 
                       <h2 className="mt-4 text-3xl font-light tracking-[-0.06em] text-[#171018]">
@@ -684,22 +628,10 @@ export default function BrideBookings() {
                         {b.booking_time || "No time"}
                       </p>
 
-                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                        <InfoCard
-                          label="Service subtotal"
-                          value={formatMoney(b.service_price ?? b.total_price)}
-                        />
+                      <p className="mt-3 text-sm font-medium text-[#6f6077]">
+                        Total · {formatMoney(b.total_price ?? b.service_price)}
+                      </p>
 
-                        <InfoCard
-                          label="Travel quote"
-                          value={b.location_type === "own_studio" ? "EGP 0 · Studio" : b.travel_fee_quote_status === "pending_bride_approval" || b.travel_fee_quote_status === "accepted" ? formatMoney(b.travel_fee) : "Awaiting MUA quote"}
-                        />
-
-                        <InfoCard
-                          label="Payment"
-                          value={getPaymentMethodLabel(b)}
-                        />
-                      </div>
                       {b.travel_fee_quote_status === "pending_bride_approval" && (
                         <div className="mt-4 rounded-2xl border border-purple-200 bg-[#f7efff] p-5">
                           <p className="text-sm font-medium text-purple-900">Your makeup artist has quoted travel for this address.</p>
