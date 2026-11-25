@@ -144,6 +144,18 @@ export default function MuaProfilePage() {
       services,
     });
 
+    // Keep a small, local history so brides can quickly return to artists they viewed.
+    try {
+      const storageKey = "beaura_recently_viewed_muas";
+      const previous = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      const recentIds = Array.isArray(previous)
+        ? previous.filter((item: unknown) => typeof item === "string" && item !== id)
+        : [];
+      localStorage.setItem(storageKey, JSON.stringify([id, ...recentIds].slice(0, 8)));
+    } catch (storageError) {
+      console.warn("Could not save recently viewed artists:", storageError);
+    }
+
     // Check whether the current bride has saved this artist.
     const {
       data: { user },
