@@ -212,6 +212,47 @@ export default function AdminBookingsPage() {
       setSelectedBooking({ ...selectedBooking, status });
     }
 
+    // A booking confirmation must trigger the approved bride WhatsApp template.
+    // The API also sends the existing confirmation emails and reports each result.
+    if (status === "confirmed") {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) {
+          throw new Error("Your admin session expired. Please sign in again.");
+        }
+
+        const notificationResponse = await fetch("/api/admin/booking-notifications", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ bookingId: id, event: "confirmed" }),
+        });
+        const notificationResult = await notificationResponse.json();
+
+        if (!notificationResponse.ok || notificationResult.whatsapp?.success !== true) {
+          const whatsappError =
+            notificationResult.whatsapp?.error ||
+            notificationResult.error ||
+            "WhatsApp confirmation could not be verified.";
+          setPageError(`Booking confirmed, but the bride's WhatsApp message was not sent: ${whatsappError}`);
+          console.error("Booking confirmation notification issue:", notificationResult);
+        } else if (notificationResult.failed?.length) {
+          setPageError("Booking confirmed and WhatsApp accepted, but one or more confirmation emails failed.");
+          console.error("Booking confirmation email issue:", notificationResult.failed);
+        }
+      } catch (notificationError) {
+        const message =
+          notificationError instanceof Error
+            ? notificationError.message
+            : String(notificationError);
+        setPageError(`Booking confirmed, but the confirmation notification could not be sent: ${message}`);
+        console.error("Booking confirmation notification request failed:", notificationError);
+      }
+    }
+
     setUpdatingId(null);
   }
 
