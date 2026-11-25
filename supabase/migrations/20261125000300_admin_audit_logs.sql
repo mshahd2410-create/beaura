@@ -1,7 +1,7 @@
 -- Beaura admin audit log
 -- Run this migration in Supabase SQL Editor after reviewing it.
--- Stores metadata and changed values for operational/admin tables. Sensitive
--- contact, address, payment-detail, and proof fields are deliberately omitted.
+-- Stores metadata and changed values for operational/admin tables. Sensitive contact details and free-text fields are deliberately omitted; only
+-- operational fields such as status, dates, amounts, and IDs are captured.
 
 create table if not exists public.admin_audit_logs (
   id bigint generated always as identity primary key,
@@ -67,29 +67,17 @@ begin
     select coalesce(jsonb_object_agg(key, jsonb_build_object('after', value)), '{}'::jsonb)
       into v_changes
     from jsonb_each(v_new)
-    where key not in (
-      'email', 'phone', 'address', 'location', 'location_notes',
-      'payout_details', 'bank_account', 'account_number',
-      'payment_proof_url', 'proof_url', 'completion_photo_url'
-    );
+    where key !~* '(email|phone|address|location|notes|reason|description|details|proof|photo|url|token|password|secret|account|bank|contact|message|comment|content|first_name|last_name)';
   elsif TG_OP = 'DELETE' then
     select coalesce(jsonb_object_agg(key, jsonb_build_object('before', value)), '{}'::jsonb)
       into v_changes
     from jsonb_each(v_old)
-    where key not in (
-      'email', 'phone', 'address', 'location', 'location_notes',
-      'payout_details', 'bank_account', 'account_number',
-      'payment_proof_url', 'proof_url', 'completion_photo_url'
-    );
+    where key !~* '(email|phone|address|location|notes|reason|description|details|proof|photo|url|token|password|secret|account|bank|contact|message|comment|content|first_name|last_name)';
   else
     for v_key in
       select key
       from jsonb_each(v_new)
-      where key not in (
-        'email', 'phone', 'address', 'location', 'location_notes',
-        'payout_details', 'bank_account', 'account_number',
-        'payment_proof_url', 'proof_url', 'completion_photo_url'
-      )
+      where key !~* '(email|phone|address|location|notes|reason|description|details|proof|photo|url|token|password|secret|account|bank|contact|message|comment|content|first_name|last_name)'
       and (v_old -> key) is distinct from (v_new -> key)
     loop
       v_changes := v_changes || jsonb_build_object(
