@@ -132,8 +132,9 @@ export default function ConversationPage() {
     let imageUrl: string | null = null;
 
     if (image) {
-      if (!image.type.startsWith("image/") || image.size > 8 * 1024 * 1024) {
-        setSendError("Choose an image smaller than 8 MB.");
+      const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+      if (!allowedTypes.includes(image.type) || image.size > 8 * 1024 * 1024) {
+        setSendError("Choose a JPG, PNG, WebP, HEIC or HEIF image smaller than 8 MB.");
         setSending(false);
         return;
       }
@@ -259,7 +260,7 @@ export default function ConversationPage() {
           <div className="mx-auto flex max-w-3xl items-center gap-2">
             <label className="grid h-12 w-12 shrink-0 cursor-pointer place-items-center rounded-full border border-[#eadff5] text-[#6f6077] hover:bg-[#f7efff]">
               <ImagePlus size={18} />
-              <input type="file" accept="image/*" className="hidden" onChange={(event) => setImage(event.target.files?.[0] || null)} />
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" className="hidden" onChange={(event) => setImage(event.target.files?.[0] || null)} />
             </label>
             <input
               value={newMessage}
