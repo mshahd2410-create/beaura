@@ -718,10 +718,20 @@ export default function MuaProfilePage() {
                 "View the artist’s portfolio and services, or send a message if you have a question before booking."}
             </p>
 
-            {mua.experience && (
-              <div className="mt-5 rounded-2xl bg-[#fffafc] p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-purple-700">Experience level</p>
-                <p className="mt-1 text-sm font-medium text-[#171018]">{mua.experience}</p>
+            {(mua.experience || mua.experience_years != null) && (
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                {mua.experience && (
+                  <div className="rounded-2xl bg-[#fffafc] p-4">
+                    <p className="text-xs uppercase tracking-[0.16em] text-purple-700">Experience level</p>
+                    <p className="mt-1 text-sm font-medium text-[#171018]">{mua.experience}</p>
+                  </div>
+                )}
+                {mua.experience_years != null && (
+                  <div className="rounded-2xl bg-[#fffafc] p-4">
+                    <p className="text-xs uppercase tracking-[0.16em] text-purple-700">Years of experience</p>
+                    <p className="mt-1 text-sm font-medium text-[#171018]">{mua.experience_years} {mua.experience_years === 1 ? "year" : "years"}</p>
+                  </div>
+                )}
               </div>
             )}
 
