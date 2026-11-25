@@ -8,6 +8,7 @@ import { getBookingNumber } from "@/lib/bookingNumber";
 
 type BookingPayment = {
   id: string;
+  booking_reference: string;
   bride_id: string;
   status: string;
   payment_method: string | null;
@@ -85,7 +86,7 @@ export default function BookingPaymentPage() {
 
     const { data, error: bookingError } = await supabase
       .from("bookings")
-      .select("id, bride_id, status, payment_method, payment_status, total_price, deposit_amount, payment_proof_path, payment_proof_status, payment_proof_rejection_reason, payment_proof_uploaded_at")
+      .select("id, booking_reference, bride_id, status, payment_method, payment_status, total_price, deposit_amount, payment_proof_path, payment_proof_status, payment_proof_rejection_reason, payment_proof_uploaded_at")
       .eq("id", bookingId)
       .eq("bride_id", user.id)
       .maybeSingle();
@@ -178,7 +179,7 @@ export default function BookingPaymentPage() {
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl bg-[#fffafc] p-4">
                 <p className="text-xs text-[#8a7d91]">Order number</p>
-                <p className="mt-1 font-semibold">#{getBookingNumber(booking.id)}</p>
+                <p className="mt-1 font-semibold">#{getBookingNumber(booking.booking_reference)}</p>
               </div>
               <div className="rounded-2xl bg-[#fffafc] p-4">
                 <p className="text-xs text-[#8a7d91]">Booking total</p>
