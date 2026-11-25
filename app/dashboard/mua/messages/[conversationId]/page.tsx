@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { createChatImageSignedUrl } from "@/lib/chatImageUrl";
 import { motion } from "framer-motion";
 import { ArrowLeft, ImagePlus, SendHorizontal } from "lucide-react";
 import Link from "next/link";
@@ -33,6 +34,7 @@ export default function ChatPage() {
   const conversationId = params.conversationId as string;
 
   const [messages, setMessages] = useState<Message[]>([]);
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [text, setText] = useState("");
   const [image, setImage] = useState<File | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -98,7 +100,15 @@ export default function ChatPage() {
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: true });
 
-    setMessages(data || []);
+    const rows = data || [];
+    setMessages(rows);
+    const signedImages = await Promise.all(
+      rows.map(async (message) => ({
+        id: message.id,
+        url: message.image_url ? await createChatImageSignedUrl(message.image_url) : null,
+      }))
+    );
+    setImageUrls(Object.fromEntries(signedImages.filter((item) => item.url).map((item) => [item.id, item.url as string])));
 
     await supabase
       .from("messages")
@@ -118,8 +128,13 @@ export default function ChatPage() {
           table: "messages",
           filter: `conversation_id=eq.${conversationId}`,
         },
-        (payload) => {
-          setMessages((prev) => [...prev, payload.new as Message]);
+        async (payload) => {
+          const message = payload.new as Message;
+          setMessages((prev) => [...prev, message]);
+          if (message.image_url) {
+            const signedUrl = await createChatImageSignedUrl(message.image_url);
+            if (signedUrl) setImageUrls((prev) => ({ ...prev, [message.id]: signedUrl }));
+          }
         }
       )
       .subscribe();
@@ -154,8 +169,7 @@ export default function ChatPage() {
         return;
       }
 
-      const { data } = supabase.storage.from("chat-images").getPublicUrl(path);
-      imageUrl = data.publicUrl;
+      imageUrl = path;
     }
 
     const { error } = await supabase.from("messages").insert({
@@ -277,9 +291,9 @@ export default function ChatPage() {
                     className={`flex ${isMine ? "justify-end" : "justify-start"}`}
                   >
                     <div className={`max-w-[85%] sm:max-w-[72%] ${isMine ? "items-end" : "items-start"} flex flex-col gap-2`}>
-                      {message.image_url && (
+                      {message.image_url && imageUrls[message.id] && (
                         <img
-                          src={message.image_url}
+                          src={imageUrls[message.id]}
                           alt="Chat image"
                           className={`max-h-[300px] rounded-[24px] border border-gray-100 object-cover shadow-sm ${
                             isMine ? "ml-auto" : ""
