@@ -682,7 +682,7 @@ export default function MuaProfilePage() {
 
             {mua.experience && (
               <div className="mt-5 rounded-2xl bg-[#fffafc] p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-purple-700">Experience</p>
+                <p className="text-xs uppercase tracking-[0.16em] text-purple-700">Experience level</p>
                 <p className="mt-1 text-sm font-medium text-[#171018]">{mua.experience}</p>
               </div>
             )}
