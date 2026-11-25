@@ -1,5 +1,6 @@
--- Protect personal contact details while keeping artist discovery public.
--- Existing MUA email/phone values are copied before the public columns are removed.
+-- PHASE 1 (EXPAND): run this BEFORE deploying the application changes.
+-- Copies MUA contact details into a private table while keeping the old columns
+-- and existing policies in place, so the currently deployed site keeps working.
 
 create table if not exists public.mua_private (
   id uuid primary key references public.mua_profiles(id) on delete cascade,
@@ -42,39 +43,8 @@ using (exists (select 1 from public.admins a where a.user_id = auth.uid()));
 revoke all on public.mua_private from public, anon;
 grant select, insert, update on public.mua_private to authenticated;
 
--- Remove all broad public-read policies from the artist table, then expose
--- only the remaining non-contact profile columns. Email and phone are moved
--- out of this table below.
-drop policy if exists "Public can view MUA profiles" on public.mua_profiles;
-drop policy if exists "Public can view MUAs" on public.mua_profiles;
-drop policy if exists "Public read access for mua profiles" on public.mua_profiles;
-drop policy if exists "Public read mua profiles" on public.mua_profiles;
-drop policy if exists "public read profiles" on public.mua_profiles;
-drop policy if exists "Public can view artist discovery fields" on public.mua_profiles;
-drop policy if exists "MUA can read own profile" on public.mua_profiles;
-create policy "Public can view artist discovery fields"
-on public.mua_profiles for select
-using (true);
-
-create policy "MUA can read own profile"
-on public.mua_profiles for select to authenticated
-using (auth.uid() = id);
-
--- The broad authenticated bride-read policy exposed private event and contact data.
-drop policy if exists "Allow authenticated users to read bride profiles" on public.bride_profiles;
-drop policy if exists "Admins can read all bride profiles" on public.bride_profiles;
-create policy "Admins can read all bride profiles"
-on public.bride_profiles for select to authenticated
-using (exists (select 1 from public.admins a where a.user_id = auth.uid()));
-
--- Email/phone must no longer be columns of the publicly readable artist table.
-alter table public.mua_profiles
-  drop column if exists email,
-  drop column if exists phone;
-
--- Controlled contact lookup for a booking participant or an admin.
--- The caller can only retrieve contacts for a booking they participate in,
--- unless they are an administrator.
+-- The RPC returns contacts only for a booking participant or an admin.
+-- It is used by server routes; it does not expose contact data for arbitrary users.
 create or replace function public.get_booking_notification_contacts(p_booking_id uuid)
 returns table (
   bride_first_name text,
