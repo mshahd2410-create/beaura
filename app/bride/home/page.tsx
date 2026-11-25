@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { Heart, SlidersHorizontal, ArrowUpDown, Star, X } from "lucide-react";
 import { motion } from "framer-motion";
 import SupportHelpButton from "@/components/support/SupportHelpButton";
 import { supabase } from "@/lib/supabaseClient";
@@ -57,6 +59,10 @@ export default function BrideHome() {
   const [maxPrice, setMaxPrice] = useState("");
   const [sortBy, setSortBy] = useState("recommended");
   const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>([]);
+  const [ratings, setRatings] = useState<Record<string, { average: number; count: number }>>({});
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
+  const [minimumRating, setMinimumRating] = useState("");
 
   useEffect(() => {
     try {
@@ -113,6 +119,26 @@ export default function BrideHome() {
         }));
 
         setMuas(enriched);
+
+        const { data: reviewRows, error: reviewsError } = await supabase
+          .from("mua_reviews")
+          .select("mua_id, rating");
+
+        if (!reviewsError && reviewRows) {
+          const totals: Record<string, { sum: number; count: number }> = {};
+          reviewRows.forEach((review: any) => {
+            if (!review.mua_id || !Number.isFinite(Number(review.rating))) return;
+            const current = totals[review.mua_id] || { sum: 0, count: 0 };
+            current.sum += Number(review.rating);
+            current.count += 1;
+            totals[review.mua_id] = current;
+          });
+          const nextRatings: Record<string, { average: number; count: number }> = {};
+          Object.entries(totals).forEach(([muaId, total]) => {
+            nextRatings[muaId] = { average: total.sum / total.count, count: total.count };
+          });
+          setRatings(nextRatings);
+        }
       }
 
       setLoading(false);
@@ -153,8 +179,10 @@ export default function BrideHome() {
       const startingPrice = prices.length ? Math.min(...prices) : null;
       const matchesMin = min === null || (startingPrice !== null && startingPrice >= min);
       const matchesMax = max === null || (startingPrice !== null && startingPrice <= max);
+      const rating = ratings[mua.id];
+      const matchesRating = minimumRating === "" || (rating?.count > 0 && rating.average >= Number(minimumRating));
 
-      return matchesSearch && matchesCity && matchesCategory && matchesMin && matchesMax;
+      return matchesSearch && matchesCity && matchesCategory && matchesMin && matchesMax && matchesRating;
     });
 
     return [...matching].sort((a, b) => {
@@ -173,14 +201,19 @@ export default function BrideHome() {
         return (getStartingPrice(b) ?? Number.NEGATIVE_INFINITY) -
           (getStartingPrice(a) ?? Number.NEGATIVE_INFINITY);
       }
+      if (sortBy === "rating") {
+        return (ratings[b.id]?.average ?? -1) - (ratings[a.id]?.average ?? -1) ||
+          (ratings[b.id]?.count ?? 0) - (ratings[a.id]?.count ?? 0);
+      }
       if (sortBy === "name") {
         return `${a.first_name || ""} ${a.last_name || ""}`.localeCompare(
           `${b.first_name || ""} ${b.last_name || ""}`
         );
       }
-      return 0;
+      return (ratings[b.id]?.average ?? -1) - (ratings[a.id]?.average ?? -1) ||
+        (ratings[b.id]?.count ?? 0) - (ratings[a.id]?.count ?? 0);
     });
-  }, [muas, searchQuery, selectedCity, selectedCategory, minPrice, maxPrice, sortBy]);
+  }, [muas, ratings, searchQuery, selectedCity, selectedCategory, minPrice, maxPrice, minimumRating, sortBy]);
 
   const recentlyViewedMuas = recentlyViewedIds
     .map((id) => muas.find((mua) => mua.id === id))
@@ -265,7 +298,7 @@ export default function BrideHome() {
               <p className="mt-2 text-sm text-[#6f6077]">Artists you opened recently are saved on this device for quick access.</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-              {recentlyViewedMuas.map((mua: any) => <MuaCard key={mua.id} mua={mua} />)}
+              {recentlyViewedMuas.map((mua: any) => <MuaCard key={mua.id} mua={{...mua, rating: ratings[mua.id]}} />)}
             </div>
           </section>
         )}
@@ -275,15 +308,21 @@ export default function BrideHome() {
             <p className="text-xs uppercase tracking-[0.2em] text-purple-700">Find the right artist</p>
             <h2 className="mt-2 text-3xl font-light tracking-[-0.05em]">Search by name, city or service</h2>
           </div>
-          <div className="grid gap-3 lg:grid-cols-[1fr_230px_auto]">
+          <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto_auto]">
             <input aria-label="Search makeup artists" placeholder="Try an artist name, Cairo, bridal makeup..." value={searchQuery} onChange={(e)=>setSearchQuery(e.target.value)} className="min-w-0 rounded-2xl border border-[#eadff5] bg-[#fffafc] px-5 py-4 text-sm outline-none transition focus:border-purple-500"/>
-            <select aria-label="Filter by city" value={selectedCity} onChange={(e)=>setSelectedCity(e.target.value)} className="rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 py-4 text-sm outline-none focus:border-purple-500">
-              <option value="">All cities</option>
-              {CITIES.map(city=><option key={city} value={city}>{city}</option>)}
-            </select>
-            <button onClick={()=>{setSearchQuery("");setSelectedCity("");setSelectedCategory("All");setMinPrice("");setMaxPrice("");setSortBy("recommended");}} className="rounded-2xl border border-[#eadff5] px-6 py-4 text-sm transition hover:bg-[#f7efff]">Clear filters</button>
+            <button type="button" onClick={()=>{setFilterOpen(!filterOpen);setSortOpen(false);}} aria-expanded={filterOpen} className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-5 py-4 text-sm transition ${filterOpen?"border-purple-400 bg-[#f7efff]":"border-[#eadff5] hover:bg-[#f7efff]"}`}><SlidersHorizontal size={16}/> Filter</button>
+            <button type="button" onClick={()=>{setSortOpen(!sortOpen);setFilterOpen(false);}} aria-expanded={sortOpen} className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-5 py-4 text-sm transition ${sortOpen?"border-purple-400 bg-[#f7efff]":"border-[#eadff5] hover:bg-[#f7efff]"}`}><ArrowUpDown size={16}/> Sort</button>
+            <Link href="/bride/favorites" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#171018] px-5 py-4 text-sm text-white transition hover:bg-purple-700"><Heart size={16}/> Favorites</Link>
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {filterOpen && <div className="mt-4 rounded-2xl border border-[#eadff5] bg-[#fffafc] p-4"><div className="mb-3 flex items-center justify-between"><p className="text-sm font-medium">Filter artists</p><button type="button" onClick={()=>setFilterOpen(false)} aria-label="Close filters"><X size={16}/></button></div><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="text-xs font-medium text-[#6f6077]">City / location<select value={selectedCity} onChange={(e)=>setSelectedCity(e.target.value)} className="mt-2 w-full rounded-xl border border-[#eadff5] bg-white px-3 py-3 text-sm text-[#171018]"><option value="">All cities</option>{Array.from(new Set(muas.flatMap((mua:any)=>mua.cities||[]))).sort().map((city:string)=><option key={city} value={city}>{city}</option>)}</select></label>
+            <label className="text-xs font-medium text-[#6f6077]">Service<select value={selectedCategory} onChange={(e)=>setSelectedCategory(e.target.value)} className="mt-2 w-full rounded-xl border border-[#eadff5] bg-white px-3 py-3 text-sm text-[#171018]"><option value="All">All services</option>{SERVICE_SECTIONS.map((item)=><option key={item.value} value={item.value}>{item.title}</option>)}</select></label>
+            <label className="text-xs font-medium text-[#6f6077]">Minimum rating<select value={minimumRating} onChange={(e)=>setMinimumRating(e.target.value)} className="mt-2 w-full rounded-xl border border-[#eadff5] bg-white px-3 py-3 text-sm text-[#171018]"><option value="">Any rating</option><option value="3">3 stars & up</option><option value="4">4 stars & up</option><option value="4.5">4.5 stars & up</option></select></label>
+            <div className="grid grid-cols-2 gap-2"><label className="text-xs font-medium text-[#6f6077]">Min price (EGP)<input type="number" min="0" value={minPrice} onChange={(e)=>setMinPrice(e.target.value)} placeholder="Any" className="mt-2 w-full rounded-xl border border-[#eadff5] bg-white px-3 py-3 text-sm"/></label><label className="text-xs font-medium text-[#6f6077]">Max price (EGP)<input type="number" min="0" value={maxPrice} onChange={(e)=>setMaxPrice(e.target.value)} placeholder="Any" className="mt-2 w-full rounded-xl border border-[#eadff5] bg-white px-3 py-3 text-sm"/></label></div>
+          </div><div className="mt-4 flex flex-wrap justify-between gap-3"><button type="button" onClick={()=>{setSelectedCity("");setSelectedCategory("All");setMinimumRating("");setMinPrice("");setMaxPrice("");}} className="text-sm text-purple-700 hover:underline">Clear filters</button><span className="text-xs text-[#8a7d91]">Ratings are based on published reviews.</span></div></div>}
+          {sortOpen && <div className="mt-4 rounded-2xl border border-[#eadff5] bg-[#fffafc] p-4"><p className="mb-3 text-sm font-medium">Sort artists</p><div className="flex flex-wrap gap-2">{[{value:"recommended",label:"Recommended"},{value:"rating",label:"Highest rated"},{value:"price-low",label:"Price: low to high"},{value:"price-high",label:"Price: high to low"},{value:"name",label:"Name: A to Z"}].map((option)=><button key={option.value} type="button" onClick={()=>{setSortBy(option.value);setSortOpen(false);}} className={`rounded-full px-4 py-2 text-xs ${sortBy===option.value?"bg-[#171018] text-white":"bg-[#f1e5ff] text-[#6f6077]"}`}>{option.label}</button>)}</div></div>}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-[#8a7d91]">{filteredMuas.length} artists match your search</p><button type="button" onClick={()=>{setSearchQuery("");setSelectedCity("");setSelectedCategory("All");setMinimumRating("");setMinPrice("");setMaxPrice("");setSortBy("recommended");}} className="text-xs text-purple-700 hover:underline">Reset everything</button></div>
+          <div className="mt-4 hidden">
             <label className="block text-xs font-medium text-[#6f6077]">
               Minimum price (EGP)
               <input type="number" min="0" inputMode="numeric" value={minPrice} onChange={(event)=>setMinPrice(event.target.value)} placeholder="No minimum" className="mt-2 w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 py-3 text-sm text-[#171018] outline-none focus:border-purple-500"/>
@@ -330,7 +369,7 @@ export default function BrideHome() {
           {!loading && filteredMuas.length>0 && (
             <>
               <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                {filteredMuas.slice(0,5).map((mua)=><MuaCard key={mua.id} mua={mua}/>)}
+                {filteredMuas.slice(0,5).map((mua)=><MuaCard key={mua.id} mua={{...mua, rating: ratings[mua.id]}}/>)}
               </div>
               {filteredMuas.length>5 && (
                 <details className="mt-7 rounded-[1.5rem] border border-[#eadff5] bg-white p-5">
