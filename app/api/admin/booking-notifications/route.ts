@@ -188,7 +188,7 @@ export async function POST(req: Request) {
       },
       {
         email: contacts?.mua_email,
-        recipientName: [mua?.first_name, mua?.last_name].filter(Boolean).join(" ") || "Makeup artist",
+        recipientName: [contacts?.mua_first_name, contacts?.mua_last_name].filter(Boolean).join(" ") || "Makeup artist",
         otherPartyName: brideName,
       },
     ];
