@@ -7,11 +7,9 @@ import {
   AlertTriangle,
   CalendarCheck,
   CheckCircle2,
-  Clock3,
   MessageSquareWarning,
   RefreshCw,
   Search,
-  Star,
   UserRound,
   XCircle,
 } from "lucide-react";
