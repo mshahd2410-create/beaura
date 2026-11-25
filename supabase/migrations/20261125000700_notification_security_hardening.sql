@@ -5,7 +5,43 @@
 DROP POLICY IF EXISTS "Authenticated users can create notifications"
   ON public.notifications;
 
-REVOKE INSERT ON TABLE public.notifications FROM PUBLIC, anon, authenticated;
+-- Remove any column-level grants as well as broad table-level grants.
+DO $
+DECLARE
+  v_column record;
+BEGIN
+  FOR v_column IN
+    SELECT attname
+    FROM pg_attribute
+    WHERE attrelid = 'public.notifications'::regclass
+      AND attnum > 0
+      AND NOT attisdropped
+  LOOP
+    EXECUTE format(
+      'REVOKE ALL (%I) ON TABLE public.notifications FROM anon, authenticated',
+      v_column.attname
+    );
+    EXECUTE format(
+      'REVOKE ALL (%I) ON TABLE public.notifications FROM PUBLIC',
+      v_column.attname
+    );
+  END LOOP;
+END
+$;
+
+REVOKE ALL PRIVILEGES
+ON TABLE public.notifications
+FROM PUBLIC, anon, authenticated;
+
+-- Users can read and delete their own notifications, and may update only
+-- the is_read flag. RLS policies continue to enforce row ownership.
+GRANT SELECT, DELETE
+ON TABLE public.notifications
+TO authenticated;
+
+GRANT UPDATE (is_read)
+ON TABLE public.notifications
+TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.create_booking_notification(
   p_user_id uuid,
