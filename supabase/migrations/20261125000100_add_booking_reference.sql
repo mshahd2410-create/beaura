@@ -10,13 +10,13 @@ ALTER TABLE public.bookings
 
 -- Assign references to all existing bookings. Each value is short and unique.
 UPDATE public.bookings
-SET booking_reference = 'BR-' || nextval('public.booking_reference_seq')::text
+SET booking_reference = 'BK-' || nextval('public.booking_reference_seq')::text
 WHERE booking_reference IS NULL;
 
 -- Automatically assign the next reference to every new booking.
 ALTER TABLE public.bookings
   ALTER COLUMN booking_reference
-  SET DEFAULT ('BR-' || nextval('public.booking_reference_seq')::text);
+  SET DEFAULT ('BK-' || nextval('public.booking_reference_seq')::text);
 
 ALTER SEQUENCE public.booking_reference_seq
   OWNED BY public.bookings.booking_reference;
