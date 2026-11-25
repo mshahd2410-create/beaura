@@ -32,6 +32,7 @@ type MuaProfile = {
   instagram: string | null;
   experience: string | null;
   experience_years: number | null;
+  beaura_tier: string | null;
   portfolio: PortfolioImage[];
   services: any[];
 };
@@ -107,6 +108,7 @@ export default function MuaProfilePage() {
         instagram,
         experience,
         experience_years,
+        beaura_tier,
         mua_portfolio (
           image_path,
           category
@@ -717,6 +719,16 @@ export default function MuaProfilePage() {
               {mua.bio ||
                 "View the artist’s portfolio and services, or send a message if you have a question before booking."}
             </p>
+
+            {mua.beaura_tier && (
+              <div className="mt-5 rounded-2xl border border-purple-100 bg-gradient-to-r from-[#fff7fc] to-[#f7f2ff] p-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={17} className="text-purple-700" />
+                  <p className="text-xs uppercase tracking-[0.16em] text-purple-700">Beaura artist tier</p>
+                </div>
+                <p className="mt-1 text-lg font-semibold text-[#171018]">{mua.beaura_tier}</p>
+              </div>
+            )}
 
             {(mua.experience || mua.experience_years != null) && (
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
