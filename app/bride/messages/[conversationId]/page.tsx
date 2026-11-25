@@ -214,6 +214,11 @@ export default function ConversationPage() {
                           : "rounded-bl-md border border-[#eadff5] bg-white text-[#171018]"
                       }`}
                     >
+                      {msg.image_url && (
+                        <a href={msg.image_url} target="_blank" rel="noreferrer" className="mb-2 block">
+                          <img src={msg.image_url} alt="Shared image" className="max-h-72 rounded-xl object-cover" />
+                        </a>
+                      )}
                       {msg.content}
 
                       <p
