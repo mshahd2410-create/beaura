@@ -305,32 +305,6 @@ export default function MuaDashboardPage() {
     );
   }, [bookings]);
 
-  const monthlyEarnings = useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    return bookings
-      .filter((booking) => {
-        if (!["confirmed", "paid", "accepted"].includes(booking.status || "")) return false;
-        if (!booking.booking_date) return false;
-
-        const eventDate = new Date(booking.booking_date + "T12:00:00");
-        return (
-          eventDate.getMonth() === currentMonth &&
-          eventDate.getFullYear() === currentYear
-        );
-      })
-      .reduce((sum, booking) => {
-        const servicePrice = Number(
-          booking.service_price || booking.total_amount || booking.total_price || 0
-        );
-        const platformFee = Number(booking.platform_fee || 0);
-
-        return sum + Math.max(servicePrice - platformFee, 0);
-      }, 0);
-  }, [bookings]);
-
   const popularService = useMemo(() => {
     if (!services.length) return "—";
     return services[0]?.name || "—";
@@ -339,6 +313,14 @@ export default function MuaDashboardPage() {
   const nextBooking = useMemo(() => {
     return upcomingBookings[0] || null;
   }, [upcomingBookings]);
+
+  const recentBookings = useMemo(
+    () =>
+      [...bookings].sort((a, b) =>
+        (b.created_at || "").localeCompare(a.created_at || "")
+      ).slice(0, 5),
+    [bookings]
+  );
 
   const profileTasks = useMemo(() => {
     const completeServices = services.some(
@@ -597,10 +579,10 @@ export default function MuaDashboardPage() {
             </div>
 
             <div className="mt-5 space-y-3">
-              {bookings.slice(0, 5).length === 0 ? (
+              {recentBookings.length === 0 ? (
                 <EmptyState text="No bookings yet — once someone books you, they’ll appear here." />
               ) : (
-                bookings.slice(0, 5).map((booking) => (
+                recentBookings.map((booking) => (
                   <div
                     key={booking.id}
                     className="flex flex-col gap-3 rounded-[1.4rem] border border-[#eadff5] bg-white p-4 md:flex-row md:items-center md:justify-between"
