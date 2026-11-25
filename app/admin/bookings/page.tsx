@@ -190,6 +190,33 @@ export default function AdminBookingsPage() {
     setLoading(false);
   }
 
+  async function resendBookingWhatsApp(id: string) {
+    setUpdatingId(id);
+    setPageError(null);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Your admin session expired. Please sign in again.");
+      const response = await fetch("/api/admin/booking-notifications", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ bookingId: id, event: "whatsapp_confirmation" }),
+      });
+      const result = await response.json();
+      if (!response.ok || result.whatsapp?.success !== true) {
+        throw new Error(result.whatsapp?.error || result.error || "WhatsApp confirmation could not be sent.");
+      }
+      setPageError("WhatsApp confirmation accepted by Meta for sending.");
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
   async function updateBookingStatus(id: string, status: string) {
     setUpdatingId(id);
     setPageError(null);
@@ -633,9 +660,18 @@ export default function AdminBookingsPage() {
                   )}
 
                   {normalizeStatus(booking.status) === "confirmed" && (
-                    <span className="rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">
-                      Awaiting both completion confirmations
-                    </span>
+                    <>
+                      <button
+                        onClick={() => resendBookingWhatsApp(booking.id)}
+                        disabled={updatingId === booking.id}
+                        className="rounded-full border border-purple-200 px-4 py-2 text-sm text-purple-700 disabled:opacity-50"
+                      >
+                        {updatingId === booking.id ? "Sending..." : "Resend WhatsApp"}
+                      </button>
+                      <span className="rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">
+                        Awaiting both completion confirmations
+                      </span>
+                    </>
                   )}
 
                   {canCancel(booking) && (
