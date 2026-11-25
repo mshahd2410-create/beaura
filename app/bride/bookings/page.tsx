@@ -49,6 +49,8 @@ type Booking = {
   platform_fee?: number | null;
   tax_fee?: number | null;
   total_price?: number | null;
+  deposit?: number | null;
+  remaining_balance?: number | null;
 
   payment_method?: "transfer" | "credit_balance" | string | null;
   payment_proof_status?: string | null;
@@ -86,6 +88,7 @@ type Booking = {
     id: string;
     first_name: string | null;
     last_name: string | null;
+    portfolio_image?: string | null;
   } | null;
 
   service?: {
@@ -93,9 +96,23 @@ type Booking = {
     name: string;
     duration_minutes?: number | null;
   } | null;
+  financials?: BookingFinancials | null;
 };
 
-type ModalType = "complete" | "issue" | null;
+type BookingFinancials = {
+  booking_id: string;
+  original_service_price: number | null;
+  discount_amount: number | null;
+  discounted_service_price: number | null;
+  travel_fee: number | null;
+  bride_platform_fee: number | null;
+  bride_deposit_service_amount: number | null;
+  bride_deposit_travel_amount: number | null;
+  bride_deposit_amount: number | null;
+  remaining_direct_amount: number | null;
+};
+
+type ModalType = "complete" | "issue" | "review" | null;
 
 export default function BrideBookings() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -114,6 +131,9 @@ export default function BrideBookings() {
 
   const [cancelBooking, setCancelBooking] = useState<Booking | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [reviewedMuaIds, setReviewedMuaIds] = useState<string[]>([]);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewText, setReviewText] = useState("");
 
   useEffect(() => {
     loadBookings(true);
@@ -191,7 +211,8 @@ export default function BrideBookings() {
         ...new Set(rows.map((b) => b.service_id).filter(Boolean)),
       ];
 
-      const [{ data: muas }, { data: services }] = await Promise.all([
+      const bookingIds = rows.map((b) => b.id).filter(Boolean);
+      const [{ data: muas }, { data: services }, { data: portfolio }, { data: existingReviews }, { data: financialRows, error: financialError }] = await Promise.all([
         muaIds.length
           ? supabase
               .from("mua_profiles")
@@ -205,14 +226,48 @@ export default function BrideBookings() {
               .select("id, name, duration_minutes")
               .in("id", serviceIds)
           : Promise.resolve({ data: [] as any[] }),
+
+        muaIds.length
+          ? supabase.from("mua_portfolio").select("mua_id, image_path").in("mua_id", muaIds)
+          : Promise.resolve({ data: [] as any[] }),
+
+        muaIds.length
+          ? supabase.from("mua_reviews").select("mua_id").eq("bride_id", user.id).in("mua_id", muaIds)
+          : Promise.resolve({ data: [] as any[] }),
+
+        bookingIds.length
+          ? supabase
+              .from("booking_financials")
+              .select("booking_id, original_service_price, discount_amount, discounted_service_price, travel_fee, bride_platform_fee, bride_deposit_service_amount, bride_deposit_travel_amount, bride_deposit_amount, remaining_direct_amount")
+              .in("booking_id", bookingIds)
+          : Promise.resolve({ data: [] as BookingFinancials[], error: null }),
       ]);
 
-      const enriched: Booking[] = rows.map((b) => ({
-        ...b,
-        status: normalizeStatus(b.status || "pending"),
-        mua: muas?.find((m) => m.id === b.mua_id) || null,
-        service: services?.find((s) => s.id === b.service_id) || null,
-      }));
+      if (financialError) {
+        console.error("BRIDE BOOKING FINANCIALS LOAD ERROR:", financialError);
+      }
+      const financialMap = new Map(
+        ((financialRows || []) as BookingFinancials[]).map((row) => [row.booking_id, row])
+      );
+
+      setReviewedMuaIds([...new Set((existingReviews || []).map((review: any) => review.mua_id).filter(Boolean))]);
+
+      const enriched: Booking[] = rows.map((b) => {
+        const artist = muas?.find((m) => m.id === b.mua_id);
+        const firstPortfolioImage = portfolio?.find((item) => item.mua_id === b.mua_id)?.image_path;
+        return {
+          ...b,
+          status: normalizeStatus(b.status || "pending"),
+          mua: artist ? {
+            ...artist,
+            portfolio_image: firstPortfolioImage
+              ? supabase.storage.from("mua-portfolio").getPublicUrl(firstPortfolioImage).data.publicUrl
+              : null,
+          } : null,
+          service: services?.find((s) => s.id === b.service_id) || null,
+          financials: financialMap.get(b.id) || null,
+        };
+      });
 
       setBookings(enriched);
     } catch (err: any) {
@@ -295,6 +350,36 @@ export default function BrideBookings() {
     } catch (err: any) {
       console.error("BRIDE COMPLETE BOOKING ERROR:", err);
       setModalError(err?.message || "Could not confirm completion.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submitReview() {
+    if (!selectedBooking || !selectedBooking.mua_id) return;
+    if (!reviewText.trim()) {
+      setModalError("Please write a short review before submitting.");
+      return;
+    }
+    setSaving(true);
+    setModalError(null);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Please sign in again to submit your review.");
+      const { error } = await supabase.from("mua_reviews").insert({
+        mua_id: selectedBooking.mua_id,
+        bride_id: user.id,
+        rating: reviewRating,
+        review_text: reviewText.trim(),
+      });
+      if (error) throw new Error(error.message);
+      setReviewedMuaIds((current) => [...new Set([...current, selectedBooking.mua_id])]);
+      setSelectedBooking(null);
+      setModalType(null);
+      setReviewText("");
+      setReviewRating(5);
+    } catch (error: any) {
+      setModalError(error?.message || "Could not submit your review.");
     } finally {
       setSaving(false);
     }
@@ -616,21 +701,81 @@ export default function BrideBookings() {
                         {b.service?.name || "Makeup service"}
                       </h2>
 
-                      <p className="mt-2 text-sm text-[#6f6077]">
-                        With{" "}
-                        <span className="font-medium text-[#171018]">
-                          {muaName}
-                        </span>
-                      </p>
+                      <div className="mt-3 flex items-center gap-3">
+                        {b.mua?.portfolio_image ? (
+                          <img src={b.mua.portfolio_image} alt={muaName} className="h-12 w-12 rounded-2xl object-cover" />
+                        ) : (
+                          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#f7efff] text-sm font-semibold text-purple-700">
+                            {muaName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-sm text-[#6f6077]">Makeup artist</p>
+                          <p className="font-medium text-[#171018]">{muaName}</p>
+                        </div>
+                      </div>
 
-                      <p className="mt-1 text-sm text-[#6f6077]">
-                        {b.booking_date || "No date"} ·{" "}
-                        {b.booking_time || "No time"}
-                      </p>
+                      <div className="mt-4 grid gap-3 rounded-2xl bg-[#fffafc] p-4 sm:grid-cols-2">
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-[#8a7d91]">Appointment</p>
+                          <p className="mt-1 text-sm font-medium text-[#171018]">{b.booking_date || "Date to be confirmed"}</p>
+                          <p className="text-sm text-[#6f6077]">{b.booking_time || "Time to be confirmed"}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-[#8a7d91]">Booking total</p>
+                          <p className="mt-1 text-lg font-semibold text-[#171018]">{formatMoney(b.total_price ?? b.service_price)}</p>
+                          {Number(b.deposit || 0) > 0 && <p className="mt-1 text-xs text-[#6f6077]">Deposit: {formatMoney(b.deposit)}</p>}
+                          {Number(b.remaining_balance || 0) > 0 && <p className="mt-1 text-xs text-[#6f6077]">Remaining: {formatMoney(b.remaining_balance)}</p>}
+                        </div>
+                      </div>
 
-                      <p className="mt-3 text-sm font-medium text-[#6f6077]">
-                        Total · {formatMoney(b.total_price ?? b.service_price)}
-                      </p>
+                      {b.financials && (
+                        <details className="mt-3 rounded-2xl border border-[#eadff5] bg-white px-4 py-3">
+                          <summary className="cursor-pointer text-sm font-medium text-purple-700">
+                            View full price breakdown
+                          </summary>
+                          <div className="mt-3 space-y-2 text-sm">
+                            <div className="flex justify-between gap-4">
+                              <span className="text-[#6f6077]">Makeup service</span>
+                              <span>{formatMoney(b.financials.original_service_price)}</span>
+                            </div>
+                            {Number(b.financials.discount_amount || 0) > 0 && (
+                              <>
+                                <div className="flex justify-between gap-4 text-green-700">
+                                  <span>Promo-code discount</span>
+                                  <span>− {formatMoney(b.financials.discount_amount)}</span>
+                                </div>
+                                <div className="flex justify-between gap-4">
+                                  <span className="text-[#6f6077]">Service after discount</span>
+                                  <span>{formatMoney(b.financials.discounted_service_price)}</span>
+                                </div>
+                              </>
+                            )}
+                            <div className="flex justify-between gap-4">
+                              <span className="text-[#6f6077]">Artist travel fee</span>
+                              <span>{formatMoney(b.financials.travel_fee)}</span>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                              <span className="text-[#6f6077]">Beaura platform fee</span>
+                              <span>{formatMoney(b.financials.bride_platform_fee)}</span>
+                            </div>
+                            <div className="flex justify-between gap-4 border-t border-[#eadff5] pt-2 font-semibold text-[#171018]">
+                              <span>Full booking total</span>
+                              <span>{formatMoney(b.total_price)}</span>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                              <span className="text-[#6f6077]">Deposit due</span>
+                              <span>{formatMoney(b.financials.bride_deposit_amount)}</span>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                              <span className="text-[#6f6077]">Remaining service balance</span>
+                              <span>{formatMoney(b.financials.remaining_direct_amount)}</span>
+                            </div>
+                          </div>
+                        </details>
+                      )}
+
+                      <p className="mt-3 text-xs font-medium text-[#6f6077]">{getPaymentStatusLabel(b)}</p>
 
                       {b.travel_fee_quote_status === "pending_bride_approval" && (
                         <div className="mt-4 rounded-2xl border border-purple-200 bg-[#f7efff] p-5">
@@ -745,9 +890,14 @@ export default function BrideBookings() {
                       )}
 
                       {status === "completed" && (
-                        <span className="rounded-full border border-green-200 bg-green-50 px-5 py-3 text-sm font-medium text-green-700">
-                          Completed
-                        </span>
+                        <>
+                          <span className="rounded-full border border-green-200 bg-green-50 px-5 py-3 text-sm font-medium text-green-700">Completed</span>
+                          {reviewedMuaIds.includes(b.mua_id) ? (
+                            <span className="rounded-full border border-[#eadff5] bg-[#fffafc] px-5 py-3 text-sm font-medium text-purple-700">Review submitted</span>
+                          ) : (
+                            <button type="button" onClick={() => { setSelectedBooking(b); setModalType("review"); setReviewRating(5); setReviewText(""); setModalError(null); }} className="rounded-full bg-[#171018] px-5 py-3 text-sm font-medium text-white">Review artist</button>
+                          )}
+                        </>
                       )}
 
                       {status === "pending" && (
@@ -776,7 +926,11 @@ export default function BrideBookings() {
         )}
       </section>
 
-      {modalType && selectedBooking && (
+      {modalType === "review" && selectedBooking && (
+        <ReviewModal rating={reviewRating} setRating={setReviewRating} reviewText={reviewText} setReviewText={setReviewText} saving={saving} error={modalError} onClose={closeModal} onSubmit={submitReview} />
+      )}
+
+      {modalType && modalType !== "review" && selectedBooking && (
         <ActionModal
           type={modalType}
           saving={saving}
@@ -839,6 +993,38 @@ type ActionModalProps = {
   onComplete: () => void;
   onReport: () => void;
 };
+
+function ReviewModal({
+  rating, setRating, reviewText, setReviewText, saving, error, onClose, onSubmit,
+}: {
+  rating: number; setRating: (value: number) => void; reviewText: string;
+  setReviewText: (value: string) => void; saving: boolean; error: string | null;
+  onClose: () => void; onSubmit: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-[2rem] border border-[#eadff5] bg-white p-6 shadow-2xl sm:p-7">
+        <p className="text-xs uppercase tracking-[0.22em] text-purple-700">Bride feedback</p>
+        <h2 className="mt-3 text-3xl font-light tracking-[-0.06em] text-[#171018]">Review your artist</h2>
+        <p className="mt-2 text-sm text-[#6f6077]">Your review will appear on the artist’s public Beaura profile.</p>
+        {error && <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+        <div className="mt-5 flex gap-2" aria-label="Rating">
+          {[1, 2, 3, 4, 5].map((value) => (
+            <button key={value} type="button" onClick={() => setRating(value)} aria-label={`${value} stars`} className="rounded-lg p-1">
+              <Star size={28} className={value <= rating ? "fill-[#d4a843] text-[#d4a843]" : "text-[#d8cddd]"} />
+            </button>
+          ))}
+        </div>
+        <textarea value={reviewText} onChange={(e) => setReviewText(e.target.value)} maxLength={1000} rows={5} placeholder="Share what you liked about your experience..." className="mt-4 w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] p-4 text-sm outline-none focus:border-purple-500" />
+        <p className="mt-1 text-right text-xs text-[#8a7d91]">{reviewText.length}/1000</p>
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+          <button type="button" onClick={onSubmit} disabled={saving || !reviewText.trim()} className="flex-1 rounded-full bg-[#171018] py-3 text-sm font-medium text-white disabled:opacity-50">{saving ? "Submitting..." : "Submit review"}</button>
+          <button type="button" onClick={onClose} disabled={saving} className="flex-1 rounded-full border border-[#eadff5] py-3 text-sm disabled:opacity-50">Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ActionModal({
   type,

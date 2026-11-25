@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  outputFileTracingIncludes: {
+    "/photos/[filename]": ["./app/photos/photos/**/*"],
+  },
 };
 
 export default nextConfig;

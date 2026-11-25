@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, MapPin, ShieldCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, ShieldCheck, Star } from "lucide-react";
 
 export default function MuaCard({ mua }: { mua: any }) {
   const images = mua.mua_portfolio || [];
@@ -102,6 +102,14 @@ export default function MuaCard({ mua }: { mua: any }) {
               </div>
             )}
           </div>
+
+          {mua.rating?.count > 0 && (
+            <div className="mt-3 flex items-center gap-1.5 text-sm text-[#6f6077]">
+              <Star size={14} className="fill-[#d4a843] text-[#d4a843]" />
+              <span className="font-medium text-[#171018]">{Number(mua.rating.average).toFixed(1)}</span>
+              <span>({mua.rating.count} {mua.rating.count === 1 ? "review" : "reviews"})</span>
+            </div>
+          )}
 
           {serviceNames.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">

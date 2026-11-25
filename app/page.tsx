@@ -1,5 +1,6 @@
 import Link from "next/link";
 import TopBookedArtists from "@/components/TopBookedArtists";
+import LandingMoodboards from "@/components/LandingMoodboards";
 
 export default function HomePage() {
   return (
@@ -38,6 +39,7 @@ export default function HomePage() {
           <Link href="/" className="text-4xl font-light tracking-[-0.09em] text-[#171018]">Beaura<span className="text-purple-600">.</span></Link>
           <nav aria-label="Main navigation" className="hidden items-center gap-8 text-sm text-[#6f6077] md:flex">
             <a href="#artists" className="transition hover:text-purple-700">Makeup artists</a>
+            <a href="/inspiration" className="transition hover:text-purple-700">Inspiration</a>
             <a href="#occasions" className="transition hover:text-purple-700">Services</a>
             <a href="#how-it-works" className="transition hover:text-purple-700">How it works</a>
             <Link href="/about" className="transition hover:text-purple-700">About Beaura</Link>
@@ -49,6 +51,7 @@ export default function HomePage() {
               </summary>
               <nav aria-label="Mobile navigation" className="absolute right-0 top-12 z-50 flex w-56 flex-col gap-1 rounded-2xl border border-[#eadff5] bg-white p-3 text-sm text-[#6f6077] shadow-xl">
                 <a href="#artists" className="rounded-xl px-3 py-3 hover:bg-[#f7efff]">Makeup artists</a>
+                <a href="/inspiration" className="rounded-xl px-3 py-3 hover:bg-[#f7efff]">Inspiration</a>
                 <a href="#occasions" className="rounded-xl px-3 py-3 hover:bg-[#f7efff]">Services</a>
                 <a href="#how-it-works" className="rounded-xl px-3 py-3 hover:bg-[#f7efff]">How it works</a>
                 <Link href="/about" className="rounded-xl px-3 py-3 hover:bg-[#f7efff]">About Beaura</Link>
@@ -196,6 +199,8 @@ export default function HomePage() {
           <TopBookedArtists />
         </div>
       </section>
+
+      <LandingMoodboards />
 
       <section id="occasions" className="scroll-mt-28 bg-[#f1e5ff] px-5 py-24 sm:px-8">
         <div className="mx-auto max-w-7xl">

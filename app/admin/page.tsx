@@ -15,6 +15,8 @@ import {
   Tag,
   BarChart3,
   Settings,
+  UserPlus,
+  CreditCard,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -28,6 +30,28 @@ type DashboardStats = {
   cancellationRequests: number;
   promotions: number;
   reports: number;
+};
+
+type ActivitySnapshot = {
+  bookings: number;
+  brideRegistrations: number;
+  muaRegistrations: number;
+  payments: number;
+  paymentValue: number;
+};
+
+type ActivityOverview = {
+  today: ActivitySnapshot;
+  week: ActivitySnapshot;
+  month: ActivitySnapshot;
+};
+
+const EMPTY_ACTIVITY: ActivitySnapshot = {
+  bookings: 0,
+  brideRegistrations: 0,
+  muaRegistrations: 0,
+  payments: 0,
+  paymentValue: 0,
 };
 
 export default function AdminDashboardPage() {
@@ -44,9 +68,26 @@ export default function AdminDashboardPage() {
   });
 
   const [loading, setLoading] = useState(true);
+  const [activity, setActivity] = useState<ActivityOverview>({
+    today: EMPTY_ACTIVITY,
+    week: EMPTY_ACTIVITY,
+    month: EMPTY_ACTIVITY,
+  });
+  const [activityError, setActivityError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchStats();
+    void fetchStats();
+
+    const channel = supabase
+      .channel("admin-dashboard-activity")
+      .on("postgres_changes", { event: "*", schema: "public", table: "bookings" }, () => void fetchStats())
+      .on("postgres_changes", { event: "*", schema: "public", table: "bride_profiles" }, () => void fetchStats())
+      .on("postgres_changes", { event: "*", schema: "public", table: "mua_profiles" }, () => void fetchStats())
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
   }, []);
 
   async function getCount(table: string, filters?: (query: any) => any) {
@@ -69,6 +110,7 @@ export default function AdminDashboardPage() {
 
   async function fetchStats() {
     setLoading(true);
+    setActivityError(null);
 
     const [
       pendingMuas,
@@ -81,12 +123,8 @@ export default function AdminDashboardPage() {
       promotions,
       reports,
     ] = await Promise.all([
-      getCount("mua_profiles", (q) =>
-        q.eq("verified", false).eq("status", "active")
-      ),
-      getCount("mua_profiles", (q) =>
-        q.eq("verified", true).eq("status", "active")
-      ),
+      getCount("mua_profiles", (q) => q.eq("verified", false).eq("status", "active")),
+      getCount("mua_profiles", (q) => q.eq("verified", true).eq("status", "active")),
       getCount("bride_profiles"),
       getCount("support_tickets", (q) => q.eq("status", "open")),
       getCount("bookings"),
@@ -108,6 +146,22 @@ export default function AdminDashboardPage() {
       reports,
     });
 
+    const periods = getCairoActivityPeriods();
+
+    const [today, week, month] = await Promise.all([
+      loadActivityPeriod(periods.today.start, periods.today.end),
+      loadActivityPeriod(periods.week.start, periods.week.end),
+      loadActivityPeriod(periods.month.start, periods.month.end),
+    ]);
+
+    const errors = [today.error, week.error, month.error].filter(Boolean);
+    if (errors.length) setActivityError(errors.join(" · "));
+
+    setActivity({
+      today: today.snapshot,
+      week: week.snapshot,
+      month: month.snapshot,
+    });
     setLoading(false);
   }
 
@@ -205,6 +259,27 @@ export default function AdminDashboardPage() {
           </button>
         </div>
       </div>
+
+      <section className="rounded-[2rem] border border-[#eadff5] bg-white p-6 shadow-sm sm:p-7">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-purple-700">Platform activity</p>
+            <h2 className="mt-2 text-3xl font-light tracking-[-0.06em] text-[#171018]">Beaura at a glance</h2>
+            <p className="mt-2 text-sm text-[#6f6077]">All periods use Egypt time. Weekly figures start on Monday.</p>
+          </div>
+          <span className="text-xs text-[#8a7d91]">Refresh the dashboard to update these figures</span>
+        </div>
+        {activityError && (
+          <p role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+            Some activity figures could not be loaded: {activityError}
+          </p>
+        )}
+        <div className="mt-6 space-y-5">
+          <ActivityPeriod title="Today" period={activity.today} loading={loading} paymentCaption="Payments recorded today" />
+          <ActivityPeriod title="This week" period={activity.week} loading={loading} paymentCaption="Payments recorded since Monday" />
+          <ActivityPeriod title="This month" period={activity.month} loading={loading} paymentCaption="Payments recorded this month" />
+        </div>
+      </section>
 
       {loading ? (
         <div className="rounded-[2rem] border border-[#eadff5] bg-white p-8 text-sm text-[#6f6077] shadow-sm">
@@ -329,7 +404,11 @@ export default function AdminDashboardPage() {
                 <Shortcut href="/admin/cancellation-requests" label="Cancellation Requests" />
                 <Shortcut href="/admin/brides" label="Manage Clients" />
                 <Shortcut href="/admin/muas" label="Manage MUAs" />
+                <Shortcut href="/admin/artist-monitoring" label="Artist Monitoring" />
+                <Shortcut href="/admin/risk-management" label="Customer & Artist Risk" />
                 <Shortcut href="/admin/bookings" label="Bookings" />
+                <Shortcut href="/admin/finance" label="Finance Overview" />
+                <Shortcut href="/admin/activity-alerts" label="Activity & Alerts" />
                 <Shortcut href="/admin/promotions" label="Promotions" />
                 <Shortcut href="/admin/support" label="Support Inbox" />
                 <Shortcut href="/admin/reports" label="Reports & Disputes" />
@@ -340,6 +419,113 @@ export default function AdminDashboardPage() {
         </>
       )}
     </section>
+  );
+}
+
+function getCairoActivityPeriods() {
+  const todayKey = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+  const todayDate = new Date(`${todayKey}T00:00:00.000Z`);
+  const weekday = todayDate.getUTCDay();
+  const daysSinceMonday = (weekday + 6) % 7;
+  const weekStartDate = new Date(todayDate);
+  weekStartDate.setUTCDate(weekStartDate.getUTCDate() - daysSinceMonday);
+  const monthStartKey = `${todayKey.slice(0, 7)}-01`;
+  const tomorrowDate = new Date(todayDate);
+  tomorrowDate.setUTCDate(tomorrowDate.getUTCDate() + 1);
+  const tomorrowKey = tomorrowDate.toISOString().slice(0, 10);
+  const key = (date: Date) => date.toISOString().slice(0, 10);
+  const end = cairoMidnightUtc(tomorrowKey);
+  return {
+    today: { start: cairoMidnightUtc(todayKey), end },
+    week: { start: cairoMidnightUtc(key(weekStartDate)), end },
+    month: { start: cairoMidnightUtc(monthStartKey), end },
+  };
+}
+
+function cairoMidnightUtc(dateKey: string) {
+  const utcGuess = new Date(`${dateKey}T00:00:00.000Z`);
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).formatToParts(utcGuess);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const cairoAsUtc = Date.UTC(
+    Number(values.year), Number(values.month) - 1, Number(values.day),
+    Number(values.hour), Number(values.minute), Number(values.second)
+  );
+  return new Date(Date.parse(`${dateKey}T00:00:00.000Z`) - (cairoAsUtc - utcGuess.getTime())).toISOString();
+}
+
+function formatCairoToday() {
+  return new Intl.DateTimeFormat("en-EG", {
+    timeZone: "Africa/Cairo", weekday: "long", day: "numeric", month: "long", year: "numeric",
+  }).format(new Date());
+}
+
+async function loadActivityPeriod(start: string, end: string): Promise<{
+  snapshot: ActivitySnapshot;
+  error: string | null;
+}> {
+  const [bookings, brides, muas, cardPayments, walletPayments, deposits] = await Promise.all([
+    supabase.from("bookings").select("id", { count: "exact", head: true }).gte("created_at", start).lt("created_at", end),
+    supabase.from("bride_profiles").select("id", { count: "exact", head: true }).gte("created_at", start).lt("created_at", end),
+    supabase.from("mua_profiles").select("id", { count: "exact", head: true }).gte("created_at", start).lt("created_at", end),
+    supabase.from("bookings").select("id, total_price").eq("card_paid", true).gte("card_paid_at", start).lt("card_paid_at", end),
+    supabase.from("bookings").select("id, total_price").eq("payment_method", "credit_balance").eq("wallet_charged", true).gte("wallet_charged_at", start).lt("wallet_charged_at", end),
+    supabase.from("bookings").select("id, deposit_amount").eq("payment_method", "transfer").eq("payment_proof_status", "approved").gte("payment_proof_reviewed_at", start).lt("payment_proof_reviewed_at", end),
+  ]);
+  const failures = [bookings.error, brides.error, muas.error, cardPayments.error, walletPayments.error, deposits.error].filter(Boolean);
+  const cardRows = cardPayments.data || [];
+  const walletRows = walletPayments.data || [];
+  const depositRows = deposits.data || [];
+  return {
+    snapshot: {
+      bookings: bookings.count || 0,
+      brideRegistrations: brides.count || 0,
+      muaRegistrations: muas.count || 0,
+      payments: cardRows.length + walletRows.length + depositRows.length,
+      paymentValue:
+        cardRows.reduce((sum, row) => sum + Number(row.total_price || 0), 0) +
+        walletRows.reduce((sum, row) => sum + Number(row.total_price || 0), 0) +
+        depositRows.reduce((sum, row) => sum + Number(row.deposit_amount || 0), 0),
+    },
+    error: failures.length ? failures.map((item) => item?.message).join(" · ") : null,
+  };
+}
+
+function ActivityPeriod({ title, period, loading, paymentCaption }: {
+  title: string;
+  period: ActivitySnapshot;
+  loading: boolean;
+  paymentCaption: string;
+}) {
+  return (
+    <div>
+      <h3 className="mb-3 text-lg font-medium text-[#171018]">{title}</h3>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <ActivityCard label="Bookings created" value={loading ? "…" : period.bookings.toLocaleString("en-EG")} detail={title === "Today" ? "New bookings today" : `New bookings ${title.toLowerCase()}`} icon={<CalendarCheck size={18} />} />
+        <ActivityCard label="Bride registrations" value={loading ? "…" : period.brideRegistrations.toLocaleString("en-EG")} detail="New client accounts" icon={<UserPlus size={18} />} />
+        <ActivityCard label="MUA registrations" value={loading ? "…" : period.muaRegistrations.toLocaleString("en-EG")} detail="New artist accounts" icon={<Users size={18} />} />
+        <ActivityCard label="Payments recorded" value={loading ? "…" : period.payments.toLocaleString("en-EG")} detail={loading ? "Loading payment totals" : `EGP ${period.paymentValue.toLocaleString("en-EG", { maximumFractionDigits: 2 })} · ${paymentCaption.toLowerCase()}`} icon={<CreditCard size={18} />} />
+      </div>
+    </div>
+  );
+}
+
+function ActivityCard({ label, value, detail, icon }: {
+  label: string; value: string; detail: string; icon: React.ReactNode;
+}) {
+  return (
+    <article className="rounded-[1.5rem] border border-[#eadff5] bg-[#fffafc] p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs uppercase tracking-[0.14em] text-[#8a7d91]">{label}</p>
+        <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#f7efff] text-purple-700">{icon}</span>
+      </div>
+      <p className="mt-3 text-3xl font-light tracking-[-0.05em] text-[#171018]">{value}</p>
+      <p className="mt-2 text-xs leading-5 text-[#6f6077]">{detail}</p>
+    </article>
   );
 }
 

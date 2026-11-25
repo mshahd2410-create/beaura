@@ -13,10 +13,12 @@ import {
   Sparkles,
   X,
   Users,
+  Star,
 } from "lucide-react";
 
 type PortfolioImage = {
   url: string;
+  category: string | null;
 };
 
 type MuaProfile = {
@@ -29,8 +31,25 @@ type MuaProfile = {
   status: string;
   instagram: string | null;
   experience: string | null;
+  experience_years: number | null;
+  beaura_tier: string | null;
   portfolio: PortfolioImage[];
   services: any[];
+};
+
+type LocationOption = {
+  location_type: string;
+  is_accepted: boolean;
+};
+
+type ReviewSummary = {
+  average: number;
+  count: number;
+};
+
+type AvailabilityDay = {
+  preview_date: string;
+  availability_status: string;
 };
 
 function formatEGP(value: number) {
@@ -58,6 +77,12 @@ export default function MuaProfilePage() {
 
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [reviewSummary, setReviewSummary] = useState<ReviewSummary>({ average: 0, count: 0 });
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [portfolioCategory, setPortfolioCategory] = useState("all");
+  const [availabilityDays, setAvailabilityDays] = useState<AvailabilityDay[]>([]);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [locationOptions, setLocationOptions] = useState<LocationOption[]>([]);
 
   const loadMua = useCallback(async () => {
     if (!id) {
@@ -82,8 +107,11 @@ export default function MuaProfilePage() {
         status,
         instagram,
         experience,
+        experience_years,
+        beaura_tier,
         mua_portfolio (
-          image_path
+          image_path,
+          category
         ),
         mua_services (
           id,
@@ -126,6 +154,7 @@ export default function MuaProfilePage() {
         url: supabase.storage
           .from("mua-portfolio")
           .getPublicUrl(item.image_path).data.publicUrl,
+        category: item.category || null,
       })) || [];
 
     const services = (data.mua_services || []).map((service: any) => ({
@@ -143,6 +172,72 @@ export default function MuaProfilePage() {
       portfolio,
       services,
     });
+
+    setAvailabilityLoading(true);
+    const cairoToday = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Cairo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    const { data: availabilityRows, error: availabilityError } = await supabase.rpc(
+      "get_mua_availability_preview",
+      { p_mua_id: id, p_from_date: cairoToday, p_days: 14 }
+    );
+    if (availabilityError) {
+      console.error("Error loading availability preview:", availabilityError);
+      setAvailabilityDays([]);
+    } else {
+      setAvailabilityDays(availabilityRows || []);
+    }
+    setAvailabilityLoading(false);
+
+    const { data: locationRows, error: locationError } = await supabase
+      .from("mua_service_locations")
+      .select("location_type, is_accepted")
+      .eq("mua_id", id)
+      .eq("is_accepted", true);
+
+    if (locationError) {
+      console.error("Error loading artist service locations:", locationError);
+      setLocationOptions([]);
+    } else {
+      setLocationOptions(locationRows || []);
+    }
+
+    const { data: reviewRows, error: reviewsError } = await supabase
+      .from("mua_reviews")
+      .select("rating, review_text, comment, created_at")
+      .eq("mua_id", id)
+      .order("created_at", { ascending: false });
+
+    if (reviewsError) {
+      console.error("Error loading artist reviews:", reviewsError);
+      setReviewSummary({ average: 0, count: 0 });
+    } else {
+      setReviews((reviewRows || []).filter((review: any) => String(review.review_text || review.comment || "").trim()));
+      const ratings = (reviewRows || [])
+        .map((review: any) => Number(review.rating))
+        .filter((rating: number) => Number.isFinite(rating) && rating >= 1 && rating <= 5);
+      setReviewSummary({
+        average: ratings.length
+          ? ratings.reduce((sum: number, rating: number) => sum + rating, 0) / ratings.length
+          : 0,
+        count: ratings.length,
+      });
+    }
+
+    // Keep a small, local history so brides can quickly return to artists they viewed.
+    try {
+      const storageKey = "beaura_recently_viewed_muas";
+      const previous = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      const recentIds = Array.isArray(previous)
+        ? previous.filter((item: unknown) => typeof item === "string" && item !== id)
+        : [];
+      localStorage.setItem(storageKey, JSON.stringify([id, ...recentIds].slice(0, 8)));
+    } catch (storageError) {
+      console.warn("Could not save recently viewed artists:", storageError);
+    }
 
     // Check whether the current bride has saved this artist.
     const {
@@ -439,8 +534,11 @@ export default function MuaProfilePage() {
               ))}
 
               {mua.experience && (
-                <span className="rounded-full bg-[#171018] px-3 py-1.5 text-xs text-white">
-                  {mua.experience}
+                <span className="rounded-full bg-[#171018] px-3 py-1.5 text-xs text-white">{mua.experience}</span>
+              )}
+              {mua.experience_years !== null && mua.experience_years !== undefined && (
+                <span className="rounded-full bg-[#f7efff] px-3 py-1.5 text-xs text-purple-700">
+                  {mua.experience_years} {mua.experience_years === 1 ? "year" : "years"} of experience
                 </span>
               )}
             </div>
@@ -450,7 +548,7 @@ export default function MuaProfilePage() {
                 "This artist hasn’t added a bio yet, but their portfolio and services are ready to view."}
             </p>
 
-            <div className="mt-7 grid gap-3 sm:grid-cols-3">
+            <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <MiniStat
                 label="Starting from"
                 value={
@@ -468,6 +566,11 @@ export default function MuaProfilePage() {
               <MiniStat
                 label="Photos"
                 value={`${mua.portfolio.length}`}
+              />
+
+              <MiniStat
+                label="Client rating"
+                value={reviewSummary.count ? `${reviewSummary.average.toFixed(1)} / 5` : "Not rated yet"}
               />
             </div>
 
@@ -549,14 +652,10 @@ export default function MuaProfilePage() {
                     {service.name}
                   </h3>
 
-                  <div className="mt-4 flex items-center justify-between gap-3 text-sm">
-                    <span className="text-[#6f6077]">
-                      {service.duration_minutes} min
-                    </span>
-
-                    <span className="font-medium text-[#171018]">
-                      {formatEGP(Number(service.price))}
-                    </span>
+                  <div className="mt-4 rounded-2xl bg-white p-4">
+                    <p className="text-xs uppercase tracking-[0.14em] text-[#8a7d91]">Service price</p>
+                    <p className="mt-1 text-xl font-semibold text-[#171018]">{formatEGP(Number(service.price))}</p>
+                    <p className="mt-1 text-xs text-[#6f6077]">Estimated service duration · {service.duration_minutes || "—"} min</p>
                   </div>
 
                   {service.group_pricing_enabled &&
@@ -621,6 +720,67 @@ export default function MuaProfilePage() {
                 "View the artist’s portfolio and services, or send a message if you have a question before booking."}
             </p>
 
+            {mua.beaura_tier && (
+              <div className="mt-5 rounded-2xl border border-purple-100 bg-gradient-to-r from-[#fff7fc] to-[#f7f2ff] p-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={17} className="text-purple-700" />
+                  <p className="text-xs uppercase tracking-[0.16em] text-purple-700">Beaura artist tier</p>
+                </div>
+                <p className="mt-1 text-lg font-semibold text-[#171018]">{mua.beaura_tier}</p>
+              </div>
+            )}
+
+            {(mua.experience || mua.experience_years != null) && (
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                {mua.experience && (
+                  <div className="rounded-2xl bg-[#fffafc] p-4">
+                    <p className="text-xs uppercase tracking-[0.16em] text-purple-700">Experience level</p>
+                    <p className="mt-1 text-sm font-medium text-[#171018]">{mua.experience}</p>
+                  </div>
+                )}
+                {mua.experience_years != null && (
+                  <div className="rounded-2xl bg-[#fffafc] p-4">
+                    <p className="text-xs uppercase tracking-[0.16em] text-purple-700">Years of experience</p>
+                    <p className="mt-1 text-sm font-medium text-[#171018]">{mua.experience_years} {mua.experience_years === 1 ? "year" : "years"}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {(mua.cities || []).length > 0 && (
+              <div className="mt-5">
+                <p className="text-xs uppercase tracking-[0.16em] text-purple-700">Areas served</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(mua.cities || []).map((city: string) => (
+                    <span key={city} className="rounded-full bg-[#f7efff] px-3 py-2 text-xs text-purple-700">{city}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-6">
+              <p className="text-xs uppercase tracking-[0.16em] text-purple-700">Where the artist works</p>
+              {locationOptions.length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {locationOptions.map((option) => {
+                    const labels: Record<string, string> = {
+                      client_home: "At your home",
+                      hotel: "At your hotel",
+                      event_venue: "At your venue",
+                      own_studio: "At the artist’s studio",
+                    };
+                    return (
+                      <span key={option.location_type} className="rounded-full border border-[#eadff5] bg-white px-3 py-2 text-xs text-[#6f6077]">
+                        {labels[option.location_type] || option.location_type}
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="mt-2 text-sm leading-6 text-[#6f6077]">Ask the artist which location options are available for your appointment.</p>
+              )}
+            </div>
+
             {mua.instagram && (
               <a
                 href={mua.instagram}
@@ -632,6 +792,77 @@ export default function MuaProfilePage() {
               </a>
             )}
           </div>
+        </section>
+
+        {/* AVAILABILITY PREVIEW */}
+        <section className="rounded-[2.5rem] border border-[#eadff5] bg-white p-6 shadow-sm sm:p-8">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-purple-700">Next 14 days</p>
+              <h2 className="mt-2 text-3xl font-light tracking-[-0.06em]">Availability preview</h2>
+              <p className="mt-2 text-sm text-[#6f6077]">Dates with existing appointments or blocked time may have limited availability. All other dates still need confirmation from the artist.</p>
+            </div>
+            <button onClick={goToBooking} className="rounded-full bg-[#171018] px-5 py-3 text-sm font-medium text-white">Request a date</button>
+          </div>
+          {availabilityLoading ? (
+            <p className="mt-5 text-sm text-[#6f6077]">Checking dates…</p>
+          ) : availabilityDays.length > 0 ? (
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+              {availabilityDays.map((day) => {
+                const limited = day.availability_status === "Limited availability";
+                return (
+                  <div key={day.preview_date} className="rounded-2xl border border-[#eadff5] bg-[#fffafc] p-3">
+                    <p className="text-sm font-medium text-[#171018]">{new Date(day.preview_date + "T12:00:00").toLocaleDateString("en-EG", { weekday: "short" })}</p>
+                    <p className="mt-1 text-xs text-[#8a7d91]">{new Date(day.preview_date + "T12:00:00").toLocaleDateString("en-EG", { day: "numeric", month: "short" })}</p>
+                    <p className={`mt-3 text-xs font-medium ${limited ? "text-amber-700" : "text-purple-700"}`}>{limited ? "Limited availability" : "Ask to confirm"}</p>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="mt-5 rounded-2xl bg-[#fffafc] p-4 text-sm text-[#6f6077]">Availability preview is temporarily unavailable. Please request a date and the artist can confirm it.</p>
+          )}
+        </section>
+
+        {/* CLIENT REVIEWS */}
+        <section className="rounded-[2.5rem] border border-[#eadff5] bg-white p-6 shadow-sm sm:p-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-purple-700">Bride feedback</p>
+              <h2 className="mt-3 text-3xl font-light tracking-[-0.06em]">Client reviews</h2>
+              <p className="mt-2 text-sm text-[#6f6077]">Ratings are from brides who have reviewed this artist after a completed booking.</p>
+            </div>
+            <div className="rounded-2xl bg-[#fffafc] px-5 py-4">
+              {reviewSummary.count > 0 ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <Star size={19} className="fill-[#d4a843] text-[#d4a843]" />
+                    <span className="text-2xl font-semibold text-[#171018]">{reviewSummary.average.toFixed(1)}</span>
+                    <span className="text-sm text-[#8a7d91]">/ 5</span>
+                  </div>
+                  <p className="mt-1 text-xs text-[#6f6077]">{reviewSummary.count} {reviewSummary.count === 1 ? "review" : "reviews"}</p>
+                </>
+              ) : (
+                <p className="text-sm text-[#6f6077]">No ratings yet</p>
+              )}
+            </div>
+          </div>
+          {reviews.length > 0 ? (
+            <div className="mt-6 grid gap-3 md:grid-cols-2">
+              {reviews.map((review: any, index: number) => (
+                <article key={`${review.created_at || "review"}-${index}`} className="rounded-2xl border border-[#eadff5] bg-[#fffafc] p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-medium uppercase tracking-[0.14em] text-purple-700">Verified client</span>
+                    <span className="inline-flex items-center gap-1 text-sm font-semibold text-[#171018]"><Star size={14} className="fill-[#d4a843] text-[#d4a843]" />{Number(review.rating).toFixed(1)} / 5</span>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-[#6f6077]">{review.review_text || review.comment}</p>
+                  {review.created_at && <p className="mt-3 text-xs text-[#9a8da0]">{new Date(review.created_at).toLocaleDateString("en-EG", { year: "numeric", month: "short" })}</p>}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-6 rounded-2xl bg-[#fffafc] p-5 text-sm text-[#6f6077]">No written reviews yet. Client ratings will appear here after brides share feedback.</p>
+          )}
         </section>
 
         {mua.portfolio.length > 1 && (
@@ -649,9 +880,16 @@ export default function MuaProfilePage() {
         <div className="fixed inset-0 z-50 overflow-y-auto bg-[#fffafc] px-4 py-6">
           <div className="mx-auto max-w-6xl">
             <div className="sticky top-0 z-10 mb-5 flex items-center justify-between rounded-full border border-[#eadff5] bg-white/90 px-4 py-3 backdrop-blur">
-              <p className="text-sm font-medium">
-                {artistName} portfolio
-              </p>
+              <div>
+                <p className="text-sm font-medium">{artistName} portfolio</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {["all", "bridal", "soft_glam", "evening_glam", "natural", "editorial", "traditional", "other"].map((category) => (
+                    <button key={category} onClick={() => setPortfolioCategory(category)} className={`rounded-full px-3 py-1.5 text-xs capitalize ${portfolioCategory === category ? "bg-[#171018] text-white" : "border border-[#eadff5] bg-white text-[#6f6077]"}`}>
+                      {category === "all" ? "All looks" : category.replaceAll("_", " ")}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               <button
                 onClick={() => setGalleryOpen(false)}
@@ -662,7 +900,7 @@ export default function MuaProfilePage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {mua.portfolio.map((img, index) => (
+              {mua.portfolio.filter((img) => portfolioCategory === "all" || img.category === portfolioCategory).map((img, index) => (
                 <button
                   key={index}
                   onClick={() => setImageOpen(img.url)}

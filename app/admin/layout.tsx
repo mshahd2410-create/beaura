@@ -20,14 +20,22 @@ import {
   Tag,
   CreditCard,
   ReceiptText,
+  Activity,
+  History,
+  ShieldAlert,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: LayoutGrid },
   { href: "/admin/approvals", label: "Approvals", icon: Clock },
   { href: "/admin/muas", label: "MUAs", icon: UserCheck },
+  { href: "/admin/artist-monitoring", label: "Artist Monitoring", icon: Activity },
+  { href: "/admin/risk-management", label: "Customer & Artist Risk", icon: ShieldAlert },
   { href: "/admin/brides", label: "Brides", icon: Users },
   { href: "/admin/bookings", label: "Bookings", icon: CalendarCheck },
+  { href: "/admin/finance", label: "Finance Overview", icon: ReceiptText },
+  { href: "/admin/audit-logs", label: "Audit Log", icon: History },
+  { href: "/admin/activity-alerts", label: "Activity & Alerts", icon: ShieldAlert },
   { href: "/admin/payment-proofs", label: "Payment Proofs", icon: ReceiptText },
   { href: "/admin/pending-deposits", label: "Pending Deposits", icon: Wallet },
   { href: "/admin/cancellation-requests", label: "Cancellation Requests", icon: Clock },

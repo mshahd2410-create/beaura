@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { createChatImageSignedUrl } from "@/lib/chatImageUrl";
 import { motion } from "framer-motion";
 import { ArrowLeft, ImagePlus, SendHorizontal } from "lucide-react";
 import Link from "next/link";
@@ -33,10 +34,12 @@ export default function ChatPage() {
   const conversationId = params.conversationId as string;
 
   const [messages, setMessages] = useState<Message[]>([]);
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [text, setText] = useState("");
   const [image, setImage] = useState<File | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [brideName, setBrideName] = useState("Conversation");
   const [loading, setLoading] = useState(true);
 
@@ -98,7 +101,15 @@ export default function ChatPage() {
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: true });
 
-    setMessages(data || []);
+    const rows = data || [];
+    setMessages(rows);
+    const signedImages = await Promise.all(
+      rows.map(async (message) => ({
+        id: message.id,
+        url: message.image_url ? await createChatImageSignedUrl(message.image_url) : null,
+      }))
+    );
+    setImageUrls(Object.fromEntries(signedImages.filter((item) => item.url).map((item) => [item.id, item.url as string])));
 
     await supabase
       .from("messages")
@@ -118,17 +129,40 @@ export default function ChatPage() {
           table: "messages",
           filter: `conversation_id=eq.${conversationId}`,
         },
-        (payload) => {
-          setMessages((prev) => [...prev, payload.new as Message]);
+        async (payload) => {
+          const message = payload.new as Message;
+          setMessages((prev) => [...prev, message]);
+          if (message.image_url) {
+            const signedUrl = await createChatImageSignedUrl(message.image_url);
+            if (signedUrl) setImageUrls((prev) => ({ ...prev, [message.id]: signedUrl }));
+          }
         }
       )
       .subscribe();
+  }
+
+  function handleImageSelection(file: File | null) {
+    setSendError(null);
+    if (!file) { setImage(null); return; }
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+    if (!allowedTypes.includes(file.type)) {
+      setImage(null);
+      setSendError("Choose a JPG, PNG, WebP, HEIC or HEIF image.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setImage(null);
+      setSendError("Choose an image smaller than 8 MB.");
+      return;
+    }
+    setImage(file);
   }
 
   async function sendMessage() {
     if ((!text.trim() && !image) || sending) return;
 
     setSending(true);
+    setSendError(null);
 
     const {
       data: { user },
@@ -143,6 +177,12 @@ export default function ChatPage() {
     let imageUrl: string | null = null;
 
     if (image) {
+      const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+      if (!allowedTypes.includes(image.type) || image.size > 8 * 1024 * 1024) {
+        setSendError("Choose a supported image smaller than 8 MB.");
+        setSending(false);
+        return;
+      }
       const path = `chat/${conversationId}/${crypto.randomUUID()}`;
 
       const { error: uploadError } = await supabase.storage
@@ -154,8 +194,7 @@ export default function ChatPage() {
         return;
       }
 
-      const { data } = supabase.storage.from("chat-images").getPublicUrl(path);
-      imageUrl = data.publicUrl;
+      imageUrl = path;
     }
 
     const { error } = await supabase.from("messages").insert({
@@ -277,9 +316,9 @@ export default function ChatPage() {
                     className={`flex ${isMine ? "justify-end" : "justify-start"}`}
                   >
                     <div className={`max-w-[85%] sm:max-w-[72%] ${isMine ? "items-end" : "items-start"} flex flex-col gap-2`}>
-                      {message.image_url && (
+                      {message.image_url && imageUrls[message.id] && (
                         <img
-                          src={message.image_url}
+                          src={imageUrls[message.id]}
                           alt="Chat image"
                           className={`max-h-[300px] rounded-[24px] border border-gray-100 object-cover shadow-sm ${
                             isMine ? "ml-auto" : ""
@@ -322,8 +361,8 @@ export default function ChatPage() {
               <ImagePlus size={18} />
               <input
                 type="file"
-                accept="image/*"
-                onChange={(e) => setImage(e.target.files?.[0] || null)}
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                onChange={(e) => handleImageSelection(e.target.files?.[0] || null)}
                 className="hidden"
               />
             </label>
@@ -352,6 +391,7 @@ export default function ChatPage() {
               {sending ? "Sending..." : "Send"}
             </button>
           </div>
+          {sendError && <p role="alert" className="mt-2 text-xs text-red-600">{sendError}</p>}
         </div>
       </div>
     </main>

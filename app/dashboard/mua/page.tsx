@@ -11,6 +11,7 @@ import {
   Star,
   CheckCircle2,
   Wallet,
+  MessageCircle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import SupportHelpButton from "@/components/support/SupportHelpButton";
@@ -18,12 +19,16 @@ import SupportHelpButton from "@/components/support/SupportHelpButton";
 type Booking = {
   id: string;
   bride_id: string;
-  event_date: string | null;
+  booking_date: string | null;
+  booking_time: string | null;
   status: string | null;
   total_amount?: number | null;
   total_price?: number | null;
   service_price?: number | null;
   platform_fee?: number | null;
+  mua_payout?: number | null;
+  completed_by_mua?: boolean | null;
+  mua_completed_at?: string | null;
   created_at?: string | null;
   bride_profiles?: {
     first_name?: string | null;
@@ -38,6 +43,7 @@ type MuaProfile = {
   bio: string | null;
   instagram: string | null;
   experience: string | null;
+  experience_years: number | null;
   cities: string[] | null;
   verified: boolean | null;
   beaura_tier: string | null;
@@ -47,6 +53,7 @@ type MuaService = {
   id: string;
   name: string;
   price: number | null;
+  duration_minutes: number | null;
 };
 
 type MuaWallet = {
@@ -67,7 +74,11 @@ export default function MuaDashboardPage() {
   const [profile, setProfile] = useState<MuaProfile | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [services, setServices] = useState<MuaService[]>([]);
+  const [profilePhone, setProfilePhone] = useState("");
+  const [portfolioCount, setPortfolioCount] = useState(0);
+  const [acceptedLocations, setAcceptedLocations] = useState<string[]>([]);
   const [walletData, setWalletData] = useState<MuaWallet | null>(null);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
 
   useEffect(() => {
     loadDashboard();
@@ -94,6 +105,21 @@ export default function MuaDashboardPage() {
         () => {
           loadDashboard();
         }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "mua_portfolio" },
+        () => loadDashboard()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "mua_service_locations" },
+        () => loadDashboard()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "mua_private" },
+        () => loadDashboard()
       )
       .on(
         "postgres_changes",
@@ -126,11 +152,14 @@ export default function MuaDashboardPage() {
       { data: bookingsData },
       { data: servicesData },
       { data: wallet },
+      { data: privateData },
+      { count: portfolioRows },
+      { data: locationRows },
     ] = await Promise.all([
       supabase
         .from("mua_profiles")
         .select(
-          "id, first_name, last_name, bio, instagram, experience, cities, verified, beaura_tier"
+          "id, first_name, last_name, bio, instagram, experience, experience_years, cities, verified, beaura_tier"
         )
         .eq("id", user.id)
         .maybeSingle(),
@@ -140,22 +169,26 @@ export default function MuaDashboardPage() {
         .select(
           `
           id,
-          event_date,
+          booking_date,
+          booking_time,
           status,
           total_amount,
           total_price,
           service_price,
           platform_fee,
+          mua_payout,
+          completed_by_mua,
+          mua_completed_at,
           created_at,
           bride_id
         `
         )
         .eq("mua_id", user.id)
-        .order("event_date", { ascending: true }),
+        .order("booking_date", { ascending: true }),
 
       supabase
         .from("mua_services")
-        .select("id, name, price")
+        .select("id, name, price, duration_minutes")
         .eq("mua_id", user.id),
 
       supabase
@@ -164,6 +197,23 @@ export default function MuaDashboardPage() {
         .eq("user_id", user.id)
         .eq("user_type", "mua")
         .maybeSingle(),
+
+      supabase
+        .from("mua_private")
+        .select("phone")
+        .eq("id", user.id)
+        .maybeSingle(),
+
+      supabase
+        .from("mua_portfolio")
+        .select("id", { count: "exact", head: true })
+        .eq("mua_id", user.id),
+
+      supabase
+        .from("mua_service_locations")
+        .select("location_type")
+        .eq("mua_id", user.id)
+        .eq("is_accepted", true),
     ]);
 
     const bookingRows = (bookingsData || []) as Booking[];
@@ -174,6 +224,22 @@ export default function MuaDashboardPage() {
 
     if (brideNamesError) {
       console.error("Could not load booking client names:", brideNamesError);
+    }
+
+    const { data: conversationsData, error: conversationsError } =
+      await supabase.rpc("get_mua_conversations", { mua_user_id: user.id });
+
+    if (conversationsError) {
+      console.error("Could not load unread message count:", conversationsError);
+      setUnreadMessagesCount(0);
+    } else {
+      setUnreadMessagesCount(
+        (conversationsData || []).reduce(
+          (total: number, conversation: { unread_count?: number | null }) =>
+            total + Number(conversation.unread_count || 0),
+          0
+        )
+      );
     }
 
     const bookingsWithNames = bookingRows.map((booking) => {
@@ -190,6 +256,9 @@ export default function MuaDashboardPage() {
     setBookings(bookingsWithNames);
     setServices((servicesData as MuaService[]) || []);
     setWalletData((wallet as MuaWallet) || null);
+    setProfilePhone(privateData?.phone || "");
+    setPortfolioCount(portfolioRows || 0);
+    setAcceptedLocations((locationRows || []).map((row: { location_type: string }) => row.location_type));
 
     if (profileData?.first_name) {
       setMuaName(profileData.first_name);
@@ -199,48 +268,47 @@ export default function MuaDashboardPage() {
   }
 
   const upcomingBookings = useMemo(() => {
-    const now = new Date();
+    const cairoToday = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Cairo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
 
-    return bookings.filter((booking) => {
-      if (!booking.event_date) return false;
-      return (
-        new Date(booking.event_date) >= now && booking.status !== "cancelled"
-      );
-    });
+    const activeStatuses = new Set([
+      "pending",
+      "confirmed",
+      "confirmed_payment_pending",
+      "paid",
+      "accepted",
+    ]);
+
+    return bookings.filter((booking) =>
+      !!booking.booking_date &&
+      booking.booking_date >= cairoToday &&
+      activeStatuses.has((booking.status || "").toLowerCase())
+    );
   }, [bookings]);
 
   const pendingBookings = useMemo(() => {
     return bookings.filter((booking) => booking.status === "pending");
   }, [bookings]);
 
-  const confirmedBookings = useMemo(() => {
-    return bookings.filter((booking) => booking.status === "confirmed");
+  const paymentPendingBookings = useMemo(() => {
+    return bookings.filter(
+      (booking) => booking.status === "confirmed_payment_pending"
+    );
   }, [bookings]);
 
-  const monthlyEarnings = useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+  const actionRequiredBookings = useMemo(
+    () => [...pendingBookings, ...paymentPendingBookings],
+    [pendingBookings, paymentPendingBookings]
+  );
 
-    return bookings
-      .filter((booking) => {
-        if (booking.status !== "confirmed") return false;
-        if (!booking.event_date) return false;
-
-        const eventDate = new Date(booking.event_date);
-        return (
-          eventDate.getMonth() === currentMonth &&
-          eventDate.getFullYear() === currentYear
-        );
-      })
-      .reduce((sum, booking) => {
-        const servicePrice = Number(
-          booking.service_price || booking.total_amount || booking.total_price || 0
-        );
-        const platformFee = Number(booking.platform_fee || 0);
-
-        return sum + Math.max(servicePrice - platformFee, 0);
-      }, 0);
+  const confirmedBookings = useMemo(() => {
+    return bookings.filter((booking) =>
+      ["confirmed", "paid", "accepted"].includes(booking.status || "")
+    );
   }, [bookings]);
 
   const popularService = useMemo(() => {
@@ -252,22 +320,94 @@ export default function MuaDashboardPage() {
     return upcomingBookings[0] || null;
   }, [upcomingBookings]);
 
-  const profileCompletion = useMemo(() => {
-    if (!profile) return 0;
+  const recentBookings = useMemo(
+    () =>
+      [...bookings].sort((a, b) =>
+        (b.created_at || "").localeCompare(a.created_at || "")
+      ).slice(0, 5),
+    [bookings]
+  );
 
-    const checks = [
-      !!profile.first_name,
-      !!profile.last_name,
-      !!profile.bio,
-      !!profile.instagram,
-      !!profile.experience,
-      !!(profile.cities && profile.cities.length > 0),
-      services.length > 0,
+  const incomeByPeriod = useMemo(() => {
+    const today = getCairoDateKey(new Date());
+    const todayDate = new Date(`${today}T00:00:00.000Z`);
+    const monday = new Date(todayDate);
+    monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+    const weekStart = monday.toISOString().slice(0, 10);
+    const monthStart = today.slice(0, 7);
+    const yearStart = today.slice(0, 4);
+
+    const totals = { day: 0, week: 0, month: 0, year: 0 };
+
+    bookings.forEach((booking) => {
+      if (!booking.completed_by_mua) return;
+
+      const incomeDate = booking.mua_completed_at
+        ? getCairoDateKey(new Date(booking.mua_completed_at))
+        : booking.booking_date;
+      if (!incomeDate) return;
+
+      const servicePrice = Number(booking.service_price || 0);
+      const platformFee =
+        booking.platform_fee == null
+          ? Math.round(servicePrice * 0.1)
+          : Number(booking.platform_fee);
+      const income =
+        booking.mua_payout == null
+          ? Math.max(servicePrice - platformFee, 0)
+          : Number(booking.mua_payout);
+
+      if (!Number.isFinite(income) || income <= 0) return;
+
+      if (incomeDate === today) totals.day += income;
+      if (incomeDate >= weekStart && incomeDate <= today) totals.week += income;
+      if (incomeDate.startsWith(monthStart)) totals.month += income;
+      if (incomeDate.startsWith(yearStart)) totals.year += income;
+    });
+
+    return totals;
+  }, [bookings]);
+
+  const completedBookingCount = useMemo(
+    () => bookings.filter((booking) => booking.completed_by_mua === true).length,
+    [bookings]
+  );
+
+  const tierProgress = useMemo(() => {
+    const tiers = [
+      { name: "Starter", threshold: 0, next: 5 },
+      { name: "Rising Star", threshold: 5, next: 15 },
+      { name: "Pro", threshold: 15, next: 25 },
+      { name: "Elite", threshold: 25, next: null },
     ];
+    const current = [...tiers].reverse().find((tier) => completedBookingCount >= tier.threshold) || tiers[0];
+    const remaining = current.next == null ? 0 : Math.max(current.next - completedBookingCount, 0);
+    const progress = current.next == null
+      ? 100
+      : Math.min(100, Math.round(((completedBookingCount - current.threshold) / (current.next - current.threshold)) * 100));
+    return { current, remaining, progress };
+  }, [completedBookingCount]);
 
-    const completed = checks.filter(Boolean).length;
-    return Math.round((completed / checks.length) * 100);
-  }, [profile, services]);
+  const profileTasks = useMemo(() => {
+    const completeServices = services.some(
+      (service) => Number(service.price) > 0 && Number(service.duration_minutes) > 0
+    );
+
+    return [
+      { label: "Complete your basic details", detail: "Name, bio and Instagram", done: !!(profile?.first_name && profile?.last_name && profile?.bio && profile?.instagram), href: "/dashboard/mua/settings", weight: 20 },
+      { label: "Add your experience", detail: "Experience level and years", done: !!profile?.experience && profile?.experience_years != null, href: "/dashboard/mua/settings", weight: 10 },
+      { label: "Choose your service areas", detail: "At least one city or governorate", done: !!profile?.cities?.length, href: "/dashboard/mua/settings", weight: 10 },
+      { label: "Set up your services", detail: "At least one service with price and duration", done: completeServices, href: "/dashboard/mua/services", weight: 25 },
+      { label: "Build your portfolio", detail: "Add at least 5 photos", done: portfolioCount >= 5, href: "/dashboard/mua/portfolio", weight: 20 },
+      { label: "Choose where you work", detail: "Home, hotel, venue or your studio", done: acceptedLocations.length > 0, href: "/dashboard/mua/services", weight: 10 },
+      { label: "Add your contact number", detail: "A phone number for booking coordination", done: !!profilePhone, href: "/dashboard/mua/settings", weight: 5 },
+    ];
+  }, [profile, services, portfolioCount, acceptedLocations, profilePhone]);
+
+  const profileCompletion = useMemo(
+    () => profileTasks.reduce((total, task) => total + (task.done ? task.weight : 0), 0),
+    [profileTasks]
+  );
 
   return (
     <div className="space-y-8 text-[#171018]">
@@ -318,6 +458,10 @@ export default function MuaDashboardPage() {
             value={confirmedBookings.length.toString()}
           />
           <QuickPill
+            label="Unread messages"
+            value={unreadMessagesCount.toString()}
+          />
+          <QuickPill
             label="Wallet available"
             value={formatMoney(walletData?.available_balance)}
           />
@@ -353,11 +497,75 @@ export default function MuaDashboardPage() {
         />
 
         <StatCard
-          title="Monthly earnings"
-          value={loading ? "..." : `EGP ${monthlyEarnings.toLocaleString()}`}
-          subtext="Estimated from confirmed bookings this month"
+          title="Total earned"
+          value={loading ? "..." : formatMoney(walletData?.total_earned)}
+          subtext="Recorded earnings in your Beaura wallet"
           icon={<CircleDollarSign size={18} />}
         />
+      </section>
+
+      {/* BEAURA TIER */}
+      <section className="overflow-hidden rounded-[2rem] border border-[#eadff5] bg-gradient-to-br from-[#fff8fc] via-white to-[#f8f2ff] p-6 shadow-sm md:p-7">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-purple-700">Your Beaura journey</p>
+            <h2 className="mt-2 text-3xl font-light tracking-[-0.05em] text-[#171018]">{tierProgress.current.name} tier</h2>
+            <p className="mt-2 text-sm text-[#6f6077]">
+              {completedBookingCount} completed {completedBookingCount === 1 ? "booking" : "bookings"} so far
+              {tierProgress.current.next == null ? " · You’ve reached the highest tier!" : ` · ${tierProgress.remaining} more to reach ${tierProgress.current.next === 15 ? "Pro" : tierProgress.current.next === 25 ? "Elite" : "Rising Star"}`}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[#eadff5] bg-white/80 px-5 py-4 text-center">
+            <p className="text-xs uppercase tracking-[0.14em] text-[#8a7d91]">Current tier</p>
+            <p className="mt-1 text-2xl font-semibold text-purple-700">{tierProgress.current.name}</p>
+          </div>
+        </div>
+        <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-[#eee5f3]">
+          <div className="h-full rounded-full bg-gradient-to-r from-purple-500 to-pink-400 transition-all" style={{ width: `${tierProgress.progress}%` }} />
+        </div>
+        <div className="mt-4 grid grid-cols-4 gap-2 text-center">
+          {[
+            { name: "Starter", count: "0–4", reached: completedBookingCount >= 0 },
+            { name: "Rising Star", count: "5+", reached: completedBookingCount >= 5 },
+            { name: "Pro", count: "15+", reached: completedBookingCount >= 15 },
+            { name: "Elite", count: "25+", reached: completedBookingCount >= 25 },
+          ].map((tier) => (
+            <div key={tier.name} className={`rounded-xl px-2 py-3 ${tier.reached ? "bg-purple-50 text-purple-800" : "bg-white/70 text-[#9a8c9e]"}`}>
+              <p className="text-[10px] font-semibold sm:text-xs">{tier.name}</p>
+              <p className="mt-1 text-[10px]">{tier.count} bookings</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* REVENUE OVERVIEW */}
+      <section className="rounded-[2rem] border border-[#eadff5] bg-white p-6 shadow-sm md:p-7">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-purple-700">
+              Revenue overview
+            </p>
+            <h2 className="mt-2 text-2xl font-light tracking-[-0.05em] text-[#171018]">
+              Your income
+            </h2>
+            <p className="mt-2 text-sm text-[#6f6077]">
+              Earnings from bookings you have marked as complete.
+            </p>
+          </div>
+          <Link
+            href="/dashboard/mua/wallet"
+            className="text-sm font-medium text-purple-700 hover:underline"
+          >
+            View wallet activity
+          </Link>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <IncomeCard label="Today" value={loading ? "..." : formatMoney(incomeByPeriod.day)} />
+          <IncomeCard label="This week" value={loading ? "..." : formatMoney(incomeByPeriod.week)} />
+          <IncomeCard label="This month" value={loading ? "..." : formatMoney(incomeByPeriod.month)} />
+          <IncomeCard label="This year" value={loading ? "..." : formatMoney(incomeByPeriod.year)} />
+        </div>
       </section>
 
       {/* MAIN GRID */}
@@ -394,8 +602,9 @@ export default function MuaDashboardPage() {
                     </p>
 
                     <p className="mt-1 text-sm text-[#6f6077]">
-                      {formatDate(nextBooking.event_date)} •{" "}
-                      {capitalize(nextBooking.status)}
+                      {formatDate(nextBooking.booking_date)}
+                      {nextBooking.booking_time ? ` · ${nextBooking.booking_time.slice(0, 5)}` : ""}
+                      {" · "}{capitalize(nextBooking.status)}
                     </p>
                   </div>
 
@@ -410,6 +619,73 @@ export default function MuaDashboardPage() {
             ) : (
               <EmptyState text="Once a client books you, your next appointment will show up here." />
             )}
+          </Card>
+
+          {/* ACTION REQUIRED */}
+          <Card>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-purple-700">
+                  Needs your attention
+                </p>
+                <h2 className="mt-2 text-2xl font-light tracking-[-0.04em]">
+                  Action required
+                </h2>
+              </div>
+              <Link
+                href="/dashboard/mua/bookings"
+                className="text-sm text-purple-700 hover:underline"
+              >
+                Open bookings
+              </Link>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {actionRequiredBookings.length > 0 && (
+                <Link
+                  href="/dashboard/mua/bookings"
+                  className="flex items-center justify-between gap-4 rounded-[1.3rem] border border-[#eadff5] bg-[#fffafc] p-4 transition hover:border-purple-300"
+                >
+                  <span>
+                    <span className="block text-sm font-medium text-[#171018]">
+                      Booking requests
+                    </span>
+                    <span className="mt-1 block text-xs text-[#6f6077]">
+                      {pendingBookings.length} waiting for your response
+                      {paymentPendingBookings.length > 0
+                        ? ` · ${paymentPendingBookings.length} waiting for bride payment`
+                        : ""}
+                    </span>
+                  </span>
+                  <span className="rounded-full bg-[#f7efff] px-3 py-1.5 text-sm font-semibold text-purple-700">
+                    {actionRequiredBookings.length}
+                  </span>
+                </Link>
+              )}
+
+              {unreadMessagesCount > 0 && (
+                <Link
+                  href="/dashboard/mua/messages"
+                  className="flex items-center justify-between gap-4 rounded-[1.3rem] border border-[#eadff5] bg-[#fffafc] p-4 transition hover:border-purple-300"
+                >
+                  <span>
+                    <span className="block text-sm font-medium text-[#171018]">
+                      Unread messages
+                    </span>
+                    <span className="mt-1 block text-xs text-[#6f6077]">
+                      Brides are waiting for your reply
+                    </span>
+                  </span>
+                  <span className="rounded-full bg-[#f7efff] px-3 py-1.5 text-sm font-semibold text-purple-700">
+                    {unreadMessagesCount}
+                  </span>
+                </Link>
+              )}
+
+              {actionRequiredBookings.length === 0 && unreadMessagesCount === 0 && (
+                <EmptyState text="You’re all caught up. New booking requests and unread messages will appear here." />
+              )}
+            </div>
           </Card>
 
           {/* RECENT BOOKINGS */}
@@ -433,10 +709,10 @@ export default function MuaDashboardPage() {
             </div>
 
             <div className="mt-5 space-y-3">
-              {bookings.slice(0, 5).length === 0 ? (
+              {recentBookings.length === 0 ? (
                 <EmptyState text="No bookings yet — once someone books you, they’ll appear here." />
               ) : (
-                bookings.slice(0, 5).map((booking) => (
+                recentBookings.map((booking) => (
                   <div
                     key={booking.id}
                     className="flex flex-col gap-3 rounded-[1.4rem] border border-[#eadff5] bg-white p-4 md:flex-row md:items-center md:justify-between"
@@ -447,8 +723,8 @@ export default function MuaDashboardPage() {
                         {booking.bride_profiles?.last_name || ""}
                       </p>
                       <p className="mt-1 text-sm text-[#6f6077]">
-                        {booking.event_date
-                          ? formatDate(booking.event_date)
+                        {booking.booking_date
+                          ? `${formatDate(booking.booking_date)}${booking.booking_time ? ` · ${booking.booking_time.slice(0, 5)}` : ""}`
                           : "No date yet"}
                       </p>
                     </div>
@@ -502,52 +778,41 @@ export default function MuaDashboardPage() {
 
           {/* PROFILE COMPLETION */}
           <Card>
-            <p className="text-xs uppercase tracking-[0.18em] text-purple-700">
-              Profile health
-            </p>
-
+            <p className="text-xs uppercase tracking-[0.18em] text-purple-700">Your profile</p>
             <h2 className="mt-2 text-2xl font-light tracking-[-0.04em]">
-              Complete your profile
+              {profileCompletion === 100 ? "Your profile is ready! ✨" : "Complete your profile"}
             </h2>
-
-            <div className="mt-5">
-              <div className="mb-2 flex items-center justify-between text-sm">
-                <span className="text-[#6f6077]">Completion</span>
-                <span className="font-medium text-[#171018]">
-                  {profileCompletion}%
-                </span>
+            <div className="mt-5 flex items-center gap-5">
+              <div className="relative h-24 w-24 shrink-0">
+                <svg viewBox="0 0 100 100" className="h-24 w-24 -rotate-90">
+                  <circle cx="50" cy="50" r="42" fill="none" stroke="#f1e5ff" strokeWidth="9" />
+                  <circle cx="50" cy="50" r="42" fill="none" stroke="#9333ea" strokeWidth="9" strokeLinecap="round" strokeDasharray={String(profileCompletion * 2.6389) + " 263.89"} />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center text-xl font-semibold text-[#171018]">{profileCompletion}%</div>
               </div>
-
-              <div className="h-3 overflow-hidden rounded-full bg-[#f1e5ff]">
-                <div
-                  className="h-full rounded-full bg-purple-600 transition-all"
-                  style={{ width: `${profileCompletion}%` }}
-                />
+              <div>
+                <p className="text-sm font-medium text-[#171018]">
+                  {profileCompletion === 100 ? "You’ve done it!" : profileTasks.filter((task) => task.done).length + " of " + profileTasks.length + " steps complete"}
+                </p>
+                <p className="mt-1 text-sm leading-6 text-[#6f6077]">
+                  {profileCompletion === 100 ? "Your artist profile has all the essentials clients need to book with confidence." : "Finish these steps to give brides everything they need to discover and book you."}
+                </p>
               </div>
             </div>
-
-            <div className="mt-5 space-y-3">
-              <ChecklistItem done={!!profile?.bio} label="Add your bio" />
-              <ChecklistItem
-                done={!!profile?.instagram}
-                label="Add your Instagram"
-              />
-              <ChecklistItem
-                done={!!(profile?.cities && profile.cities.length)}
-                label="Select your cities"
-              />
-              <ChecklistItem
-                done={services.length > 0}
-                label="Add at least one service"
-              />
+            <div className="mt-5 space-y-2">
+              {profileTasks.map((task) => (
+                <Link key={task.label} href={task.href} className="flex items-center gap-3 rounded-[1.2rem] border border-[#eadff5] bg-[#fffafc] px-4 py-3 transition hover:border-purple-300">
+                  <span className={"grid h-6 w-6 shrink-0 place-items-center rounded-full " + (task.done ? "bg-green-100 text-green-700" : "bg-[#f1e5ff] text-purple-700")}>
+                    {task.done ? <CheckCircle2 size={15} /> : <ArrowRight size={14} />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className={"block text-sm " + (task.done ? "text-[#6f6077]" : "font-medium text-[#171018]")}>{task.label}</span>
+                    <span className="mt-0.5 block text-xs text-[#8a7d91]">{task.detail}</span>
+                  </span>
+                  <ArrowRight size={15} className="shrink-0 text-purple-700" />
+                </Link>
+              ))}
             </div>
-
-            <Link
-              href="/dashboard/mua/settings"
-              className="mt-6 inline-flex items-center gap-2 text-sm text-purple-700"
-            >
-              Finish profile <ArrowRight size={16} />
-            </Link>
           </Card>
 
           {/* SERVICES SNAPSHOT */}
@@ -713,6 +978,28 @@ function formatDate(date: string | null) {
 
 function formatMoney(value: number | string | null | undefined) {
   return `EGP ${Number(value || 0).toLocaleString()}`;
+}
+
+function getCairoDateKey(date: Date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Cairo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function IncomeCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[1.4rem] border border-[#eadff5] bg-[#fffafc] p-4">
+      <p className="text-xs uppercase tracking-[0.16em] text-[#8a7d91]">
+        {label}
+      </p>
+      <p className="mt-2 break-words text-2xl font-medium tracking-[-0.04em] text-[#171018]">
+        {value}
+      </p>
+    </div>
+  );
 }
 
 function capitalize(value: string | null | undefined) {

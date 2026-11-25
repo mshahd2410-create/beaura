@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { createChatImageSignedUrl } from "@/lib/chatImageUrl";
 import { ArrowLeft, ImagePlus, SendHorizontal, X } from "lucide-react";
 
 export default function ConversationPage() {
@@ -14,6 +15,7 @@ export default function ConversationPage() {
     : params.conversationId;
 
   const [messages, setMessages] = useState<any[]>([]);
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [newMessage, setNewMessage] = useState("");
   const [image, setImage] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
@@ -59,8 +61,13 @@ export default function ConversationPage() {
             table: "messages",
             filter: `conversation_id=eq.${conversationId}`,
           },
-          (payload) => {
-            setMessages((prev) => [...prev, payload.new]);
+          async (payload) => {
+            const message = payload.new as any;
+            setMessages((prev) => [...prev, message]);
+            if (message.image_url) {
+              const signedUrl = await createChatImageSignedUrl(message.image_url);
+              if (signedUrl) setImageUrls((prev) => ({ ...prev, [message.id]: signedUrl }));
+            }
           }
         )
         .subscribe();
@@ -106,7 +113,15 @@ export default function ConversationPage() {
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: true });
 
-    setMessages(data || []);
+    const rows = data || [];
+    setMessages(rows);
+    const signedImages = await Promise.all(
+      rows.map(async (message) => ({
+        id: message.id,
+        url: message.image_url ? await createChatImageSignedUrl(message.image_url) : null,
+      }))
+    );
+    setImageUrls(Object.fromEntries(signedImages.filter((item) => item.url).map((item) => [item.id, item.url as string])));
   }
 
   async function sendMessage() {
@@ -117,8 +132,9 @@ export default function ConversationPage() {
     let imageUrl: string | null = null;
 
     if (image) {
-      if (!image.type.startsWith("image/") || image.size > 8 * 1024 * 1024) {
-        setSendError("Choose an image smaller than 8 MB.");
+      const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+      if (!allowedTypes.includes(image.type) || image.size > 8 * 1024 * 1024) {
+        setSendError("Choose a JPG, PNG, WebP, HEIC or HEIF image smaller than 8 MB.");
         setSending(false);
         return;
       }
@@ -129,8 +145,7 @@ export default function ConversationPage() {
         setSending(false);
         return;
       }
-      const { data } = supabase.storage.from("chat-images").getPublicUrl(path);
-      imageUrl = data.publicUrl;
+      imageUrl = path;
     }
 
     const { error } = await supabase.from("messages").insert({
@@ -214,9 +229,9 @@ export default function ConversationPage() {
                           : "rounded-bl-md border border-[#eadff5] bg-white text-[#171018]"
                       }`}
                     >
-                      {msg.image_url && (
-                        <a href={msg.image_url} target="_blank" rel="noreferrer" className="mb-2 block">
-                          <img src={msg.image_url} alt="Shared image" className="max-h-72 rounded-xl object-cover" />
+                      {msg.image_url && imageUrls[msg.id] && (
+                        <a href={imageUrls[msg.id]} target="_blank" rel="noreferrer" className="mb-2 block">
+                          <img src={imageUrls[msg.id]} alt="Shared image" className="max-h-72 rounded-xl object-cover" />
                         </a>
                       )}
                       {msg.content}
@@ -245,7 +260,7 @@ export default function ConversationPage() {
           <div className="mx-auto flex max-w-3xl items-center gap-2">
             <label className="grid h-12 w-12 shrink-0 cursor-pointer place-items-center rounded-full border border-[#eadff5] text-[#6f6077] hover:bg-[#f7efff]">
               <ImagePlus size={18} />
-              <input type="file" accept="image/*" className="hidden" onChange={(event) => setImage(event.target.files?.[0] || null)} />
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" className="hidden" onChange={(event) => setImage(event.target.files?.[0] || null)} />
             </label>
             <input
               value={newMessage}

@@ -55,7 +55,9 @@ export default function RegisterMUA() {
     instagram: "",
     bio: "",
     experience: "",
+    experienceYears: "",
     cities: [] as string[],
+    workLocations: [] as string[],
     services: {
       bridal: { price: "", duration: 90 },
       engagement: { price: "", duration: 75 },
@@ -69,6 +71,15 @@ export default function RegisterMUA() {
       cities: prev.cities.includes(city)
         ? prev.cities.filter((c) => c !== city)
         : [...prev.cities, city],
+    }));
+  };
+
+  const toggleWorkLocation = (location: string) => {
+    setForm((prev) => ({
+      ...prev,
+      workLocations: prev.workLocations.includes(location)
+        ? prev.workLocations.filter((item) => item !== location)
+        : [...prev.workLocations, location],
     }));
   };
 
@@ -128,6 +139,7 @@ export default function RegisterMUA() {
       instagram: form.instagram,
       bio: form.bio,
       experience: form.experience,
+      experience_years: form.experienceYears === "" ? null : Number(form.experienceYears),
       cities: form.cities,
     });
 
@@ -147,6 +159,27 @@ export default function RegisterMUA() {
       setError(privateProfileError.message);
       setLoading(false);
       return;
+    }
+
+    if (form.workLocations.length > 0) {
+      const { error: locationsError } = await supabase
+        .from("mua_service_locations")
+        .upsert(
+          form.workLocations.map((location_type) => ({
+            mua_id: user.id,
+            location_type,
+            is_accepted: true,
+            travel_fee: 0,
+            updated_at: new Date().toISOString(),
+          })),
+          { onConflict: "mua_id,location_type" }
+        );
+
+      if (locationsError) {
+        setError(locationsError.message);
+        setLoading(false);
+        return;
+      }
     }
 
     const servicesToInsert = [];
@@ -288,6 +321,33 @@ const path = `${user.id}/${uniqueName}-${file.name}`;
               options={EXPERIENCE_LEVELS}
               onChange={(v) => setForm({ ...form, experience: v })}
             />
+            <Input
+              label="Years of experience (optional)"
+              type="number"
+              onChange={(v) => setForm({ ...form, experienceYears: v })}
+            />
+            <p className="text-xs text-[#8a7d91]">You can skip this now and add it later from your profile settings.</p>
+          </Section>
+
+          <Section title="Where can clients book you? (optional)">
+            <p className="mb-3 text-sm text-[#6f6077]">Choose the places where you’re happy to provide your makeup services. You can update these anytime.</p>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                ["client_home", "Client’s home"],
+                ["hotel", "Hotel"],
+                ["event_venue", "Event venue"],
+                ["own_studio", "My studio"],
+              ].map(([value, label]) => (
+                <button
+                  type="button"
+                  key={value}
+                  onClick={() => toggleWorkLocation(value)}
+                  className={"rounded-2xl border px-3 py-3 text-sm transition " + (form.workLocations.includes(value) ? "border-purple-600 bg-[#f7efff] text-purple-700" : "border-[#eadff5] bg-white text-[#6f6077] hover:border-purple-300")}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </Section>
 
           <Section title="Portfolio">
@@ -442,6 +502,9 @@ function Input({
       <label className="mb-2 block text-sm text-[#554a5c]">{label}</label>
       <input
         type={type}
+        min={type === "number" ? 0 : undefined}
+        max={type === "number" ? 60 : undefined}
+        step={type === "number" ? 1 : undefined}
         onChange={(e) => onChange(e.target.value)}
         required={label.includes("*")}
         className="w-full rounded-2xl border border-[#eadff5] bg-white px-4 py-3 text-sm outline-none transition focus:border-purple-500"
