@@ -56,6 +56,18 @@ export default function BrideHome() {
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [sortBy, setSortBy] = useState("recommended");
+  const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("beaura_recently_viewed_muas") || "[]");
+      if (Array.isArray(saved)) {
+        setRecentlyViewedIds(saved.filter((item): item is string => typeof item === "string").slice(0, 8));
+      }
+    } catch (storageError) {
+      console.warn("Could not load recently viewed artists:", storageError);
+    }
+  }, []);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -170,6 +182,11 @@ export default function BrideHome() {
     });
   }, [muas, searchQuery, selectedCity, selectedCategory, minPrice, maxPrice, sortBy]);
 
+  const recentlyViewedMuas = recentlyViewedIds
+    .map((id) => muas.find((mua) => mua.id === id))
+    .filter(Boolean)
+    .slice(0, 6);
+
   const handleServiceClick = (service: string) => {
     setSelectedCategory(service);
 
@@ -239,6 +256,19 @@ export default function BrideHome() {
             ))}
           </div>
         </section>
+
+        {recentlyViewedMuas.length > 0 && (
+          <section className="mt-16">
+            <div className="mb-6">
+              <p className="text-xs uppercase tracking-[0.2em] text-purple-700">Pick up where you left off</p>
+              <h2 className="mt-2 text-3xl font-light tracking-[-0.05em]">Recently viewed artists</h2>
+              <p className="mt-2 text-sm text-[#6f6077]">Artists you opened recently are saved on this device for quick access.</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              {recentlyViewedMuas.map((mua: any) => <MuaCard key={mua.id} mua={mua} />)}
+            </div>
+          </section>
+        )}
 
         <section className="mt-16 rounded-[2rem] border border-[#eadff5] bg-white p-5 shadow-sm sm:p-7">
           <div className="mb-5">
