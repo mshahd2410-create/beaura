@@ -18,6 +18,7 @@ import {
 
 type PortfolioImage = {
   url: string;
+  category: string | null;
 };
 
 type MuaProfile = {
@@ -30,6 +31,7 @@ type MuaProfile = {
   status: string;
   instagram: string | null;
   experience: string | null;
+  experience_years: number | null;
   portfolio: PortfolioImage[];
   services: any[];
 };
@@ -70,6 +72,8 @@ export default function MuaProfilePage() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [reviewSummary, setReviewSummary] = useState<ReviewSummary>({ average: 0, count: 0 });
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [portfolioCategory, setPortfolioCategory] = useState("all");
   const [locationOptions, setLocationOptions] = useState<LocationOption[]>([]);
 
   const loadMua = useCallback(async () => {
@@ -95,8 +99,10 @@ export default function MuaProfilePage() {
         status,
         instagram,
         experience,
+        experience_years,
         mua_portfolio (
-          image_path
+          image_path,
+          category
         ),
         mua_services (
           id,
@@ -139,6 +145,7 @@ export default function MuaProfilePage() {
         url: supabase.storage
           .from("mua-portfolio")
           .getPublicUrl(item.image_path).data.publicUrl,
+        category: item.category || null,
       })) || [];
 
     const services = (data.mua_services || []).map((service: any) => ({
@@ -172,13 +179,15 @@ export default function MuaProfilePage() {
 
     const { data: reviewRows, error: reviewsError } = await supabase
       .from("mua_reviews")
-      .select("rating")
-      .eq("mua_id", id);
+      .select("rating, review_text, comment, created_at")
+      .eq("mua_id", id)
+      .order("created_at", { ascending: false });
 
     if (reviewsError) {
       console.error("Error loading artist reviews:", reviewsError);
       setReviewSummary({ average: 0, count: 0 });
     } else {
+      setReviews((reviewRows || []).filter((review: any) => String(review.review_text || review.comment || "").trim()));
       const ratings = (reviewRows || [])
         .map((review: any) => Number(review.rating))
         .filter((rating: number) => Number.isFinite(rating) && rating >= 1 && rating <= 5);
@@ -497,8 +506,11 @@ export default function MuaProfilePage() {
               ))}
 
               {mua.experience && (
-                <span className="rounded-full bg-[#171018] px-3 py-1.5 text-xs text-white">
-                  {mua.experience}
+                <span className="rounded-full bg-[#171018] px-3 py-1.5 text-xs text-white">{mua.experience}</span>
+              )}
+              {mua.experience_years !== null && mua.experience_years !== undefined && (
+                <span className="rounded-full bg-[#f7efff] px-3 py-1.5 text-xs text-purple-700">
+                  {mua.experience_years} {mua.experience_years === 1 ? "year" : "years"} of experience
                 </span>
               )}
             </div>
@@ -756,6 +768,22 @@ export default function MuaProfilePage() {
                 <p className="text-sm text-[#6f6077]">No ratings yet</p>
               )}
             </div>
+          {reviews.length > 0 ? (
+            <div className="mt-6 grid gap-3 md:grid-cols-2">
+              {reviews.map((review: any, index: number) => (
+                <article key={`${review.created_at || "review"}-${index}`} className="rounded-2xl border border-[#eadff5] bg-[#fffafc] p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-medium uppercase tracking-[0.14em] text-purple-700">Verified client</span>
+                    <span className="inline-flex items-center gap-1 text-sm font-semibold text-[#171018]"><Star size={14} className="fill-[#d4a843] text-[#d4a843]" />{Number(review.rating).toFixed(1)} / 5</span>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-[#6f6077]">{review.review_text || review.comment}</p>
+                  {review.created_at && <p className="mt-3 text-xs text-[#9a8da0]">{new Date(review.created_at).toLocaleDateString("en-EG", { year: "numeric", month: "short" })}</p>}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-6 rounded-2xl bg-[#fffafc] p-5 text-sm text-[#6f6077]">No written reviews yet. Client ratings will appear here after brides share feedback.</p>
+          )}
           </div>
         </section>
 
@@ -774,9 +802,16 @@ export default function MuaProfilePage() {
         <div className="fixed inset-0 z-50 overflow-y-auto bg-[#fffafc] px-4 py-6">
           <div className="mx-auto max-w-6xl">
             <div className="sticky top-0 z-10 mb-5 flex items-center justify-between rounded-full border border-[#eadff5] bg-white/90 px-4 py-3 backdrop-blur">
-              <p className="text-sm font-medium">
-                {artistName} portfolio
-              </p>
+              <div>
+                <p className="text-sm font-medium">{artistName} portfolio</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {["all", "bridal", "soft_glam", "evening_glam", "natural", "editorial", "traditional", "other"].map((category) => (
+                    <button key={category} onClick={() => setPortfolioCategory(category)} className={`rounded-full px-3 py-1.5 text-xs capitalize ${portfolioCategory === category ? "bg-[#171018] text-white" : "border border-[#eadff5] bg-white text-[#6f6077]"}`}>
+                      {category === "all" ? "All looks" : category.replaceAll("_", " ")}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               <button
                 onClick={() => setGalleryOpen(false)}
@@ -787,7 +822,7 @@ export default function MuaProfilePage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {mua.portfolio.map((img, index) => (
+              {mua.portfolio.filter((img) => portfolioCategory === "all" || img.category === portfolioCategory).map((img, index) => (
                 <button
                   key={index}
                   onClick={() => setImageOpen(img.url)}
