@@ -13,6 +13,7 @@ import {
   Sparkles,
   X,
   Users,
+  Star,
 } from "lucide-react";
 
 type PortfolioImage = {
@@ -31,6 +32,11 @@ type MuaProfile = {
   experience: string | null;
   portfolio: PortfolioImage[];
   services: any[];
+};
+
+type ReviewSummary = {
+  average: number;
+  count: number;
 };
 
 function formatEGP(value: number) {
@@ -58,6 +64,7 @@ export default function MuaProfilePage() {
 
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [reviewSummary, setReviewSummary] = useState<ReviewSummary>({ average: 0, count: 0 });
 
   const loadMua = useCallback(async () => {
     if (!id) {
@@ -143,6 +150,26 @@ export default function MuaProfilePage() {
       portfolio,
       services,
     });
+
+    const { data: reviewRows, error: reviewsError } = await supabase
+      .from("mua_reviews")
+      .select("rating")
+      .eq("mua_id", id);
+
+    if (reviewsError) {
+      console.error("Error loading artist reviews:", reviewsError);
+      setReviewSummary({ average: 0, count: 0 });
+    } else {
+      const ratings = (reviewRows || [])
+        .map((review: any) => Number(review.rating))
+        .filter((rating: number) => Number.isFinite(rating) && rating >= 1 && rating <= 5);
+      setReviewSummary({
+        average: ratings.length
+          ? ratings.reduce((sum: number, rating: number) => sum + rating, 0) / ratings.length
+          : 0,
+        count: ratings.length,
+      });
+    }
 
     // Keep a small, local history so brides can quickly return to artists they viewed.
     try {
@@ -462,7 +489,7 @@ export default function MuaProfilePage() {
                 "This artist hasn’t added a bio yet, but their portfolio and services are ready to view."}
             </p>
 
-            <div className="mt-7 grid gap-3 sm:grid-cols-3">
+            <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <MiniStat
                 label="Starting from"
                 value={
@@ -480,6 +507,11 @@ export default function MuaProfilePage() {
               <MiniStat
                 label="Photos"
                 value={`${mua.portfolio.length}`}
+              />
+
+              <MiniStat
+                label="Client rating"
+                value={reviewSummary.count ? `${reviewSummary.average.toFixed(1)} / 5` : "Not rated yet"}
               />
             </div>
 
@@ -633,6 +665,24 @@ export default function MuaProfilePage() {
                 "View the artist’s portfolio and services, or send a message if you have a question before booking."}
             </p>
 
+            {mua.experience && (
+              <div className="mt-5 rounded-2xl bg-[#fffafc] p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-purple-700">Experience</p>
+                <p className="mt-1 text-sm font-medium text-[#171018]">{mua.experience}</p>
+              </div>
+            )}
+
+            {(mua.cities || []).length > 0 && (
+              <div className="mt-5">
+                <p className="text-xs uppercase tracking-[0.16em] text-purple-700">Areas served</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(mua.cities || []).map((city: string) => (
+                    <span key={city} className="rounded-full bg-[#f7efff] px-3 py-2 text-xs text-purple-700">{city}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {mua.instagram && (
               <a
                 href={mua.instagram}
@@ -643,6 +693,31 @@ export default function MuaProfilePage() {
                 View Instagram
               </a>
             )}
+          </div>
+        </section>
+
+        {/* CLIENT REVIEWS */}
+        <section className="rounded-[2.5rem] border border-[#eadff5] bg-white p-6 shadow-sm sm:p-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-purple-700">Bride feedback</p>
+              <h2 className="mt-3 text-3xl font-light tracking-[-0.06em]">Client reviews</h2>
+              <p className="mt-2 text-sm text-[#6f6077]">Ratings are from brides who have reviewed this artist after a completed booking.</p>
+            </div>
+            <div className="rounded-2xl bg-[#fffafc] px-5 py-4">
+              {reviewSummary.count > 0 ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <Star size={19} className="fill-[#d4a843] text-[#d4a843]" />
+                    <span className="text-2xl font-semibold text-[#171018]">{reviewSummary.average.toFixed(1)}</span>
+                    <span className="text-sm text-[#8a7d91]">/ 5</span>
+                  </div>
+                  <p className="mt-1 text-xs text-[#6f6077]">{reviewSummary.count} {reviewSummary.count === 1 ? "review" : "reviews"}</p>
+                </>
+              ) : (
+                <p className="text-sm text-[#6f6077]">No ratings yet</p>
+              )}
+            </div>
           </div>
         </section>
 
