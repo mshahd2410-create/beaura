@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 type InspirationImage = { src: string; caption: string };
 
-export default function InspirationGallery({ images }: { images: InspirationImage[] }) {
+export default function InspirationGallery({ images }: { images: readonly InspirationImage[] }) {
   const [selected, setSelected] = useState<InspirationImage | null>(null);
 
   useEffect(() => {
