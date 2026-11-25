@@ -404,6 +404,7 @@ export default function AdminDashboardPage() {
                 <Shortcut href="/admin/cancellation-requests" label="Cancellation Requests" />
                 <Shortcut href="/admin/brides" label="Manage Clients" />
                 <Shortcut href="/admin/muas" label="Manage MUAs" />
+                <Shortcut href="/admin/artist-monitoring" label="Artist Monitoring" />
                 <Shortcut href="/admin/bookings" label="Bookings" />
                 <Shortcut href="/admin/finance" label="Finance Overview" />
                 <Shortcut href="/admin/promotions" label="Promotions" />
