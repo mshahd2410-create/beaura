@@ -8,6 +8,7 @@ type PortfolioImage = {
   id: string;
   image_path: string;
   created_at?: string;
+  category?: string | null;
 };
 
 export default function MuaPortfolioPage() {
@@ -16,6 +17,7 @@ export default function MuaPortfolioPage() {
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [uploadCategory, setUploadCategory] = useState("bridal");
 
   useEffect(() => {
     loadPortfolio();
@@ -82,6 +84,7 @@ export default function MuaPortfolioPage() {
         await supabase.from("mua_portfolio").insert({
           mua_id: user.id,
           image_path: path,
+          category: uploadCategory,
         });
       }
     }
@@ -89,6 +92,15 @@ export default function MuaPortfolioPage() {
     e.target.value = "";
     setUploading(false);
     await loadPortfolio();
+  }
+
+  async function updateCategory(id: string, category: string) {
+    const { error } = await supabase.from("mua_portfolio").update({ category }).eq("id", id);
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    setImages((current) => current.map((image) => image.id === id ? { ...image, category } : image));
   }
 
   async function deleteImage(id: string, path: string) {
@@ -119,6 +131,12 @@ export default function MuaPortfolioPage() {
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6B6476]">
               Upload your best work here. This is what clients see first, so keep it clean, fresh, and very you.
             </p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <label className="text-xs font-medium uppercase tracking-[0.16em] text-[#7B7388]">Category for new photos</label>
+              <select value={uploadCategory} onChange={(e) => setUploadCategory(e.target.value)} className="h-10 rounded-full border border-[#eadff5] bg-[#fffafc] px-4 text-sm text-[#171018]">
+                <option value="bridal">Bridal</option><option value="soft_glam">Soft glam</option><option value="evening_glam">Evening glam</option><option value="natural">Natural</option><option value="editorial">Editorial</option><option value="traditional">Traditional</option><option value="other">Other</option>
+              </select>
+            </div>
           </div>
 
           <label className="inline-flex h-12 cursor-pointer items-center justify-center gap-2 rounded-full bg-[#171018] px-6 text-sm font-medium text-white transition hover:opacity-90">
@@ -204,6 +222,12 @@ export default function MuaPortfolioPage() {
                   <div className="aspect-[4/5] animate-pulse bg-[#FAF8FF]" />
                 )}
 
+                <div className="border-t border-gray-100 bg-white p-3">
+                  <label className="mb-1 block text-[10px] font-medium uppercase tracking-[0.15em] text-[#7B7388]">Photo category</label>
+                  <select value={img.category || "other"} onChange={(e) => updateCategory(img.id, e.target.value)} className="h-9 w-full rounded-xl border border-[#eadff5] bg-[#fffafc] px-3 text-xs text-[#171018]">
+                    <option value="bridal">Bridal</option><option value="soft_glam">Soft glam</option><option value="evening_glam">Evening glam</option><option value="natural">Natural</option><option value="editorial">Editorial</option><option value="traditional">Traditional</option><option value="other">Other</option>
+                  </select>
+                </div>
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-4 opacity-0 transition group-hover:opacity-100">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-xs font-medium text-white/90">
