@@ -184,7 +184,7 @@ export function bookingRequestCreatedTemplate(data: BookingEmailData) {
         ${detailRow("Total", escapeHtml(money(data.totalPrice)))}
       `)}
 
-      ${primaryButton("Open Beaura dashboard", "https://www.beauraegypt.com/bride/bookings")}
+      ${primaryButton("Open Beaura dashboard", "https://www.beauraegypt.com/dashboard/mua")}
     `
   );
 }
@@ -261,7 +261,7 @@ export function bookingStatusUpdateTemplate(
           <strong>Reason:</strong> ${escapeHtml(data.reason)}
         </p>
       ` : ""}
-      ${primaryButton("Open Beaura dashboard")}
+      ${primaryButton("Open Beaura dashboard", "https://www.beauraegypt.com/bride/bookings")}
     `
   );
 }
