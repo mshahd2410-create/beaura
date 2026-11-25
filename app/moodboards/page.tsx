@@ -1,11 +1,5 @@
-import Link from "next/link";
-import { moodboardCategories } from "@/lib/moodboards";
+import { redirect } from "next/navigation";
 
 export default function MoodboardsPage() {
-  return <main className="min-h-screen bg-[#fffafc] text-[#171018]">
-    <header className="border-b border-[#eadff5] bg-white/90"><div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-5 sm:px-8"><Link href="/" className="text-4xl font-light tracking-[-0.09em]">Beaura<span className="text-purple-600">.</span></Link><Link href="/" className="text-sm text-[#6f6077] hover:text-purple-700">Back to home</Link></div></header>
-    <section className="px-5 pb-14 pt-16 sm:px-8 sm:pt-24"><div className="mx-auto max-w-7xl"><p className="text-xs uppercase tracking-[0.24em] text-purple-700">The Beaura inspiration edit</p><h1 className="mt-5 max-w-4xl text-6xl font-light leading-[0.9] tracking-[-0.08em] md:text-8xl">Save the mood.<br/>Create the moment.</h1><p className="mt-7 max-w-2xl text-base leading-8 text-[#6f6077]">A place to explore the whole look — beauty, hair, outfits, hijab, shoes, accessories and spaces — all organised around your occasion.</p></div></section>
-    <section className="px-5 pb-24 sm:px-8"><div className="mx-auto grid max-w-7xl gap-5 sm:grid-cols-2 lg:grid-cols-4">{moodboardCategories.map((item)=><Link key={item.slug} href={`/moodboards/${item.slug}`} className="group relative min-h-[290px] overflow-hidden rounded-[2rem] border border-[#eadff5] bg-white p-7 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"><div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-[#f1e5ff] transition duration-500 group-hover:scale-125"/><div className="absolute -bottom-16 -left-8 h-44 w-44 rounded-full bg-[#ffe8f0]"/><div className="relative flex h-full flex-col"><span className="text-xs tracking-[0.2em] text-purple-700">{item.number} / 08</span><h2 className="mt-12 text-4xl font-light tracking-[-0.06em]">{item.title}</h2><p className="mt-3 max-w-xs text-sm leading-6 text-[#6f6077]">{item.subtitle}</p><span className="mt-auto pt-8 text-xs font-medium uppercase tracking-[0.14em] text-purple-700">Explore inspiration ↗</span></div></Link>)}</div></section>
-    <footer className="border-t border-[#eadff5] bg-white px-5 py-8 text-center text-xs text-[#8a7d91]">Beaura · Inspiration for every occasion</footer>
-  </main>;
+  redirect("/inspiration");
 }
