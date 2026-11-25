@@ -6,28 +6,11 @@ DROP POLICY IF EXISTS "Authenticated users can create notifications"
   ON public.notifications;
 
 -- Remove any column-level grants as well as broad table-level grants.
-DO $$
-DECLARE
-  v_column record;
-BEGIN
-  FOR v_column IN
-    SELECT attname
-    FROM pg_attribute
-    WHERE attrelid = 'public.notifications'::regclass
-      AND attnum > 0
-      AND NOT attisdropped
-  LOOP
-    EXECUTE format(
-      'REVOKE ALL (%I) ON TABLE public.notifications FROM anon, authenticated',
-      v_column.attname
-    );
-    EXECUTE format(
-      'REVOKE ALL (%I) ON TABLE public.notifications FROM PUBLIC',
-      v_column.attname
-    );
-  END LOOP;
-END
-$$;
+REVOKE ALL PRIVILEGES (
+  id, user_id, actor_id, booking_id, type, title, message, href, is_read, created_at
+)
+ON TABLE public.notifications
+FROM PUBLIC, anon, authenticated;
 
 REVOKE ALL PRIVILEGES
 ON TABLE public.notifications
