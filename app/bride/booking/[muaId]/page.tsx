@@ -472,17 +472,9 @@ export default function BookingPage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ""}`,
           },
-          body: JSON.stringify({
-            muaEmail: muaProfile.email,
-            muaName: getFullName(muaProfile, "artist"),
-            brideName: getFullName(brideProfile, "A bride"),
-            bookingDate: bookingData.booking_date,
-            bookingTime: bookingData.booking_time,
-            serviceName: getEmailServiceName(),
-            location: bookingData.location,
-            totalPrice: Number(bookingData.total_price || 0),
-          }),
+          body: JSON.stringify({ bookingId: bookingData.id }),
         }
       );
 
@@ -518,20 +510,9 @@ export default function BookingPage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ""}`,
           },
-          body: JSON.stringify({
-            brideEmail: brideProfile.email,
-            brideName: getFullName(brideProfile, "beautiful"),
-            muaName: getFullName(
-              muaProfile,
-              "your makeup artist"
-            ),
-            bookingDate: bookingData.booking_date,
-            bookingTime: bookingData.booking_time,
-            serviceName: getEmailServiceName(),
-            location: bookingData.location,
-            totalPrice: Number(bookingData.total_price || 0),
-          }),
+          body: JSON.stringify({ bookingId: bookingData.id }),
         }
       );
 
