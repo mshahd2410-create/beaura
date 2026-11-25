@@ -96,6 +96,20 @@ type Booking = {
     name: string;
     duration_minutes?: number | null;
   } | null;
+  financials?: BookingFinancials | null;
+};
+
+type BookingFinancials = {
+  booking_id: string;
+  original_service_price: number | null;
+  discount_amount: number | null;
+  discounted_service_price: number | null;
+  travel_fee: number | null;
+  bride_platform_fee: number | null;
+  bride_deposit_service_amount: number | null;
+  bride_deposit_travel_amount: number | null;
+  bride_deposit_amount: number | null;
+  remaining_direct_amount: number | null;
 };
 
 type ModalType = "complete" | "issue" | "review" | null;
@@ -197,7 +211,8 @@ export default function BrideBookings() {
         ...new Set(rows.map((b) => b.service_id).filter(Boolean)),
       ];
 
-      const [{ data: muas }, { data: services }, { data: portfolio }, { data: existingReviews }] = await Promise.all([
+      const bookingIds = rows.map((b) => b.id).filter(Boolean);
+      const [{ data: muas }, { data: services }, { data: portfolio }, { data: existingReviews }, { data: financialRows, error: financialError }] = await Promise.all([
         muaIds.length
           ? supabase
               .from("mua_profiles")
@@ -219,7 +234,21 @@ export default function BrideBookings() {
         muaIds.length
           ? supabase.from("mua_reviews").select("mua_id").eq("bride_id", user.id).in("mua_id", muaIds)
           : Promise.resolve({ data: [] as any[] }),
+
+        bookingIds.length
+          ? supabase
+              .from("booking_financials")
+              .select("booking_id, original_service_price, discount_amount, discounted_service_price, travel_fee, bride_platform_fee, bride_deposit_service_amount, bride_deposit_travel_amount, bride_deposit_amount, remaining_direct_amount")
+              .in("booking_id", bookingIds)
+          : Promise.resolve({ data: [] as BookingFinancials[], error: null }),
       ]);
+
+      if (financialError) {
+        console.error("BRIDE BOOKING FINANCIALS LOAD ERROR:", financialError);
+      }
+      const financialMap = new Map(
+        ((financialRows || []) as BookingFinancials[]).map((row) => [row.booking_id, row])
+      );
 
       setReviewedMuaIds([...new Set((existingReviews || []).map((review: any) => review.mua_id).filter(Boolean))]);
 
@@ -236,6 +265,7 @@ export default function BrideBookings() {
               : null,
           } : null,
           service: services?.find((s) => s.id === b.service_id) || null,
+          financials: financialMap.get(b.id) || null,
         };
       });
 
@@ -698,6 +728,52 @@ export default function BrideBookings() {
                           {Number(b.remaining_balance || 0) > 0 && <p className="mt-1 text-xs text-[#6f6077]">Remaining: {formatMoney(b.remaining_balance)}</p>}
                         </div>
                       </div>
+
+                      {b.financials && (
+                        <details className="mt-3 rounded-2xl border border-[#eadff5] bg-white px-4 py-3">
+                          <summary className="cursor-pointer text-sm font-medium text-purple-700">
+                            View full price breakdown
+                          </summary>
+                          <div className="mt-3 space-y-2 text-sm">
+                            <div className="flex justify-between gap-4">
+                              <span className="text-[#6f6077]">Makeup service</span>
+                              <span>{formatMoney(b.financials.original_service_price)}</span>
+                            </div>
+                            {Number(b.financials.discount_amount || 0) > 0 && (
+                              <>
+                                <div className="flex justify-between gap-4 text-green-700">
+                                  <span>Promo-code discount</span>
+                                  <span>− {formatMoney(b.financials.discount_amount)}</span>
+                                </div>
+                                <div className="flex justify-between gap-4">
+                                  <span className="text-[#6f6077]">Service after discount</span>
+                                  <span>{formatMoney(b.financials.discounted_service_price)}</span>
+                                </div>
+                              </>
+                            )}
+                            <div className="flex justify-between gap-4">
+                              <span className="text-[#6f6077]">Artist travel fee</span>
+                              <span>{formatMoney(b.financials.travel_fee)}</span>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                              <span className="text-[#6f6077]">Beaura platform fee</span>
+                              <span>{formatMoney(b.financials.bride_platform_fee)}</span>
+                            </div>
+                            <div className="flex justify-between gap-4 border-t border-[#eadff5] pt-2 font-semibold text-[#171018]">
+                              <span>Full booking total</span>
+                              <span>{formatMoney(b.total_price)}</span>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                              <span className="text-[#6f6077]">Deposit due</span>
+                              <span>{formatMoney(b.financials.bride_deposit_amount)}</span>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                              <span className="text-[#6f6077]">Remaining service balance</span>
+                              <span>{formatMoney(b.financials.remaining_direct_amount)}</span>
+                            </div>
+                          </div>
+                        </details>
+                      )}
 
                       <p className="mt-3 text-xs font-medium text-[#6f6077]">{getPaymentStatusLabel(b)}</p>
 
