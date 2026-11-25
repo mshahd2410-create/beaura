@@ -125,9 +125,7 @@ export default function RegisterMUA() {
       id: user.id,
       first_name: form.firstName,
       last_name: form.lastName,
-      phone: form.phone,
       instagram: form.instagram,
-      email: form.email,
       bio: form.bio,
       experience: form.experience,
       cities: form.cities,
@@ -135,6 +133,18 @@ export default function RegisterMUA() {
 
     if (profileError) {
       setError(profileError.message);
+      setLoading(false);
+      return;
+    }
+
+    const { error: privateProfileError } = await supabase.from("mua_private").upsert({
+      id: user.id,
+      email: form.email,
+      phone: form.phone,
+    });
+
+    if (privateProfileError) {
+      setError(privateProfileError.message);
       setLoading(false);
       return;
     }
