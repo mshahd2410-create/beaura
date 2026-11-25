@@ -19,21 +19,19 @@ async function sendBrideWhatsAppConfirmation({
   phone,
   brideName,
   bookingDate,
-  bookingTime,
   serviceName,
   confirmationNumber,
 }: {
   phone: string;
   brideName: string;
   bookingDate: string;
-  bookingTime: string;
   serviceName: string;
   confirmationNumber: string;
 }) {
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const apiVersion = process.env.WHATSAPP_API_VERSION || "v22.0";
-  const templateLanguage = process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en";
+  const templateLanguage = process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en_US";
 
   if (!accessToken || !phoneNumberId) {
     throw new Error("WhatsApp is not configured. Add WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID.");
@@ -66,7 +64,6 @@ async function sendBrideWhatsAppConfirmation({
               parameters: [
                 { type: "text", text: brideName },
                 { type: "text", text: bookingDate },
-                { type: "text", text: bookingTime },
                 { type: "text", text: serviceName },
                 { type: "text", text: confirmationNumber },
               ],
@@ -233,7 +230,6 @@ export async function POST(req: Request) {
           phone: bride.phone,
           brideName,
           bookingDate,
-          bookingTime,
           serviceName,
           confirmationNumber: getBookingNumber(booking.id),
         });
