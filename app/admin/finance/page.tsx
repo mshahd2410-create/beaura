@@ -12,7 +12,13 @@ type BookingRow = {
   total_price: number | null;
   platform_fee: number | null;
   payment_status: string | null;
+  payment_method: string | null;
   payment_proof_status: string | null;
+  payment_proof_reviewed_at: string | null;
+  deposit_amount: number | null;
+  card_paid_at: string | null;
+  wallet_charged_at: string | null;
+  amount_due_after_wallet: number | null;
   refund_processed: boolean | null;
   refund_amount: number | null;
   card_paid: boolean | null;
@@ -38,8 +44,28 @@ function money(value: number) {
   return `EGP ${value.toLocaleString("en-EG", { maximumFractionDigits: 2 })}`;
 }
 
-function isPaid(booking: BookingRow) {
-  return booking.payment_status === "paid" || booking.card_paid === true || booking.wallet_charged === true;
+function isFullyPaid(booking: BookingRow) {
+  if (booking.card_paid === true) return true;
+  if (booking.payment_method === "credit_balance" && booking.wallet_charged === true) return true;
+  if (booking.payment_method === "transfer" && booking.payment_proof_status === "approved") return false;
+  return booking.payment_status === "paid";
+}
+
+function paymentDate(booking: BookingRow) {
+  if (booking.card_paid === true) return booking.card_paid_at;
+  if (booking.payment_method === "credit_balance" && booking.wallet_charged === true) return booking.wallet_charged_at;
+  return booking.payment_status === "paid"
+    ? booking.card_paid_at || booking.wallet_charged_at
+    : null;
+}
+
+function cairoDateFor(value: string) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Cairo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(value));
 }
 
 function StatCard({ label, value, detail, icon }: {
@@ -90,7 +116,7 @@ export default function AdminFinancePage() {
     setLoading(true);
     setError(null);
     const [bookingsRes, walletsRes, payoutsRes, cashRes, transfersRes] = await Promise.all([
-      supabase.from("bookings").select("id, created_at, status, total_price, platform_fee, payment_status, payment_proof_status, refund_processed, refund_amount, card_paid, wallet_charged").order("created_at", { ascending: false }),
+      supabase.from("bookings").select("id, created_at, status, total_price, platform_fee, payment_status, payment_method, payment_proof_status, payment_proof_reviewed_at, deposit_amount, card_paid, card_paid_at, wallet_charged, wallet_charged_at, amount_due_after_wallet, refund_processed, refund_amount").order("created_at", { ascending: false }),
       supabase.from("wallets").select("user_type, available_balance, pending_balance, frozen_balance"),
       supabase.from("payout_requests").select("amount, status"),
       supabase.from("wallet_cash_requests").select("amount, status, request_type, user_type"),
@@ -126,11 +152,25 @@ export default function AdminFinancePage() {
     timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit",
   }).format(now);
   const cairoMonth = cairoDate.slice(0, 7);
-  const paidBookings = bookings.filter(isPaid);
-  const todayPaid = paidBookings.filter((booking) => booking.created_at.slice(0, 10) === cairoDate);
-  const monthPaid = paidBookings.filter((booking) => booking.created_at.slice(0, 7) === cairoMonth);
+  const fullyPaidBookings = bookings.filter(isFullyPaid);
+  const datedPaidBookings = fullyPaidBookings
+    .map((booking) => ({ booking, paidAt: paymentDate(booking) }))
+    .filter((entry): entry is { booking: BookingRow; paidAt: string } => !!entry.paidAt);
+  const todayPaid = datedPaidBookings.filter((entry) => cairoDateFor(entry.paidAt) === cairoDate);
+  const monthPaid = datedPaidBookings.filter((entry) => cairoDateFor(entry.paidAt).slice(0, 7) === cairoMonth);
+  const approvedDepositBookings = bookings.filter(
+    (booking) => booking.payment_method === "transfer" && booking.payment_proof_status === "approved"
+  );
+  const todayApprovedDeposits = approvedDepositBookings.filter(
+    (booking) => !!booking.payment_proof_reviewed_at && cairoDateFor(booking.payment_proof_reviewed_at) === cairoDate
+  );
+  const monthApprovedDeposits = approvedDepositBookings.filter(
+    (booking) => !!booking.payment_proof_reviewed_at && cairoDateFor(booking.payment_proof_reviewed_at).slice(0, 7) === cairoMonth
+  );
   const sum = (rows: BookingRow[], field: "total_price" | "platform_fee") =>
     rows.reduce((total, row) => total + Number(row[field] || 0), 0);
+  const depositSum = (rows: BookingRow[]) =>
+    rows.reduce((total, row) => total + Number(row.deposit_amount || 0), 0);
 
   const pendingProofs = bookings.filter((booking) => booking.payment_proof_status === "pending_review");
   const failedPayments = bookings.filter((booking) => booking.payment_status === "failed");
@@ -171,10 +211,12 @@ export default function AdminFinancePage() {
           <div>
             <h2 className="mb-3 text-lg font-medium">Recorded collections</h2>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <StatCard label="Today’s paid booking value" value={money(sum(todayPaid, "total_price"))} detail={`${todayPaid.length} bookings recorded as paid today`} icon={<ReceiptText size={18} />} />
-              <StatCard label="This month’s paid booking value" value={money(sum(monthPaid, "total_price"))} detail={`${monthPaid.length} bookings recorded as paid this month`} icon={<ReceiptText size={18} />} />
-              <StatCard label="Platform fees · this month" value={money(sum(monthPaid, "platform_fee"))} detail="Platform fee recorded on paid bookings; not net profit" icon={<Wallet size={18} />} />
-              <StatCard label="Refunds processed" value={money(refundTotal)} detail={`${processedRefunds.length} bookings marked as refunded`} icon={<RotateCcw size={18} />} />
+              <StatCard label="Full payments · today" value={money(sum(todayPaid.map((entry) => entry.booking), "total_price"))} detail={`${todayPaid.length} fully paid bookings with a recorded payment date`} icon={<ReceiptText size={18} />} />
+              <StatCard label="Full payments · this month" value={money(sum(monthPaid.map((entry) => entry.booking), "total_price"))} detail={`${monthPaid.length} fully paid bookings with a recorded payment date`} icon={<ReceiptText size={18} />} />
+              <StatCard label="Approved deposits · this month" value={money(depositSum(monthApprovedDeposits))} detail={`${monthApprovedDeposits.length} approved deposit proofs`} icon={<ReceiptText size={18} />} />
+              <StatCard label="Platform fees · this month" value={money(sum(monthPaid.map((entry) => entry.booking), "platform_fee"))} detail="Recorded platform fees on fully paid bookings; not net profit" icon={<Wallet size={18} />} />
+              <StatCard label="Approved deposits · today" value={money(depositSum(todayApprovedDeposits))} detail={`${todayApprovedDeposits.length} approved deposit proofs`} icon={<Clock3 size={18} />} />
+              <StatCard label="Refunds recorded" value={money(refundTotal)} detail={`${processedRefunds.length} booking refunds; may include wallet credit, not cash-only`} icon={<RotateCcw size={18} />} />
             </div>
           </div>
 
@@ -199,7 +241,7 @@ export default function AdminFinancePage() {
               <QueueLink href="/admin/wallets" label="Customer and artist wallets" count={wallets.length} />
             </div>
             <p className="mt-5 text-xs leading-5 text-[#8a7d91]">
-              Paid booking value includes only bookings marked paid by payment status, card payment, or wallet charge. Approved deposit receipts are tracked separately and are not counted as full booking payments. These figures are operational summaries, not an accounting ledger.
+              Full-payment totals exclude approved InstaPay/mobile-wallet deposits, which are shown separately. Daily and monthly totals use recorded payment timestamps; records without a payment timestamp are not assigned to a day or month. Refund totals may include wallet credit and should not be treated as cash refunds. These figures are operational summaries, not an accounting ledger.
             </p>
           </section>
         </>
