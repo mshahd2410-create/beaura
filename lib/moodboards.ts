@@ -36,7 +36,7 @@ const rawMoodboardCategories: RawMoodboardCategory[] = [
 {slug:"photoshoot",title:"Photoshoot",subtitle:"Looks made for the lens, the light and the close-up.",cover:"https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=1000&auto=format&fit=crop&q=85",boards:[
 ["Editorial Skin","Real skin texture, sculpted light and refined minimal makeup.","2027","A skin-first editorial direction informed by 2027 bridal beauty forecasts.",["#d8c7bc","#a58d83","#eee5df"],["1487412720507-e7ab37603c6f","1524504388940-b1c1722653e1","1522335789203-aabd1fc54bc9"]],
 ["Monochrome Muse","One tonal story across eyes, cheeks and lips.","2026 & 2027","A timeless editorial concept that adapts to any colour story.",["#a46f6b","#c99a91","#e5c7c0"],["1524504388940-b1c1722653e1","1524250502761-1ac6f2e30d43","1534528741775-53994a69daeb"]],
-["High Fashion","Strong shapes, expressive details and camera confidence.","2026","A maximalist, experimental interpretation of 2026 beauty trends.",["#3c303a","#806273","#bda0ae"],["1529139574466-a303027c1d8b","1515886657613-9f3515b0c78f","1487412720507-e7ab37603c6f"]]]]}
+["High Fashion","Strong shapes, expressive details and camera confidence.","2026","A maximalist, experimental interpretation of 2026 beauty trends.",["#3c303a","#806273","#bda0ae"],["1529139574466-a303027c1d8b","1515886657613-9f3515b0c78f","1487412720507-e7ab37603c6f"]]}
  ];
 
 export const moodboardCategories = rawMoodboardCategories.map((c) => ({...c, boards:c.boards.map((b)=>({slug:b[0].toLowerCase().replace(/[^a-z0-9]+/g,"-"),title:b[0],description:b[1],year:b[2],trendNote:b[3],palette:b[4],images:b[5].map((id)=>`https://images.unsplash.com/photo-${id}?w=1000&auto=format&fit=crop&q=85`)}))}));
