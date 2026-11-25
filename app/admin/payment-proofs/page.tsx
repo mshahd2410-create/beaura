@@ -182,14 +182,14 @@ export default function AdminPaymentProofsPage() {
     const notificationResults = await Promise.all(notificationTargets);
     const notificationFailed = notificationResults.some((result) => !result.success);
 
-    let emailWarning = "";
+    let deliveryWarning = "";
     if (decision === "approved") {
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         if (!sessionData.session?.access_token) {
           throw new Error("Your session expired. Please sign in again.");
         }
-        const emailResponse = await fetch("/api/admin/booking-notifications", {
+        const notificationResponse = await fetch("/api/admin/booking-notifications", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -197,21 +197,31 @@ export default function AdminPaymentProofsPage() {
           },
           body: JSON.stringify({ bookingId: item.id, event: "confirmed" }),
         });
-        const emailResult = await emailResponse.json();
-        if (!emailResponse.ok || emailResult.failed?.length) {
-          emailWarning = " Email delivery needs attention.";
-          console.error("Booking confirmation email issue:", emailResult);
+        const notificationResult = await notificationResponse.json();
+
+        if (notificationResult.whatsapp?.success !== true) {
+          const reason = notificationResult.whatsapp?.error || notificationResult.error || "WhatsApp delivery was not accepted.";
+          deliveryWarning += ` WhatsApp was NOT sent: ${reason}`;
+          console.error("Booking WhatsApp confirmation failed:", notificationResult);
+        } else {
+          console.info("WhatsApp confirmation accepted by Meta:", notificationResult.whatsapp.messageId);
         }
-      } catch (emailError) {
-        emailWarning = " Email delivery needs attention.";
-        console.error("Booking confirmation email request failed:", emailError);
+
+        if (!notificationResponse.ok || notificationResult.failed?.length) {
+          deliveryWarning += " Confirmation email delivery needs attention.";
+          console.error("Booking confirmation email issue:", notificationResult);
+        }
+      } catch (notificationError) {
+        const reason = notificationError instanceof Error ? notificationError.message : String(notificationError);
+        deliveryWarning += ` Confirmation notifications could not be requested: ${reason}`;
+        console.error("Booking confirmation notification request failed:", notificationError);
       }
     }
 
     setMessage(
       (decision === "approved" ? "Deposit approved and booking confirmed." : "Proof rejected. The bride can upload a new receipt.") +
       (notificationFailed ? " Some in-app notifications could not be sent." : "") +
-      emailWarning
+      deliveryWarning
     );
     await loadProofs();
     setBusyId(null);
