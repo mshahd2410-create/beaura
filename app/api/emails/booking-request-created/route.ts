@@ -32,27 +32,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "This booking is no longer awaiting an artist response." }, { status: 409 });
     }
 
-    const [brideResult, muaResult, serviceResult] = await Promise.all([
-      auth.supabase.from("bride_profiles").select("first_name,last_name").eq("id", booking.bride_id).maybeSingle(),
-      auth.supabase.from("mua_profiles").select("first_name,last_name,email").eq("id", booking.mua_id).maybeSingle(),
+    const [contactsResult, muaResult, serviceResult] = await Promise.all([
+      auth.supabase.rpc("get_booking_notification_contacts", { p_booking_id: bookingId }),
+      auth.supabase.from("mua_profiles").select("first_name,last_name").eq("id", booking.mua_id).maybeSingle(),
       booking.service_id
         ? auth.supabase.from("mua_services").select("name").eq("id", booking.service_id).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
     ]);
 
-    if (brideResult.error || muaResult.error || serviceResult.error) {
+    if (contactsResult.error || muaResult.error || serviceResult.error) {
       return NextResponse.json({ error: "Could not load booking details." }, { status: 500 });
     }
-    if (!muaResult.data?.email) {
+    const contacts = contactsResult.data?.[0];
+    if (!contacts?.mua_email) {
       return NextResponse.json({ error: "The artist has no email address on file." }, { status: 409 });
     }
 
-    const brideName = [brideResult.data?.first_name, brideResult.data?.last_name].filter(Boolean).join(" ") || "A bride";
-    const muaName = [muaResult.data.first_name, muaResult.data.last_name].filter(Boolean).join(" ") || "artist";
+    const brideName = [contacts.bride_first_name, contacts.bride_last_name].filter(Boolean).join(" ") || "A bride";
+    const muaName = [muaResult.data?.first_name, muaResult.data?.last_name].filter(Boolean).join(" ") || "artist";
     const serviceName = serviceResult.data?.name || "Makeup service";
 
     const data = await sendEmail({
-      to: muaResult.data.email,
+      to: contacts.mua_email,
       subject: "New booking request on Beaura",
       html: bookingRequestCreatedTemplate({
         brideName,
