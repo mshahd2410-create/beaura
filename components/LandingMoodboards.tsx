@@ -10,7 +10,7 @@ const boards = [
   { title: "Bridesmaids", subtitle: "The girls, all glowing", images: ["https://images.unsplash.com/photo-1519741497674-611481863552?w=900&auto=format&fit=crop&q=85", "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=900&auto=format&fit=crop&q=85", "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=900&auto=format&fit=crop&q=85"], moods: ["Soft coordinated", "Champagne glow", "Romantic waves"], colors: ["#d9b9b2", "#b99a87", "#f0e4dd"], query: "bridesmaids makeup moodboard soft glam bridal party" },
   { title: "Graduation", subtitle: "Your big moment, your look", images: ["https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=900&auto=format&fit=crop&q=85", "https://images.unsplash.com/photo-1524250502761-1ac6f2e30d43?w=900&auto=format&fit=crop&q=85", "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=900&auto=format&fit=crop&q=85"], moods: ["Fresh faced", "Polished glam", "Camera ready"], colors: ["#c9b6a3", "#8e7565", "#eee3d9"], query: "graduation makeup moodboard natural glam portrait" },
   { title: "Night out", subtitle: "A little bolder after dark", images: ["https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&auto=format&fit=crop&q=85", "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=900&auto=format&fit=crop&q=85", "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=900&auto=format&fit=crop&q=85"], moods: ["Smokey liner", "Glossy lips", "Midnight glam"], colors: ["#30232e", "#916176", "#d6a6b7"], query: "night out makeup moodboard smokey eyes glossy lips" },
-  { title: "Photoshoot", subtitle: "Made for the close-up", image: "/Landing/photoshoot.jpg", moods: ["Editorial skin", "Monochrome", "High fashion"], colors: ["#d7c8c1", "#8b7772", "#eee9e4"], query: "editorial photoshoot makeup moodboard beauty portrait" },
+  { title: "Photoshoot", subtitle: "Made for the close-up", images: ["https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=900&auto=format&fit=crop&q=85", "https://images.unsplash.com/photo-1524250502761-1ac6f2e30d43?w=900&auto=format&fit=crop&q=85", "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=900&auto=format&fit=crop&q=85"], moods: ["Editorial skin", "Monochrome", "High fashion"], colors: ["#d7c8c1", "#8b7772", "#eee9e4"], query: "editorial photoshoot makeup moodboard beauty portrait" },
 ];
 
 export default function LandingMoodboards() {
@@ -28,7 +28,7 @@ export default function LandingMoodboards() {
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {boards.map((board, i) => (
             <article key={board.title} className="group overflow-hidden rounded-[2rem] border border-[#eadff5] bg-white p-3 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl">
-              <div className="grid grid-cols-2 grid-rows-2 gap-1 overflow-hidden rounded-[1.5rem]">
+              <div className="relative grid grid-cols-2 grid-rows-2 gap-1 overflow-hidden rounded-[1.5rem]">
                 {board.images.map((src, imageIndex) => <img key={src + imageIndex} src={src} alt={board.title + " inspiration " + (imageIndex + 1)} loading="lazy" className={imageIndex === 0 ? "row-span-2 h-64 w-full object-cover transition duration-700 group-hover:scale-[1.02]" : "h-[7.95rem] w-full object-cover"} />)}
                 <span className="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] text-purple-700">0{i + 1} / moodboard</span>
               </div>
