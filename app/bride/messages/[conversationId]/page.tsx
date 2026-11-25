@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { ArrowLeft, SendHorizontal } from "lucide-react";
+import { ArrowLeft, ImagePlus, SendHorizontal, X } from "lucide-react";
 
 export default function ConversationPage() {
   const params = useParams();
@@ -15,6 +15,9 @@ export default function ConversationPage() {
 
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
+  const [image, setImage] = useState<File | null>(null);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [artistName, setArtistName] = useState("Artist");
   const [loading, setLoading] = useState(true);
@@ -107,21 +110,44 @@ export default function ConversationPage() {
   }
 
   async function sendMessage() {
-    if (!newMessage.trim() || !userId || !conversationId) return;
-
+    if ((!newMessage.trim() && !image) || !userId || !conversationId || sending) return;
+    setSending(true);
+    setSendError(null);
     const text = newMessage.trim();
-    setNewMessage("");
+    let imageUrl: string | null = null;
+
+    if (image) {
+      if (!image.type.startsWith("image/") || image.size > 8 * 1024 * 1024) {
+        setSendError("Choose an image smaller than 8 MB.");
+        setSending(false);
+        return;
+      }
+      const path = `chat/${conversationId}/${crypto.randomUUID()}`;
+      const { error: uploadError } = await supabase.storage.from("chat-images").upload(path, image);
+      if (uploadError) {
+        setSendError(uploadError.message);
+        setSending(false);
+        return;
+      }
+      const { data } = supabase.storage.from("chat-images").getPublicUrl(path);
+      imageUrl = data.publicUrl;
+    }
 
     const { error } = await supabase.from("messages").insert({
       conversation_id: conversationId,
       sender_id: userId,
-      content: text,
+      content: text || null,
+      image_url: imageUrl,
       is_read: false,
     });
 
     if (error) {
-      setNewMessage(text);
+      setSendError(error.message);
+    } else {
+      setNewMessage("");
+      setImage(null);
     }
+    setSending(false);
   }
 
   async function markMessagesAsRead(currentUserId: string) {
@@ -211,24 +237,32 @@ export default function ConversationPage() {
         </div>
 
         <footer className="border-t border-[#eadff5] bg-white px-4 py-4 sm:px-6">
-          <div className="mx-auto flex max-w-3xl gap-3">
+          <div className="mx-auto flex max-w-3xl items-center gap-2">
+            <label className="grid h-12 w-12 shrink-0 cursor-pointer place-items-center rounded-full border border-[#eadff5] text-[#6f6077] hover:bg-[#f7efff]">
+              <ImagePlus size={18} />
+              <input type="file" accept="image/*" className="hidden" onChange={(event) => setImage(event.target.files?.[0] || null)} />
+            </label>
             <input
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") sendMessage();
+                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
               }}
               placeholder={`Message ${artistName.split(" ")[0] || "artist"}...`}
+              disabled={sending}
               className="h-12 min-w-0 flex-1 rounded-full border border-[#eadff5] bg-[#fffafc] px-5 text-sm outline-none focus:border-purple-500"
             />
 
             <button
               onClick={sendMessage}
-              className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#171018] text-white sm:w-auto sm:px-6"
+              disabled={sending || (!newMessage.trim() && !image)}
+              className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#171018] text-white disabled:opacity-40 sm:w-auto sm:px-6"
             >
               <SendHorizontal size={17} />
             </button>
           </div>
+          {image && <div className="mx-auto mt-2 flex max-w-3xl items-center justify-between text-xs text-purple-700"><span>Attached: {image.name}</span><button type="button" onClick={() => setImage(null)} aria-label="Remove attachment"><X size={14} /></button></div>}
+          {sendError && <p className="mx-auto mt-2 max-w-3xl text-xs text-red-600">{sendError}</p>}
         </footer>
       </section>
     </main>
