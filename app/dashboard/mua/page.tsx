@@ -26,6 +26,9 @@ type Booking = {
   total_price?: number | null;
   service_price?: number | null;
   platform_fee?: number | null;
+  mua_payout?: number | null;
+  completed_by_mua?: boolean | null;
+  mua_completed_at?: string | null;
   created_at?: string | null;
   bride_profiles?: {
     first_name?: string | null;
@@ -173,6 +176,9 @@ export default function MuaDashboardPage() {
           total_price,
           service_price,
           platform_fee,
+          mua_payout,
+          completed_by_mua,
+          mua_completed_at,
           created_at,
           bride_id
         `
@@ -322,6 +328,46 @@ export default function MuaDashboardPage() {
     [bookings]
   );
 
+  const incomeByPeriod = useMemo(() => {
+    const today = getCairoDateKey(new Date());
+    const todayDate = new Date(`${today}T00:00:00.000Z`);
+    const monday = new Date(todayDate);
+    monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+    const weekStart = monday.toISOString().slice(0, 10);
+    const monthStart = today.slice(0, 7);
+    const yearStart = today.slice(0, 4);
+
+    const totals = { day: 0, week: 0, month: 0, year: 0 };
+
+    bookings.forEach((booking) => {
+      if (!booking.completed_by_mua) return;
+
+      const incomeDate = booking.mua_completed_at
+        ? getCairoDateKey(new Date(booking.mua_completed_at))
+        : booking.booking_date;
+      if (!incomeDate) return;
+
+      const servicePrice = Number(booking.service_price || 0);
+      const platformFee =
+        booking.platform_fee == null
+          ? Math.round(servicePrice * 0.1)
+          : Number(booking.platform_fee);
+      const income =
+        booking.mua_payout == null
+          ? Math.max(servicePrice - platformFee, 0)
+          : Number(booking.mua_payout);
+
+      if (!Number.isFinite(income) || income <= 0) return;
+
+      if (incomeDate === today) totals.day += income;
+      if (incomeDate >= weekStart && incomeDate <= today) totals.week += income;
+      if (incomeDate.startsWith(monthStart)) totals.month += income;
+      if (incomeDate.startsWith(yearStart)) totals.year += income;
+    });
+
+    return totals;
+  }, [bookings]);
+
   const profileTasks = useMemo(() => {
     const completeServices = services.some(
       (service) => Number(service.price) > 0 && Number(service.duration_minutes) > 0
@@ -436,6 +482,36 @@ export default function MuaDashboardPage() {
           subtext="Recorded earnings in your Beaura wallet"
           icon={<CircleDollarSign size={18} />}
         />
+      </section>
+
+      {/* REVENUE OVERVIEW */}
+      <section className="rounded-[2rem] border border-[#eadff5] bg-white p-6 shadow-sm md:p-7">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-purple-700">
+              Revenue overview
+            </p>
+            <h2 className="mt-2 text-2xl font-light tracking-[-0.05em] text-[#171018]">
+              Your income
+            </h2>
+            <p className="mt-2 text-sm text-[#6f6077]">
+              Earnings from bookings you have marked as complete.
+            </p>
+          </div>
+          <Link
+            href="/dashboard/mua/wallet"
+            className="text-sm font-medium text-purple-700 hover:underline"
+          >
+            View wallet activity
+          </Link>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <IncomeCard label="Today" value={loading ? "..." : formatMoney(incomeByPeriod.day)} />
+          <IncomeCard label="This week" value={loading ? "..." : formatMoney(incomeByPeriod.week)} />
+          <IncomeCard label="This month" value={loading ? "..." : formatMoney(incomeByPeriod.month)} />
+          <IncomeCard label="This year" value={loading ? "..." : formatMoney(incomeByPeriod.year)} />
+        </div>
       </section>
 
       {/* MAIN GRID */}
@@ -848,6 +924,28 @@ function formatDate(date: string | null) {
 
 function formatMoney(value: number | string | null | undefined) {
   return `EGP ${Number(value || 0).toLocaleString()}`;
+}
+
+function getCairoDateKey(date: Date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Cairo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function IncomeCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[1.4rem] border border-[#eadff5] bg-[#fffafc] p-4">
+      <p className="text-xs uppercase tracking-[0.16em] text-[#8a7d91]">
+        {label}
+      </p>
+      <p className="mt-2 break-words text-2xl font-medium tracking-[-0.04em] text-[#171018]">
+        {value}
+      </p>
+    </div>
+  );
 }
 
 function capitalize(value: string | null | undefined) {
