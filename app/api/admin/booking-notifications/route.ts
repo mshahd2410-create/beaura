@@ -2,8 +2,92 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email";
 import { bookingStatusUpdateTemplate } from "@/lib/emailTemplates";
+import { getBookingNumber } from "@/lib/bookingNumber";
 
 type EventType = "confirmed" | "cancelled";
+
+function normalizeWhatsAppNumber(value: string) {
+  let digits = value.replace(/\\D/g, "");
+  // Bride phone numbers are commonly stored in Egyptian local format (01xxxxxxxxx).
+  if (digits.length === 11 && digits.startsWith("0")) {
+    digits = `20${digits.slice(1)}`;
+  }
+  return digits;
+}
+
+async function sendBrideWhatsAppConfirmation({
+  phone,
+  brideName,
+  bookingDate,
+  bookingTime,
+  serviceName,
+  confirmationNumber,
+}: {
+  phone: string;
+  brideName: string;
+  bookingDate: string;
+  bookingTime: string;
+  serviceName: string;
+  confirmationNumber: string;
+}) {
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const apiVersion = process.env.WHATSAPP_API_VERSION || "v22.0";
+  const templateLanguage = process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en";
+
+  if (!accessToken || !phoneNumberId) {
+    throw new Error("WhatsApp is not configured. Add WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID.");
+  }
+
+  const to = normalizeWhatsAppNumber(phone);
+  if (!to || to.length < 10) {
+    throw new Error("Bride WhatsApp number is missing or invalid.");
+  }
+
+  const response = await fetch(
+    `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to,
+        type: "template",
+        template: {
+          name: "beaura_bride",
+          language: { code: templateLanguage },
+          components: [
+            {
+              type: "body",
+              parameters: [
+                { type: "text", text: brideName },
+                { type: "text", text: bookingDate },
+                { type: "text", text: bookingTime },
+                { type: "text", text: serviceName },
+                { type: "text", text: confirmationNumber },
+              ],
+            },
+          ],
+        },
+      }),
+    }
+  );
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = result?.error?.message || "WhatsApp Cloud API rejected the message.";
+    throw new Error(message);
+  }
+
+  return {
+    messageId: result?.messages?.[0]?.id || null,
+    status: "accepted",
+  };
+}
 
 export async function POST(req: Request) {
   try {
@@ -56,7 +140,7 @@ export async function POST(req: Request) {
     const isBookingParticipant = booking.bride_id === user.id || booking.mua_id === user.id;
 
     if (event === "confirmed" && !admin) {
-      return NextResponse.json({ error: "Admin access required to email booking confirmations." }, { status: 403 });
+      return NextResponse.json({ error: "Admin access required to send booking confirmations." }, { status: 403 });
     }
     if (event === "cancelled" && !admin && !isBookingParticipant) {
       return NextResponse.json({ error: "You cannot send notifications for this booking." }, { status: 403 });
@@ -70,7 +154,7 @@ export async function POST(req: Request) {
     }
 
     const [brideResult, muaResult, serviceResult] = await Promise.all([
-      supabase.from("bride_profiles").select("first_name, last_name, email").eq("id", booking.bride_id).maybeSingle(),
+      supabase.from("bride_profiles").select("first_name, last_name, email, phone").eq("id", booking.bride_id).maybeSingle(),
       supabase.from("mua_profiles").select("first_name, last_name, email").eq("id", booking.mua_id).maybeSingle(),
       booking.service_id
         ? supabase.from("mua_services").select("name").eq("id", booking.service_id).maybeSingle()
@@ -83,21 +167,24 @@ export async function POST(req: Request) {
 
     const bride = brideResult.data;
     const mua = muaResult.data;
+    const brideName = [bride?.first_name, bride?.last_name].filter(Boolean).join(" ") || "Bride";
     const serviceName = serviceResult.data?.name || "Makeup service";
     const bookingDate = booking.booking_date
-      ? new Date(booking.booking_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+      ? new Date(`${booking.booking_date}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
       : "Not provided";
-    const bookingTime = booking.booking_time || "Not provided";
+    const bookingTime = booking.booking_time
+      ? new Date(`1970-01-01T${booking.booking_time}`).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+      : "Not provided";
     const details = [
       {
         email: bride?.email,
-        recipientName: [bride?.first_name, bride?.last_name].filter(Boolean).join(" ") || "Bride",
+        recipientName: brideName,
         otherPartyName: [mua?.first_name, mua?.last_name].filter(Boolean).join(" ") || "Makeup artist",
       },
       {
         email: mua?.email,
         recipientName: [mua?.first_name, mua?.last_name].filter(Boolean).join(" ") || "Makeup artist",
-        otherPartyName: [bride?.first_name, bride?.last_name].filter(Boolean).join(" ") || "Bride",
+        otherPartyName: brideName,
       },
     ];
 
@@ -130,12 +217,37 @@ export async function POST(req: Request) {
       }
     }));
 
+    let whatsapp: { success: boolean; messageId?: string | null; error?: string } | null = null;
+    if (event === "confirmed") {
+      try {
+        if (!bride?.phone) throw new Error("Bride phone number is missing from her profile.");
+        const result = await sendBrideWhatsAppConfirmation({
+          phone: bride.phone,
+          brideName,
+          bookingDate,
+          bookingTime,
+          serviceName,
+          confirmationNumber: getBookingNumber(booking.id),
+        });
+        whatsapp = { success: true, messageId: result.messageId };
+      } catch (error) {
+        whatsapp = {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+        console.error("Bride WhatsApp confirmation failed:", whatsapp.error);
+      }
+    }
+
     const failed = results.filter((result) => !result.success);
-    return NextResponse.json({ success: failed.length === 0, results, failed }, { status: failed.length ? 207 : 200 });
-  } catch (error) {
-    console.error("Admin booking notification email error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Could not send booking notification emails." },
+      { success: failed.length === 0, results, failed, whatsapp },
+      { status: failed.length ? 207 : 200 }
+    );
+  } catch (error) {
+    console.error("Admin booking notification error:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Could not send booking notifications." },
       { status: 500 }
     );
   }
