@@ -27,6 +27,12 @@ create policy "Admins can read all bride profiles"
 on public.bride_profiles for select to authenticated
 using (exists (select 1 from public.admins a where a.user_id = auth.uid()));
 
+-- Brides retain access to their own account details after public reads are removed.
+drop policy if exists "Brides can read own profile" on public.bride_profiles;
+create policy "Brides can read own profile"
+on public.bride_profiles for select to authenticated
+using (auth.uid() = id);
+
 -- The new application reads/writes these values through mua_private.
 alter table public.mua_profiles
   drop column if exists email,
