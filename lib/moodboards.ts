@@ -1,4 +1,7 @@
-export const moodboardCategories = [
+type RawMoodboardBoard = [string, string, string, string, string[], string[]];
+type RawMoodboardCategory = { slug: string; title: string; subtitle: string; cover: string; boards: RawMoodboardBoard[] };
+
+const rawMoodboardCategories: RawMoodboardCategory[] = [
 {slug:"wedding",title:"Wedding",subtitle:"Your bridal vision, from timeless to unexpected.",cover:"https://images.unsplash.com/photo-1519741497674-611481863552?w=1000&auto=format&fit=crop&q=85",boards:[
 ["Rooted Romance","Deep plum, muted rose and olive with softly romantic beauty.","2026","Pinterest's 2026 wedding report highlights nature-led plum, fig, merlot and olive palettes.",["#633c49","#9b716d","#b0a58a"],["1519741497674-611481863552","1522335789203-aabd1fc54bc9","1487412720507-e7ab37603c6f"]],
 ["Ethereal Shimmer","Pearlescent light, opal tones and delicate sparkle.","2026","Opalescent and iridescent details feature in Pinterest's 2026 wedding report.",["#e8dff0","#c7b8d8","#f4e9e6"],["1487412720507-e7ab37603c6f","1524504388940-b1c1722653e1","1524250502761-1ac6f2e30d43"]],
@@ -34,7 +37,9 @@ export const moodboardCategories = [
 ["Editorial Skin","Real skin texture, sculpted light and refined minimal makeup.","2027","A skin-first editorial direction informed by 2027 bridal beauty forecasts.",["#d8c7bc","#a58d83","#eee5df"],["1487412720507-e7ab37603c6f","1524504388940-b1c1722653e1","1522335789203-aabd1fc54bc9"]],
 ["Monochrome Muse","One tonal story across eyes, cheeks and lips.","2026 & 2027","A timeless editorial concept that adapts to any colour story.",["#a46f6b","#c99a91","#e5c7c0"],["1524504388940-b1c1722653e1","1524250502761-1ac6f2e30d43","1534528741775-53994a69daeb"]],
 ["High Fashion","Strong shapes, expressive details and camera confidence.","2026","A maximalist, experimental interpretation of 2026 beauty trends.",["#3c303a","#806273","#bda0ae"],["1529139574466-a303027c1d8b","1515886657613-9f3515b0c78f","1487412720507-e7ab37603c6f"]]}
-].map((c) => ({...c, boards:c.boards.map((b,i)=>({slug:b[0].toLowerCase().replace(/[^a-z0-9]+/g,"-"),title:b[0],description:b[1],year:b[2],trendNote:b[3],palette:b[4],images:b[5].map((id)=>`https://images.unsplash.com/photo-${id}?w=1000&auto=format&fit=crop&q=85`)}))}));
+ ];
+
+export const moodboardCategories = rawMoodboardCategories.map((c) => ({...c, boards:c.boards.map((b)=>({slug:b[0].toLowerCase().replace(/[^a-z0-9]+/g,"-"),title:b[0],description:b[1],year:b[2],trendNote:b[3],palette:b[4],images:b[5].map((id)=>`https://images.unsplash.com/photo-${id}?w=1000&auto=format&fit=crop&q=85`)}))}));
 
 export function getMoodboardCategory(slug: string) {
   return moodboardCategories.find((category) => category.slug === slug);
