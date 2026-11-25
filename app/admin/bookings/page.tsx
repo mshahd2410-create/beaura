@@ -89,6 +89,11 @@ export default function AdminBookingsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<StatusFilter>("all");
+  const [brideFilter, setBrideFilter] = useState("all");
+  const [muaFilter, setMuaFilter] = useState("all");
+  const [paymentFilter, setPaymentFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
@@ -393,6 +398,7 @@ export default function AdminBookingsPage() {
 
       const serviceName = booking.service?.name?.toLowerCase() || "";
       const id = booking.id.toLowerCase();
+      const reference = (booking.booking_reference || "").toLowerCase();
       const status = normalizeStatus(booking.status);
 
       const paymentMethod = booking.payment_method?.toLowerCase() || "";
@@ -403,6 +409,7 @@ export default function AdminBookingsPage() {
         muaName.includes(query) ||
         serviceName.includes(query) ||
         id.includes(query) ||
+        reference.includes(query) ||
         paymentMethod.includes(query) ||
         paymentStatus.includes(query);
 
@@ -412,9 +419,18 @@ export default function AdminBookingsPage() {
           ? status.includes("cancelled")
           : status === filter);
 
-      return matchesSearch && matchesFilter;
+      const bookingDate = booking.booking_date || "";
+      const matchesBride = brideFilter === "all" || booking.bride_id === brideFilter;
+      const matchesMua = muaFilter === "all" || booking.mua_id === muaFilter;
+      const matchesDateFrom = !dateFrom || bookingDate >= dateFrom;
+      const matchesDateTo = !dateTo || bookingDate <= dateTo;
+      const paymentState = getPaymentFilterState(booking);
+      const matchesPayment = paymentFilter === "all" || paymentState === paymentFilter;
+
+      return matchesSearch && matchesFilter && matchesBride && matchesMua &&
+        matchesDateFrom && matchesDateTo && matchesPayment;
     });
-  }, [bookings, search, filter]);
+  }, [bookings, search, filter, brideFilter, muaFilter, paymentFilter, dateFrom, dateTo]);
 
   const counts = {
     total: bookings.length,
@@ -464,6 +480,14 @@ export default function AdminBookingsPage() {
   function getPaymentMethod(booking: Booking) {
     if (booking.payment_method === "credit_balance") return "Beaura Wallet";
     return "Transfer";
+  }
+
+  function getPaymentFilterState(booking: Booking) {
+    if (booking.refund_processed) return "refunded";
+    const status = normalizeStatus(booking.status);
+    if (booking.card_paid || booking.wallet_charged || booking.payment_status === "paid") return "paid";
+    if (booking.payment_method === "transfer" && booking.payment_proof_status === "approved") return "deposit";
+    return "unpaid";
   }
 
   function getPaymentStatus(booking: Booking) {
@@ -570,6 +594,46 @@ export default function AdminBookingsPage() {
               </button>
             ))}
           </div>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <label className="text-xs font-medium text-[#6f6077]">
+            Bride
+            <select value={brideFilter} onChange={(e) => setBrideFilter(e.target.value)} className="mt-2 h-11 w-full rounded-xl border border-[#eadff5] bg-[#fffafc] px-3 text-sm text-[#171018]">
+              <option value="all">All brides</option>
+              {Array.from(new Map(bookings.filter((b) => b.bride_id).map((b) => [b.bride_id!, getBrideName(b)])).entries()).sort((a,b) => a[1].localeCompare(b[1])).map(([id,name]) => <option key={id} value={id}>{name}</option>)}
+            </select>
+          </label>
+          <label className="text-xs font-medium text-[#6f6077]">
+            Makeup artist
+            <select value={muaFilter} onChange={(e) => setMuaFilter(e.target.value)} className="mt-2 h-11 w-full rounded-xl border border-[#eadff5] bg-[#fffafc] px-3 text-sm text-[#171018]">
+              <option value="all">All artists</option>
+              {Array.from(new Map(bookings.filter((b) => b.mua_id).map((b) => [b.mua_id!, getMuaName(b)])).entries()).sort((a,b) => a[1].localeCompare(b[1])).map(([id,name]) => <option key={id} value={id}>{name}</option>)}
+            </select>
+          </label>
+          <label className="text-xs font-medium text-[#6f6077]">
+            Payment
+            <select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)} className="mt-2 h-11 w-full rounded-xl border border-[#eadff5] bg-[#fffafc] px-3 text-sm text-[#171018]">
+              <option value="all">All payment statuses</option>
+              <option value="paid">Fully paid</option>
+              <option value="deposit">Deposit approved · balance due</option>
+              <option value="unpaid">Awaiting payment</option>
+              <option value="refunded">Refund processed</option>
+            </select>
+          </label>
+          <label className="text-xs font-medium text-[#6f6077]">
+            Booking date from
+            <input type="date" value={dateFrom} max={dateTo || undefined} onChange={(e) => setDateFrom(e.target.value)} className="mt-2 h-11 w-full rounded-xl border border-[#eadff5] bg-[#fffafc] px-3 text-sm text-[#171018]" />
+          </label>
+          <label className="text-xs font-medium text-[#6f6077]">
+            Booking date to
+            <input type="date" value={dateTo} min={dateFrom || undefined} onChange={(e) => setDateTo(e.target.value)} className="mt-2 h-11 w-full rounded-xl border border-[#eadff5] bg-[#fffafc] px-3 text-sm text-[#171018]" />
+          </label>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-[#8a7d91]">Showing {filteredBookings.length} of {bookings.length} bookings</p>
+          <button type="button" onClick={() => { setSearch(""); setFilter("all"); setBrideFilter("all"); setMuaFilter("all"); setPaymentFilter("all"); setDateFrom(""); setDateTo(""); }} className="rounded-full border border-[#eadff5] px-4 py-2 text-xs font-medium text-[#6f6077] transition hover:border-purple-300 hover:text-purple-700">
+            Clear all filters
+          </button>
         </div>
       </div>
 
