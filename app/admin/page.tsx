@@ -112,6 +112,40 @@ export default function AdminDashboardPage() {
     setLoading(true);
     setActivityError(null);
 
+    const [
+      pendingMuas,
+      approvedMuas,
+      brides,
+      supportTickets,
+      bookings,
+      pendingDeposits,
+      cancellationRequests,
+      promotions,
+      reports,
+    ] = await Promise.all([
+      getCount("mua_profiles", (q) => q.eq("verified", false).eq("status", "active")),
+      getCount("mua_profiles", (q) => q.eq("verified", true).eq("status", "active")),
+      getCount("bride_profiles"),
+      getCount("support_tickets", (q) => q.eq("status", "open")),
+      getCount("bookings"),
+      getCount("booking_deposit_transfers", (q) => q.eq("status", "pending")),
+      getCount("booking_cancellation_requests", (q) => q.in("request_status", ["requested", "awaiting_mua_repayment", "awaiting_admin_decision"])),
+      getCount("promo_codes"),
+      getCount("reports", (q) => q.neq("status", "resolved")),
+    ]);
+
+    setStats({
+      pendingMuas,
+      approvedMuas,
+      brides,
+      supportTickets,
+      bookings,
+      pendingDeposits,
+      cancellationRequests,
+      promotions,
+      reports,
+    });
+
     const periods = getCairoActivityPeriods();
 
     const [today, week, month] = await Promise.all([
@@ -397,16 +431,13 @@ function getCairoActivityPeriods() {
   const monthStartKey = `${todayKey.slice(0, 7)}-01`;
   const tomorrowDate = new Date(todayDate);
   tomorrowDate.setUTCDate(tomorrowDate.getUTCDate() + 1);
-  const nextWeekDate = new Date(weekStartDate);
-  nextWeekDate.setUTCDate(nextWeekDate.getUTCDate() + 7);
-  const nextMonthDate = new Date(Date.UTC(
-    Number(todayKey.slice(0, 4)), Number(todayKey.slice(5, 7)), 1
-  ));
+  const tomorrowKey = tomorrowDate.toISOString().slice(0, 10);
   const key = (date: Date) => date.toISOString().slice(0, 10);
+  const end = cairoMidnightUtc(tomorrowKey);
   return {
-    today: { start: cairoMidnightUtc(todayKey), end: cairoMidnightUtc(key(tomorrowDate)) },
-    week: { start: cairoMidnightUtc(key(weekStartDate)), end: cairoMidnightUtc(key(nextWeekDate)) },
-    month: { start: cairoMidnightUtc(monthStartKey), end: cairoMidnightUtc(key(nextMonthDate)) },
+    today: { start: cairoMidnightUtc(todayKey), end },
+    week: { start: cairoMidnightUtc(key(weekStartDate)), end },
+    month: { start: cairoMidnightUtc(monthStartKey), end },
   };
 }
 
