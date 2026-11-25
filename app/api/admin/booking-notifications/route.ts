@@ -4,7 +4,7 @@ import { sendEmail } from "@/lib/email";
 import { bookingStatusUpdateTemplate } from "@/lib/emailTemplates";
 import { getBookingNumber } from "@/lib/bookingNumber";
 
-type EventType = "confirmed" | "cancelled";
+type EventType = "confirmed" | "cancelled" | "whatsapp_confirmation";
 
 function normalizeWhatsAppNumber(value: string) {
   let digits = value.replace(/\D/g, "");
@@ -124,7 +124,7 @@ export async function POST(req: Request) {
     const event = body.event as EventType;
     const reason = typeof body.reason === "string" ? body.reason : null;
 
-    if (!bookingId || !["confirmed", "cancelled"].includes(event)) {
+    if (!bookingId || !["confirmed", "cancelled", "whatsapp_confirmation"].includes(event)) {
       return NextResponse.json({ error: "Invalid booking notification request." }, { status: 400 });
     }
 
@@ -145,14 +145,14 @@ export async function POST(req: Request) {
       .maybeSingle();
     const isBookingParticipant = booking.bride_id === user.id || booking.mua_id === user.id;
 
-    if (event === "confirmed" && !admin) {
+    if ((event === "confirmed" || event === "whatsapp_confirmation") && !admin) {
       return NextResponse.json({ error: "Admin access required to send booking confirmations." }, { status: 403 });
     }
     if (event === "cancelled" && !admin && !isBookingParticipant) {
       return NextResponse.json({ error: "You cannot send notifications for this booking." }, { status: 403 });
     }
 
-    if (event === "confirmed" && booking.status !== "confirmed") {
+    if ((event === "confirmed" || event === "whatsapp_confirmation") && booking.status !== "confirmed") {
       return NextResponse.json({ error: "Booking is not confirmed." }, { status: 409 });
     }
     if (event === "cancelled" && !String(booking.status || "").toLowerCase().includes("cancel")) {
@@ -194,7 +194,7 @@ export async function POST(req: Request) {
       },
     ];
 
-    const results = await Promise.all(details.map(async (recipient) => {
+    const results = event === "whatsapp_confirmation" ? [] : await Promise.all(details.map(async (recipient) => {
       if (!recipient.email) {
         return { recipient: recipient.recipientName, success: false, error: "Email address missing" };
       }
@@ -224,7 +224,7 @@ export async function POST(req: Request) {
     }));
 
     let whatsapp: { success: boolean; messageId?: string | null; error?: string } | null = null;
-    if (event === "confirmed") {
+    if (event === "confirmed" || event === "whatsapp_confirmation") {
       try {
         if (!bride?.phone) throw new Error("Bride phone number is missing from her profile.");
         const result = await sendBrideWhatsAppConfirmation({
