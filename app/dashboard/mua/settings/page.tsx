@@ -80,8 +80,13 @@ export default function SettingsPage() {
       .maybeSingle();
 
     if (data) {
-      setProfile(data);
-      setPhone(data.phone || "");
+      const { data: privateData } = await supabase
+        .from("mua_private")
+        .select("email, phone")
+        .eq("id", user.id)
+        .maybeSingle();
+      setProfile({ ...data, email: user.email || null });
+      setPhone(privateData?.phone || "");
       setInstagram(data.instagram || "");
       setBio(data.bio || "");
       setExperience(data.experience || "");
@@ -104,16 +109,19 @@ export default function SettingsPage() {
 
     setSaving(true);
 
-    await supabase
-      .from("mua_profiles")
-      .update({
-        phone,
-        instagram,
-        bio,
-        experience,
-        cities,
-      })
-      .eq("id", profile.id);
+    const [{ error: profileError }, { error: privateError }] = await Promise.all([
+      supabase
+        .from("mua_profiles")
+        .update({ instagram, bio, experience, cities })
+        .eq("id", profile.id),
+      supabase
+        .from("mua_private")
+        .upsert({ id: profile.id, phone }),
+    ]);
+
+    if (profileError || privateError) {
+      alert(profileError?.message || privateError?.message || "Could not save settings.");
+    }
 
     setSaving(false);
   }

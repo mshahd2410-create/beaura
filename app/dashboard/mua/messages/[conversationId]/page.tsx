@@ -84,12 +84,16 @@ export default function ChatPage() {
 
     if (!conversation?.bride_id) return;
 
-    const { data: bride } = await supabase
-      .from("bride_profiles")
-      .select("id, first_name, last_name")
-      .eq("id", conversation.bride_id)
-      .maybeSingle<BrideProfile>();
+    const { data: brideRows, error: brideError } = await supabase.rpc(
+      "get_mua_client_names",
+      { p_bride_ids: [conversation.bride_id] }
+    );
 
+    if (brideError) {
+      console.error("Could not load conversation client name:", brideError);
+    }
+
+    const bride = brideRows?.[0];
     const fullName = `${bride?.first_name || ""} ${bride?.last_name || ""}`.trim();
     if (fullName) setBrideName(fullName);
   }

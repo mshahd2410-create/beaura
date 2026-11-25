@@ -36,13 +36,24 @@ export default function HomePage() {
       <header className="sticky top-0 z-50 border-b border-[#eadff5] bg-[#fffafc]/95 backdrop-blur-xl">
         <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-5 sm:px-8">
           <Link href="/" className="text-4xl font-light tracking-[-0.09em] text-[#171018]">Beaura<span className="text-purple-600">.</span></Link>
-          <nav className="hidden items-center gap-8 text-sm text-[#6f6077] md:flex">
+          <nav aria-label="Main navigation" className="hidden items-center gap-8 text-sm text-[#6f6077] md:flex">
             <a href="#artists" className="transition hover:text-purple-700">Makeup artists</a>
             <a href="#occasions" className="transition hover:text-purple-700">Services</a>
             <a href="#how-it-works" className="transition hover:text-purple-700">How it works</a>
             <Link href="/about" className="transition hover:text-purple-700">About Beaura</Link>
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
+            <details className="relative md:hidden">
+              <summary aria-label="Open navigation menu" className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-full border border-[#eadff5] text-xl text-[#171018] focus-visible:outline focus-visible:outline-2 focus-visible:outline-purple-600">
+                <span aria-hidden="true">☰</span>
+              </summary>
+              <nav aria-label="Mobile navigation" className="absolute right-0 top-12 z-50 flex w-56 flex-col gap-1 rounded-2xl border border-[#eadff5] bg-white p-3 text-sm text-[#6f6077] shadow-xl">
+                <a href="#artists" className="rounded-xl px-3 py-3 hover:bg-[#f7efff]">Makeup artists</a>
+                <a href="#occasions" className="rounded-xl px-3 py-3 hover:bg-[#f7efff]">Services</a>
+                <a href="#how-it-works" className="rounded-xl px-3 py-3 hover:bg-[#f7efff]">How it works</a>
+                <Link href="/about" className="rounded-xl px-3 py-3 hover:bg-[#f7efff]">About Beaura</Link>
+              </nav>
+            </details>
             <Link href="/login" className="rounded-full px-4 py-2.5 text-sm text-[#171018] transition hover:bg-[#f1e5ff]">Log in</Link>
             <Link href="/register" className="rounded-full bg-[#171018] px-5 py-2.5 text-sm text-white transition hover:bg-purple-700">Create account</Link>
           </div>
@@ -97,14 +108,14 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="relative min-h-[650px]">
+          <div className="relative min-h-[480px] sm:min-h-[580px] lg:min-h-[650px]">
             <div className="absolute right-0 top-0 h-[560px] w-[82%] rounded-t-full rounded-b-[4rem] bg-[#f1e5ff] shadow-[0_40px_130px_rgba(88,28,135,0.18)]" />
 
             <div className="float-soft absolute right-4 top-4 z-10 rounded-full bg-white px-5 py-3 text-xs uppercase tracking-[0.18em] text-purple-700 shadow-xl">
               bridal era
             </div>
 
-            <div className="float-slow absolute left-0 top-12 w-[68%] rounded-[3rem] border border-white bg-white p-6 shadow-2xl">
+            <div className="float-slow absolute left-0 top-12 w-[78%] rounded-[2rem] border border-white bg-white p-4 shadow-2xl sm:w-[68%] sm:rounded-[3rem] sm:p-6">
               <img
                 src="/Landing/hero-bride.jpg"
                 alt="Bridal makeup look"
@@ -126,7 +137,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="absolute bottom-24 right-0 w-[60%] rotate-2 rounded-[2.5rem] border border-[#eadff5] bg-white p-5 shadow-xl">
+            <div className="absolute bottom-16 right-0 w-[68%] rotate-2 rounded-[2rem] border border-[#eadff5] bg-white p-4 shadow-xl sm:bottom-24 sm:w-[60%] sm:rounded-[2.5rem] sm:p-5">
               <p className="text-xs uppercase tracking-[0.2em] text-[#9a8ca2]">
                 what’s your vibe?
               </p>

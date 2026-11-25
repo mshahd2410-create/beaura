@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 type Transfer = { id:string; booking_id:string; mua_id:string; amount:number; status:string; created_at:string; transfer_reference:string|null; bride_funded_amount:number|null; beaura_funded_amount:number|null };
-type Booking = { id:string; booking_date:string; booking_time:string; travel_fee:number|null; location:string|null };
+type Booking = { id:string; booking_reference?:string|null; booking_date:string; booking_time:string; travel_fee:number|null; location:string|null };
 type Artist = { id:string; first_name:string|null; last_name:string|null };
 
 export default function PendingDepositsPage() {
@@ -27,7 +27,7 @@ export default function PendingDepositsPage() {
     const rows=(data||[]) as Transfer[]; setItems(rows);
     const bookingIds=rows.map(x=>x.booking_id); const muaIds=[...new Set(rows.map(x=>x.mua_id))];
     if(bookingIds.length){
-      const result=await supabase.from("bookings").select("id,booking_date,booking_time,travel_fee,location").in("id",bookingIds);
+      const result=await supabase.from("bookings").select("id,booking_reference,booking_date,booking_time,travel_fee,location").in("id",bookingIds);
       if(result.error)setError(result.error.message); else setBookings(Object.fromEntries((result.data||[]).map((x:any)=>[x.id,x])));
     } else setBookings({});
     if(muaIds.length){
@@ -70,7 +70,7 @@ export default function PendingDepositsPage() {
     {loading?<div className="rounded-2xl border border-[#eadff5] bg-white p-8 text-sm text-[#6f6077]">Loading pending deposits…</div>
     :items.length===0?<div className="rounded-[2rem] border border-dashed border-[#eadff5] bg-white p-10 text-center"><h2 className="text-xl font-medium">No pending deposits</h2><p className="mt-2 text-sm text-[#6f6077]">Approved InstaPay / mobile-wallet deposits will appear here.</p></div>
     :<div className="space-y-4">{items.map(item=>{const booking=bookings[item.booking_id];const artist=artists[item.mua_id];const name=`${artist?.first_name||""} ${artist?.last_name||""}`.trim()||"Makeup artist";return <article key={item.id} className="rounded-[2rem] border border-[#eadff5] bg-white p-5 shadow-sm sm:p-7">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-xs uppercase tracking-[0.16em] text-[#9876a9]">Order #{item.booking_id.slice(0,8)}</p><h2 className="mt-2 text-2xl font-medium">{name}</h2><p className="mt-1 text-sm text-[#6f6077]">{booking?`${booking.booking_date} · ${booking.booking_time}`:"Booking details unavailable"}</p>{booking?.location&&<p className="mt-1 text-sm text-[#6f6077]">{booking.location}</p>}</div><div className="sm:text-right"><p className="text-xs uppercase tracking-[0.14em] text-[#9876a9]">MUA deposit share</p><p className="mt-1 text-3xl font-semibold">{money(item.amount)}</p></div></div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-xs uppercase tracking-[0.16em] text-[#9876a9]">Order #{booking?.booking_reference || item.booking_id.slice(0,8)}</p><h2 className="mt-2 text-2xl font-medium">{name}</h2><p className="mt-1 text-sm text-[#6f6077]">{booking?`${booking.booking_date} · ${booking.booking_time}`:"Booking details unavailable"}</p>{booking?.location&&<p className="mt-1 text-sm text-[#6f6077]">{booking.location}</p>}</div><div className="sm:text-right"><p className="text-xs uppercase tracking-[0.14em] text-[#9876a9]">MUA deposit share</p><p className="mt-1 text-3xl font-semibold">{money(item.amount)}</p></div></div>
       <div className="mt-5 grid gap-3 rounded-2xl bg-[#fffafc] p-4 text-sm sm:grid-cols-3"><p><span className="text-[#8a7d91]">Bride-funded:</span> <strong>{money(item.bride_funded_amount)}</strong></p><p><span className="text-[#8a7d91]">Beaura-funded:</span> <strong>{money(item.beaura_funded_amount)}</strong></p><p><span className="text-[#8a7d91]">Travel fee:</span> <strong>{money(booking?.travel_fee)}</strong></p></div>
       <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_1fr_auto]">
         <label className="block"><span className="mb-2 block text-xs font-medium text-[#6f6077]">Transfer reference *</span><input value={refs[item.id]||""} onChange={e=>setRefs(old=>({...old,[item.id]:e.target.value}))} placeholder="Transfer reference" className="w-full rounded-xl border border-[#eadff5] px-4 py-3 text-sm outline-none focus:border-purple-400"/></label>

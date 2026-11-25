@@ -159,21 +159,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Booking is not cancelled." }, { status: 409 });
     }
 
-    const [brideResult, muaResult, serviceResult] = await Promise.all([
-      supabase.from("bride_profiles").select("first_name, last_name, email, phone").eq("id", booking.bride_id).maybeSingle(),
-      supabase.from("mua_profiles").select("first_name, last_name, email").eq("id", booking.mua_id).maybeSingle(),
+    const [contactsResult, serviceResult] = await Promise.all([
+      supabase.rpc("get_booking_notification_contacts", { p_booking_id: bookingId }),
       booking.service_id
         ? supabase.from("mua_services").select("name").eq("id", booking.service_id).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
     ]);
 
-    if (brideResult.error || muaResult.error || serviceResult.error) {
+    if (contactsResult.error || serviceResult.error) {
       return NextResponse.json({ error: "Could not load booking recipient details." }, { status: 500 });
     }
 
-    const bride = brideResult.data;
-    const mua = muaResult.data;
-    const brideName = [bride?.first_name, bride?.last_name].filter(Boolean).join(" ") || "Bride";
+    const contacts = contactsResult.data?.[0];
+    const brideName = [contacts?.bride_first_name, contacts?.bride_last_name].filter(Boolean).join(" ") || "Bride";
     const serviceName = serviceResult.data?.name || "Makeup service";
     const bookingDate = booking.booking_date
       ? new Date(`${booking.booking_date}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
@@ -183,13 +181,13 @@ export async function POST(req: Request) {
       : "Not provided";
     const details = [
       {
-        email: bride?.email,
+        email: contacts?.bride_email,
         recipientName: brideName,
-        otherPartyName: [mua?.first_name, mua?.last_name].filter(Boolean).join(" ") || "Makeup artist",
+        otherPartyName: [contacts?.mua_first_name, contacts?.mua_last_name].filter(Boolean).join(" ") || "Makeup artist",
       },
       {
-        email: mua?.email,
-        recipientName: [mua?.first_name, mua?.last_name].filter(Boolean).join(" ") || "Makeup artist",
+        email: contacts?.mua_email,
+        recipientName: [contacts?.mua_first_name, contacts?.mua_last_name].filter(Boolean).join(" ") || "Makeup artist",
         otherPartyName: brideName,
       },
     ];
@@ -226,9 +224,9 @@ export async function POST(req: Request) {
     let whatsapp: { success: boolean; messageId?: string | null; error?: string } | null = null;
     if (event === "confirmed" || event === "whatsapp_confirmation") {
       try {
-        if (!bride?.phone) throw new Error("Bride phone number is missing from her profile.");
+        if (!contacts?.bride_phone) throw new Error("Bride phone number is missing from her profile.");
         const result = await sendBrideWhatsAppConfirmation({
-          phone: bride.phone,
+          phone: contacts.bride_phone,
           brideName,
           bookingDate,
           serviceName,

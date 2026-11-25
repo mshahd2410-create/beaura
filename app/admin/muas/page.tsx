@@ -42,7 +42,7 @@ export default function AdminMuasPage() {
     const { data, error } = await supabase
       .from("mua_profiles")
       .select(
-        "id, first_name, last_name, email, bio, cities, instagram, created_at, experience, phone, verified, status, beaura_tier"
+        "id, first_name, last_name, bio, cities, instagram, created_at, experience, verified, status, beaura_tier"
       )
       .order("created_at", { ascending: false });
 
@@ -51,8 +51,21 @@ export default function AdminMuasPage() {
       setLoadError(error.message);
       setMuas([]);
     } else {
-      console.log("MUAS DATA:", data);
-      setMuas((data as Mua[]) || []);
+      const { data: privateRows, error: privateError } = await supabase
+        .from("mua_private")
+        .select("id, email, phone");
+      if (privateError) {
+        console.error("MUA PRIVATE DATA ERROR:", privateError);
+        setLoadError(privateError.message);
+        setMuas([]);
+      } else {
+        const contacts = new Map((privateRows || []).map((row) => [row.id, row]));
+        setMuas(((data || []).map((mua) => ({
+          ...mua,
+          email: contacts.get(mua.id)?.email || null,
+          phone: contacts.get(mua.id)?.phone || null,
+        }))) as Mua[]);
+      }
     }
 
     setLoading(false);

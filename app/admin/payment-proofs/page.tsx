@@ -7,6 +7,7 @@ import { createNotification } from "@/lib/createNotification";
 
 type ProofBooking = {
   id: string;
+  booking_reference?: string | null;
   bride_id: string;
   mua_id: string;
   total_price: number | null;
@@ -43,7 +44,7 @@ export default function AdminPaymentProofsPage() {
     setError(null);
     const { data, error: loadError } = await supabase
       .from("bookings")
-      .select("id, bride_id, mua_id, total_price, deposit_amount, payment_proof_path, payment_proof_status, payment_proof_uploaded_at, payment_proof_rejection_reason, booking_date, booking_time")
+      .select("id, booking_reference, bride_id, mua_id, total_price, deposit_amount, payment_proof_path, payment_proof_status, payment_proof_uploaded_at, payment_proof_rejection_reason, booking_date, booking_time")
       .in("payment_proof_status", ["pending_review", "rejected"])
       .order("payment_proof_uploaded_at", { ascending: true });
     if (loadError) {
@@ -231,9 +232,9 @@ export default function AdminPaymentProofsPage() {
   const filteredItems = items.filter((item) => {
     const name = `${item.bride?.first_name || ""} ${item.bride?.last_name || ""}`.toLowerCase();
     const phone = item.bride?.phone || "";
-    const order = item.id.toLowerCase();
+    const order = (item.booking_reference || item.id).toLowerCase();
     const query = search.trim().toLowerCase().replace("#", "");
-    return !query || name.includes(query) || phone.toLowerCase().includes(query) || order.includes(query) || order.slice(0, 8).includes(query);
+    return !query || name.includes(query) || phone.toLowerCase().includes(query) || order.includes(query) || item.id.slice(0, 8).includes(query);
   });
 
   return (
@@ -256,7 +257,7 @@ export default function AdminPaymentProofsPage() {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-[#f7efff] px-3 py-1 text-xs capitalize text-purple-700">{(item.payment_proof_status || "").replaceAll("_", " ")}</span>
-                <span className="text-xs text-[#8a7d91]">Order #{item.id.slice(0, 8)}</span>
+                <span className="text-xs text-[#8a7d91]">Order #{item.booking_reference || item.id.slice(0, 8)}</span>
               </div>
               <h2 className="mt-3 text-2xl font-medium">{brideName}</h2>
               <p className="mt-1 text-sm text-[#6f6077]">{item.bride?.phone || "Phone not available"}</p>
@@ -297,7 +298,7 @@ export default function AdminPaymentProofsPage() {
               )}
             </div>
             <div>
-              {item.proofUrl ? <a href={item.proofUrl} target="_blank" rel="noreferrer" className="block"><img src={item.proofUrl} alt={`Payment proof for order ${item.id.slice(0, 8)}`} className="max-h-80 w-full rounded-2xl border border-[#eadff5] object-contain" /><span className="mt-2 block text-center text-sm text-purple-700 underline">Open full image</span></a> : <p className="rounded-2xl bg-[#fffafc] p-6 text-sm text-[#6f6077]">Proof image unavailable. Check storage access.</p>}
+              {item.proofUrl ? <a href={item.proofUrl} target="_blank" rel="noreferrer" className="block"><img src={item.proofUrl} alt={`Payment proof for order ${item.booking_reference || item.id.slice(0, 8)}`} className="max-h-80 w-full rounded-2xl border border-[#eadff5] object-contain" /><span className="mt-2 block text-center text-sm text-purple-700 underline">Open full image</span></a> : <p className="rounded-2xl bg-[#fffafc] p-6 text-sm text-[#6f6077]">Proof image unavailable. Check storage access.</p>}
             </div>
           </article>
         );

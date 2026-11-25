@@ -53,6 +53,9 @@ export default function BrideHome() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCity, setSelectedCity] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [sortBy, setSortBy] = useState("recommended");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -107,34 +110,65 @@ export default function BrideHome() {
   }, []);
 
   const filteredMuas = useMemo(() => {
-    return muas.filter((mua) => {
+    const min = minPrice.trim() === "" ? null : Number(minPrice);
+    const max = maxPrice.trim() === "" ? null : Number(maxPrice);
+    const query = searchQuery.trim().toLowerCase();
+
+    const matching = muas.filter((mua) => {
       const fullName =
         `${mua.first_name || ""} ${mua.last_name || ""}`.toLowerCase();
-
       const cityText = (mua.cities || []).join(" ").toLowerCase();
-
-      const servicesText = (mua.mua_services || [])
+      const services = mua.mua_services || [];
+      const servicesText = services
         .map((service: any) => service.name)
         .join(" ")
         .toLowerCase();
 
-      const query = searchQuery.toLowerCase();
-
       const matchesSearch =
+        !query ||
         fullName.includes(query) ||
         cityText.includes(query) ||
         servicesText.includes(query);
-
       const matchesCity =
         selectedCity === "" || (mua.cities || []).includes(selectedCity);
-
       const matchesCategory =
         selectedCategory === "All" ||
         servicesText.includes(selectedCategory.toLowerCase());
 
-      return matchesSearch && matchesCity && matchesCategory;
+      const prices = services
+        .map((service: any) => Number(service?.price))
+        .filter((price: number) => Number.isFinite(price) && price > 0);
+      const startingPrice = prices.length ? Math.min(...prices) : null;
+      const matchesMin = min === null || (startingPrice !== null && startingPrice >= min);
+      const matchesMax = max === null || (startingPrice !== null && startingPrice <= max);
+
+      return matchesSearch && matchesCity && matchesCategory && matchesMin && matchesMax;
     });
-  }, [muas, searchQuery, selectedCity, selectedCategory]);
+
+    return [...matching].sort((a, b) => {
+      const getStartingPrice = (mua: any) => {
+        const prices = (mua.mua_services || [])
+          .map((service: any) => Number(service?.price))
+          .filter((price: number) => Number.isFinite(price) && price > 0);
+        return prices.length ? Math.min(...prices) : null;
+      };
+
+      if (sortBy === "price-low") {
+        return (getStartingPrice(a) ?? Number.POSITIVE_INFINITY) -
+          (getStartingPrice(b) ?? Number.POSITIVE_INFINITY);
+      }
+      if (sortBy === "price-high") {
+        return (getStartingPrice(b) ?? Number.NEGATIVE_INFINITY) -
+          (getStartingPrice(a) ?? Number.NEGATIVE_INFINITY);
+      }
+      if (sortBy === "name") {
+        return `${a.first_name || ""} ${a.last_name || ""}`.localeCompare(
+          `${b.first_name || ""} ${b.last_name || ""}`
+        );
+      }
+      return 0;
+    });
+  }, [muas, searchQuery, selectedCity, selectedCategory, minPrice, maxPrice, sortBy]);
 
   const handleServiceClick = (service: string) => {
     setSelectedCategory(service);
@@ -217,10 +251,29 @@ export default function BrideHome() {
               <option value="">All cities</option>
               {CITIES.map(city=><option key={city} value={city}>{city}</option>)}
             </select>
-            <button onClick={()=>{setSearchQuery("");setSelectedCity("");setSelectedCategory("All");}} className="rounded-2xl border border-[#eadff5] px-6 py-4 text-sm transition hover:bg-[#f7efff]">Clear filters</button>
+            <button onClick={()=>{setSearchQuery("");setSelectedCity("");setSelectedCategory("All");setMinPrice("");setMaxPrice("");setSortBy("recommended");}} className="rounded-2xl border border-[#eadff5] px-6 py-4 text-sm transition hover:bg-[#f7efff]">Clear filters</button>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="block text-xs font-medium text-[#6f6077]">
+              Minimum price (EGP)
+              <input type="number" min="0" inputMode="numeric" value={minPrice} onChange={(event)=>setMinPrice(event.target.value)} placeholder="No minimum" className="mt-2 w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 py-3 text-sm text-[#171018] outline-none focus:border-purple-500"/>
+            </label>
+            <label className="block text-xs font-medium text-[#6f6077]">
+              Maximum price (EGP)
+              <input type="number" min="0" inputMode="numeric" value={maxPrice} onChange={(event)=>setMaxPrice(event.target.value)} placeholder="No maximum" className="mt-2 w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 py-3 text-sm text-[#171018] outline-none focus:border-purple-500"/>
+            </label>
+            <label className="block text-xs font-medium text-[#6f6077] sm:col-span-2">
+              Sort artists
+              <select aria-label="Sort makeup artists" value={sortBy} onChange={(event)=>setSortBy(event.target.value)} className="mt-2 w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 py-3 text-sm text-[#171018] outline-none focus:border-purple-500">
+                <option value="recommended">Recommended order</option>
+                <option value="price-low">Price: low to high</option>
+                <option value="price-high">Price: high to low</option>
+                <option value="name">Artist name: A to Z</option>
+              </select>
+            </label>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            {["All","Bridal makeup","Engagement makeup","Soiree makeup","Photoshoot makeup"].map((category)=>(
+            {["All","Bridal makeup","Engagement makeup","Soiree makeup","Photoshoot makeup"].map((category)=> (
               <button key={category} onClick={()=>setSelectedCategory(category)} className={`rounded-full px-4 py-2 text-xs transition ${selectedCategory===category?"bg-[#171018] text-white":"bg-[#f7efff] text-[#6f6077] hover:text-purple-700"}`}>{category==="All"?"All services":category}</button>
             ))}
           </div>
@@ -241,7 +294,7 @@ export default function BrideHome() {
             <div className="rounded-[2rem] border border-[#eadff5] bg-white px-6 py-14 text-center">
               <h3 className="text-3xl font-light tracking-[-0.05em]">No artists match those filters.</h3>
               <p className="mt-3 text-sm text-[#6f6077]">Try a different city or service, or clear your filters.</p>
-              <button onClick={()=>{setSearchQuery("");setSelectedCity("");setSelectedCategory("All");}} className="mt-6 rounded-full bg-[#171018] px-6 py-3 text-sm text-white">Show all artists</button>
+              <button onClick={()=>{setSearchQuery("");setSelectedCity("");setSelectedCategory("All");setMinPrice("");setMaxPrice("");setSortBy("recommended");}} className="mt-6 rounded-full bg-[#171018] px-6 py-3 text-sm text-white">Show all artists</button>
             </div>
           )}
           {!loading && filteredMuas.length>0 && (

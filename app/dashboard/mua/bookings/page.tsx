@@ -193,13 +193,10 @@ export default function BookingsPage() {
         ...new Set(bookingsData.map((b) => b.service_id).filter(Boolean)),
       ];
 
-      const [{ data: brides }, { data: services }] = await Promise.all([
+      const [{ data: brides, error: bridesError }, { data: services }] = await Promise.all([
         brideIds.length
-          ? supabase
-              .from("bride_profiles")
-              .select("id, first_name, last_name")
-              .in("id", brideIds)
-          : Promise.resolve({ data: [] as any[] }),
+          ? supabase.rpc("get_mua_client_names", { p_bride_ids: brideIds })
+          : Promise.resolve({ data: [] as any[], error: null }),
 
         serviceIds.length
           ? supabase
@@ -209,10 +206,20 @@ export default function BookingsPage() {
           : Promise.resolve({ data: [] as any[] }),
       ]);
 
+      if (bridesError) {
+        console.error("FETCH CLIENT NAMES ERROR:", bridesError);
+      }
+
       const enriched: Booking[] = bookingsData.map((b) => ({
         ...b,
         status: normalizeStatus(b.status || "pending"),
-        bride: brides?.find((br) => br.id === b.bride_id) || null,
+        bride: brides?.find((br: any) => br.bride_id === b.bride_id)
+          ? {
+              id: b.bride_id,
+              first_name: brides.find((br: any) => br.bride_id === b.bride_id)?.first_name || null,
+              last_name: brides.find((br: any) => br.bride_id === b.bride_id)?.last_name || null,
+            }
+          : null,
         service: services?.find((s) => s.id === b.service_id) || null,
       }));
 

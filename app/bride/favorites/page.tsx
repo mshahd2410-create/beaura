@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { Heart, ArrowRight } from "lucide-react";
@@ -8,6 +8,11 @@ import { Heart, ArrowRight } from "lucide-react";
 export default function Favorites() {
   const [favorites, setFavorites] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCity, setSelectedCity] = useState("");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [sortBy, setSortBy] = useState("name");
 
   useEffect(() => {
     loadFavorites();
@@ -37,6 +42,10 @@ export default function Favorites() {
           status,
           mua_portfolio (
             image_path
+          ),
+          mua_services (
+            name,
+            price
           )
         )
       `)
@@ -52,7 +61,7 @@ export default function Favorites() {
               .getPublicUrl(mua.mua_portfolio[0].image_path).data.publicUrl
           : null;
 
-        return { ...mua, image };
+        return { ...mua, image, mua_services: mua?.mua_services || [] };
       }) || [];
 
     setFavorites(
@@ -63,6 +72,33 @@ export default function Favorites() {
 
     setLoading(false);
   }
+
+  const visibleFavorites = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const min = minPrice.trim() === "" ? null : Number(minPrice);
+    const max = maxPrice.trim() === "" ? null : Number(maxPrice);
+    const getStartingPrice = (mua: any) => {
+      const prices = (mua.mua_services || []).map((service: any) => Number(service.price)).filter((price: number) => Number.isFinite(price) && price > 0);
+      return prices.length ? Math.min(...prices) : null;
+    };
+    const matching = favorites.filter((mua) => {
+      const name = `${mua.first_name || ""} ${mua.last_name || ""}`.toLowerCase();
+      const cityText = (mua.cities || []).join(" ").toLowerCase();
+      const services = (mua.mua_services || []).map((service: any) => service.name).join(" ").toLowerCase();
+      const price = getStartingPrice(mua);
+      return (!query || name.includes(query) || cityText.includes(query) || services.includes(query)) &&
+        (!selectedCity || (mua.cities || []).includes(selectedCity)) &&
+        (min === null || (price !== null && price >= min)) &&
+        (max === null || (price !== null && price <= max));
+    });
+    return [...matching].sort((a, b) => {
+      if (sortBy === "price-low") return (getStartingPrice(a) ?? Infinity) - (getStartingPrice(b) ?? Infinity);
+      if (sortBy === "price-high") return (getStartingPrice(b) ?? -Infinity) - (getStartingPrice(a) ?? -Infinity);
+      return `${a.first_name || ""} ${a.last_name || ""}`.localeCompare(`${b.first_name || ""} ${b.last_name || ""}`);
+    });
+  }, [favorites, searchQuery, selectedCity, minPrice, maxPrice, sortBy]);
+
+  const favoriteCities = Array.from(new Set(favorites.flatMap((mua) => mua.cities || []))).sort();
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#fffafc] px-4 pb-28 pt-24 text-[#171018] sm:px-6 lg:px-8">
@@ -102,8 +138,42 @@ export default function Favorites() {
             </Link>
           </div>
         ) : (
+          <>
+            <div className="rounded-[2rem] border border-[#eadff5] bg-white p-5 shadow-sm sm:p-6">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <label className="text-xs font-medium text-[#6f6077]">Search favorites
+                  <input value={searchQuery} onChange={(event)=>setSearchQuery(event.target.value)} placeholder="Artist, city or service" className="mt-2 w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 py-3 text-sm text-[#171018] outline-none focus:border-purple-500"/>
+                </label>
+                <label className="text-xs font-medium text-[#6f6077]">City
+                  <select value={selectedCity} onChange={(event)=>setSelectedCity(event.target.value)} className="mt-2 w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 py-3 text-sm text-[#171018] outline-none focus:border-purple-500">
+                    <option value="">All cities</option>
+                    {favoriteCities.map((city)=> <option key={city} value={city}>{city}</option>)}
+                  </select>
+                </label>
+                <label className="text-xs font-medium text-[#6f6077]">Minimum price (EGP)
+                  <input type="number" min="0" inputMode="numeric" value={minPrice} onChange={(event)=>setMinPrice(event.target.value)} placeholder="No minimum" className="mt-2 w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 py-3 text-sm text-[#171018] outline-none focus:border-purple-500"/>
+                </label>
+                <label className="text-xs font-medium text-[#6f6077]">Maximum price (EGP)
+                  <input type="number" min="0" inputMode="numeric" value={maxPrice} onChange={(event)=>setMaxPrice(event.target.value)} placeholder="No maximum" className="mt-2 w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 py-3 text-sm text-[#171018] outline-none focus:border-purple-500"/>
+                </label>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                <label className="text-xs font-medium text-[#6f6077]">Sort by
+                  <select value={sortBy} onChange={(event)=>setSortBy(event.target.value)} className="ml-2 rounded-xl border border-[#eadff5] bg-[#fffafc] px-3 py-2 text-sm text-[#171018]">
+                    <option value="name">Artist name A–Z</option>
+                    <option value="price-low">Price: low to high</option>
+                    <option value="price-high">Price: high to low</option>
+                  </select>
+                </label>
+                <button type="button" onClick={()=>{setSearchQuery("");setSelectedCity("");setMinPrice("");setMaxPrice("");setSortBy("name");}} className="text-sm font-medium text-purple-700 hover:underline">Clear filters</button>
+                <span className="text-xs text-[#8a7d91]">{visibleFavorites.length} of {favorites.length} artists</span>
+              </div>
+            </div>
+            {visibleFavorites.length === 0 ? (
+              <div className="rounded-[2rem] border border-dashed border-[#eadff5] bg-white p-10 text-center text-sm text-[#6f6077]">No favorites match these filters. Try adjusting your search or budget.</div>
+            ) : (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {favorites.map((mua) => (
+            {visibleFavorites.map((mua) => (
               <Link
                 key={mua.id}
                 href={`/bride/mua/${mua.id}`}
@@ -146,6 +216,8 @@ export default function Favorites() {
               </Link>
             ))}
           </div>
+            )}
+          </>
         )}
       </section>
     </main>

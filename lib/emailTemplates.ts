@@ -63,12 +63,12 @@ function detailsTable(rows: string) {
   `;
 }
 
-function primaryButton(label: string) {
+function primaryButton(label: string, href: string) {
   return `
     <div style="margin-top:28px; text-align:center;">
-      <span style="display:inline-block; background:#171018; color:#FFFFFF; padding:14px 28px; border-radius:999px; font-size:14px; font-weight:700; letter-spacing:0.2px;">
+      <a href="${escapeHtml(href)}" style="display:inline-block; background:#171018; color:#FFFFFF; padding:14px 28px; border-radius:999px; font-size:14px; font-weight:700; letter-spacing:0.2px; text-decoration:none;">
         ${escapeHtml(label)}
-      </span>
+      </a>
     </div>
   `;
 }
@@ -157,7 +157,7 @@ export function testEmailTemplate() {
         This is a test email from Beaura. Your Resend setup is working, and emails can now be sent from your verified domain.
       </p>
 
-      ${primaryButton("Email setup confirmed")}
+      ${primaryButton("Visit Beaura", "https://www.beauraegypt.com/")}
     `
   );
 }
@@ -184,7 +184,7 @@ export function bookingRequestCreatedTemplate(data: BookingEmailData) {
         ${detailRow("Total", escapeHtml(money(data.totalPrice)))}
       `)}
 
-      ${primaryButton("Open Beaura dashboard")}
+      ${primaryButton("Open Beaura dashboard", "https://www.beauraegypt.com/dashboard/mua")}
     `
   );
 }
@@ -211,7 +211,7 @@ export function newBookingTemplate(data: BookingEmailData) {
         ${detailRow("Total", escapeHtml(money(data.totalPrice)))}
       `)}
 
-      ${primaryButton("View my booking")}
+      ${primaryButton("View my booking", "https://www.beauraegypt.com/bride/bookings")}
     `
   );
 }
@@ -261,7 +261,7 @@ export function bookingStatusUpdateTemplate(
           <strong>Reason:</strong> ${escapeHtml(data.reason)}
         </p>
       ` : ""}
-      ${primaryButton("Open Beaura dashboard")}
+      ${primaryButton("Open Beaura dashboard", "https://www.beauraegypt.com/bride/bookings")}
     `
   );
 }
