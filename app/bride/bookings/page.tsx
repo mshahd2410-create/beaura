@@ -27,6 +27,7 @@ type BookingTab = (typeof STATUS_TABS)[number];
 
 type Booking = {
   id: string;
+  booking_reference: string;
   bride_id: string;
   mua_id: string;
   service_id: string | null;
@@ -617,7 +618,7 @@ export default function BrideBookings() {
                     <div className="min-w-0">
                       <div className="mb-3 flex flex-wrap items-center gap-2">
                         <span className="rounded-full border border-[#eadff5] bg-[#fffafc] px-3 py-1 text-xs font-semibold tracking-wide text-[#6f6077]">
-                          Booking # {getBookingNumber(b.id)}
+                          Booking # {getBookingNumber(b.booking_reference)}
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
