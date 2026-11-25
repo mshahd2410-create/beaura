@@ -73,6 +73,33 @@ export default function Favorites() {
     setLoading(false);
   }
 
+  const visibleFavorites = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const min = minPrice.trim() === "" ? null : Number(minPrice);
+    const max = maxPrice.trim() === "" ? null : Number(maxPrice);
+    const getStartingPrice = (mua: any) => {
+      const prices = (mua.mua_services || []).map((service: any) => Number(service.price)).filter((price: number) => Number.isFinite(price) && price > 0);
+      return prices.length ? Math.min(...prices) : null;
+    };
+    const matching = favorites.filter((mua) => {
+      const name = `${mua.first_name || ""} ${mua.last_name || ""}`.toLowerCase();
+      const cityText = (mua.cities || []).join(" ").toLowerCase();
+      const services = (mua.mua_services || []).map((service: any) => service.name).join(" ").toLowerCase();
+      const price = getStartingPrice(mua);
+      return (!query || name.includes(query) || cityText.includes(query) || services.includes(query)) &&
+        (!selectedCity || (mua.cities || []).includes(selectedCity)) &&
+        (min === null || (price !== null && price >= min)) &&
+        (max === null || (price !== null && price <= max));
+    });
+    return [...matching].sort((a, b) => {
+      if (sortBy === "price-low") return (getStartingPrice(a) ?? Infinity) - (getStartingPrice(b) ?? Infinity);
+      if (sortBy === "price-high") return (getStartingPrice(b) ?? -Infinity) - (getStartingPrice(a) ?? -Infinity);
+      return `${a.first_name || ""} ${a.last_name || ""}`.localeCompare(`${b.first_name || ""} ${b.last_name || ""}`);
+    });
+  }, [favorites, searchQuery, selectedCity, minPrice, maxPrice, sortBy]);
+
+  const favoriteCities = Array.from(new Set(favorites.flatMap((mua) => mua.cities || []))).sort();
+
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#fffafc] px-4 pb-28 pt-24 text-[#171018] sm:px-6 lg:px-8">
       <section className="mx-auto max-w-6xl space-y-6">
