@@ -6,7 +6,7 @@ DROP POLICY IF EXISTS "Authenticated users can create notifications"
   ON public.notifications;
 
 -- Remove any column-level grants as well as broad table-level grants.
-DO $
+DO $$
 DECLARE
   v_column record;
 BEGIN
@@ -27,7 +27,7 @@ BEGIN
     );
   END LOOP;
 END
-$;
+$$;
 
 REVOKE ALL PRIVILEGES
 ON TABLE public.notifications
