@@ -30,6 +30,7 @@ const NAV_ITEMS = [
   { href: "/admin/approvals", label: "Approvals", icon: Clock },
   { href: "/admin/muas", label: "MUAs", icon: UserCheck },
   { href: "/admin/artist-monitoring", label: "Artist Monitoring", icon: Activity },
+  { href: "/admin/risk-management", label: "Customer & Artist Risk", icon: ShieldAlert },
   { href: "/admin/brides", label: "Brides", icon: Users },
   { href: "/admin/bookings", label: "Bookings", icon: CalendarCheck },
   { href: "/admin/finance", label: "Finance Overview", icon: ReceiptText },
