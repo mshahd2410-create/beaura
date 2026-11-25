@@ -130,7 +130,7 @@ export async function POST(req: Request) {
 
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
-      .select("id, bride_id, mua_id, status, service_id, booking_date, booking_time, location, total_price")
+      .select("id, booking_reference, bride_id, mua_id, status, service_id, booking_date, booking_time, location, total_price")
       .eq("id", bookingId)
       .maybeSingle();
 
@@ -232,7 +232,7 @@ export async function POST(req: Request) {
           brideName,
           bookingDate,
           serviceName,
-          confirmationNumber: getBookingNumber(booking.id),
+          confirmationNumber: getBookingNumber(booking.booking_reference),
         });
         whatsapp = { success: true, messageId: result.messageId };
       } catch (error) {
