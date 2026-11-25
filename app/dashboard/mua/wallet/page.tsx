@@ -461,6 +461,11 @@ export default function MuaWalletPage() {
                           <p className="mt-2 text-xs text-[#8a7d91]">
                             Requested {formatDate(payout.requested_at)}
                           </p>
+                          {payout.processed_at && (
+                            <p className="mt-1 text-xs text-[#8a7d91]">
+                              Processed {formatDate(payout.processed_at)}
+                            </p>
+                          )}
                         </div>
 
                         <span
