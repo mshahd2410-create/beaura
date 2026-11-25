@@ -30,6 +30,7 @@ type PromoCode = {
 };
 
 type PromoFilter = "all" | "active" | "expiring" | "used up" | "expired" | "inactive";
+type PromoRedemption = { promo_code_id: string | null; discount_amount: number | null; created_at: string };
 
 type PromoForm = {
   code: string;
@@ -53,6 +54,7 @@ const emptyForm: PromoForm = {
 
 export default function AdminPromotionsPage() {
   const [promos, setPromos] = useState<PromoCode[]>([]);
+  const [redemptions, setRedemptions] = useState<PromoRedemption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -73,6 +75,11 @@ export default function AdminPromotionsPage() {
         { event: "*", schema: "public", table: "promo_codes" },
         () => fetchPromos()
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bookings" },
+        () => fetchPromos()
+      )
       .subscribe();
 
     return () => {
@@ -84,16 +91,23 @@ export default function AdminPromotionsPage() {
     setLoading(true);
     setErrorMessage("");
 
-    const { data, error } = await supabase
-      .from("promo_codes")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const [promoResult, redemptionResult] = await Promise.all([
+      supabase.from("promo_codes").select("*").order("created_at", { ascending: false }),
+      supabase.from("bookings").select("promo_code_id, discount_amount, created_at").not("promo_code_id", "is", null),
+    ]);
 
-    if (error) {
-      setErrorMessage(error.message);
+    if (promoResult.error) {
+      setErrorMessage(promoResult.error.message);
       setPromos([]);
     } else {
-      setPromos((data || []) as PromoCode[]);
+      setPromos((promoResult.data || []) as PromoCode[]);
+    }
+
+    if (redemptionResult.error) {
+      setErrorMessage((current) => current ? current + " · Booking discount totals: " + redemptionResult.error!.message : "Booking discount totals: " + redemptionResult.error!.message);
+      setRedemptions([]);
+    } else {
+      setRedemptions((redemptionResult.data || []) as PromoRedemption[]);
     }
 
     setLoading(false);
@@ -306,6 +320,10 @@ export default function AdminPromotionsPage() {
     (sum, promo) => sum + Number(promo.used_count || 0),
     0
   );
+  const totalDiscountGiven = redemptions.reduce(
+    (sum, redemption) => sum + Number(redemption.discount_amount || 0),
+    0
+  );
 
   return (
     <section className="space-y-6">
@@ -349,6 +367,7 @@ export default function AdminPromotionsPage() {
         <StatCard label="Expired" value={expiredCount} />
         <StatCard label="Inactive / used up" value={inactiveCount + usedUpCount} />
         <StatCard label="Total uses" value={totalUses} />
+        <StatCard label="Discounts given (EGP)" value={totalDiscountGiven} />
       </section>
 
       <section className="rounded-[2rem] border border-[#eadff5] bg-white p-6 shadow-sm">
@@ -417,6 +436,8 @@ export default function AdminPromotionsPage() {
           <div className="space-y-3">
             {filteredPromos.map((promo) => {
               const status = getPromoStatus(promo);
+              const promoRedemptions = redemptions.filter((item) => item.promo_code_id === promo.id);
+              const promoDiscountGiven = promoRedemptions.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0);
               const remainingUses = promo.max_uses === null ? null : Math.max(0, promo.max_uses - promo.used_count);
               const usagePercent = promo.max_uses ? Math.min(100, (promo.used_count / promo.max_uses) * 100) : 0;
               const usageText =
@@ -456,8 +477,10 @@ export default function AdminPromotionsPage() {
                       </div>
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-3 xl:w-[520px]">
+                    <div className="grid gap-3 sm:grid-cols-2 xl:w-[620px]">
                       <MiniInfo label="Discount" value={formatDiscount(promo)} />
+                      <MiniInfo label="Discount given" value={`EGP ${promoDiscountGiven.toLocaleString("en-EG", { maximumFractionDigits: 2 })}`} />
+                      <MiniInfo label="Recorded bookings" value={String(promoRedemptions.length)} />
                       <div className="rounded-2xl border border-[#eadff5] bg-white px-4 py-3">
                         <p className="text-[10px] uppercase tracking-[0.16em] text-[#8a7d91]">Usage</p>
                         <p className="mt-1 text-sm font-medium text-[#171018]">{usageText}</p>
