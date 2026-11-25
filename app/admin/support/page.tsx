@@ -45,6 +45,19 @@ export default function AdminSupportPage() {
 
   useEffect(() => {
     loadTickets();
+
+    const channel = supabase
+      .channel("admin-support-tickets-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "support_tickets" },
+        () => loadTickets()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   async function loadTickets() {
@@ -224,6 +237,21 @@ export default function AdminSupportPage() {
         priorityFilter === "all" || priority === priorityFilter;
 
       return matchesSearch && matchesStatus && matchesPriority;
+    }).sort((a, b) => {
+      // Keep unresolved tickets ahead of resolved/closed tickets.
+      const statusRank = (value: string | null) =>
+        value === "open" ? 0 : value === "in_progress" ? 1 : value === "resolved" ? 2 : 3;
+      const statusDifference = statusRank(a.status) - statusRank(b.status);
+      if (statusDifference !== 0) return statusDifference;
+
+      // Within each status, surface urgent and high-priority requests first.
+      const priorityRank = (value: string | null) =>
+        value === "urgent" ? 0 : value === "high" ? 1 : value === "medium" ? 2 : 3;
+      const priorityDifference = priorityRank(a.priority) - priorityRank(b.priority);
+      if (priorityDifference !== 0) return priorityDifference;
+
+      // For equal status and priority, show the oldest ticket first.
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
     });
   }, [tickets, search, statusFilter, priorityFilter]);
 
