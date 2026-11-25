@@ -11,6 +11,7 @@ import {
   Star,
   CheckCircle2,
   Wallet,
+  MessageCircle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import SupportHelpButton from "@/components/support/SupportHelpButton";
@@ -18,7 +19,8 @@ import SupportHelpButton from "@/components/support/SupportHelpButton";
 type Booking = {
   id: string;
   bride_id: string;
-  event_date: string | null;
+  booking_date: string | null;
+  booking_time: string | null;
   status: string | null;
   total_amount?: number | null;
   total_price?: number | null;
@@ -73,6 +75,7 @@ export default function MuaDashboardPage() {
   const [portfolioCount, setPortfolioCount] = useState(0);
   const [acceptedLocations, setAcceptedLocations] = useState<string[]>([]);
   const [walletData, setWalletData] = useState<MuaWallet | null>(null);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
 
   useEffect(() => {
     loadDashboard();
@@ -163,7 +166,8 @@ export default function MuaDashboardPage() {
         .select(
           `
           id,
-          event_date,
+          booking_date,
+          booking_time,
           status,
           total_amount,
           total_price,
@@ -174,7 +178,7 @@ export default function MuaDashboardPage() {
         `
         )
         .eq("mua_id", user.id)
-        .order("event_date", { ascending: true }),
+        .order("booking_date", { ascending: true }),
 
       supabase
         .from("mua_services")
@@ -216,6 +220,22 @@ export default function MuaDashboardPage() {
       console.error("Could not load booking client names:", brideNamesError);
     }
 
+    const { data: conversationsData, error: conversationsError } =
+      await supabase.rpc("get_mua_conversations", { mua_user_id: user.id });
+
+    if (conversationsError) {
+      console.error("Could not load unread message count:", conversationsError);
+      setUnreadMessagesCount(0);
+    } else {
+      setUnreadMessagesCount(
+        (conversationsData || []).reduce(
+          (total: number, conversation: { unread_count?: number | null }) =>
+            total + Number(conversation.unread_count || 0),
+          0
+        )
+      );
+    }
+
     const bookingsWithNames = bookingRows.map((booking) => {
       const bride = brideNames?.find((item: any) => item.bride_id === booking.bride_id);
       return {
@@ -242,22 +262,47 @@ export default function MuaDashboardPage() {
   }
 
   const upcomingBookings = useMemo(() => {
-    const now = new Date();
+    const cairoToday = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Cairo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
 
-    return bookings.filter((booking) => {
-      if (!booking.event_date) return false;
-      return (
-        new Date(booking.event_date) >= now && booking.status !== "cancelled"
-      );
-    });
+    const activeStatuses = new Set([
+      "pending",
+      "confirmed",
+      "confirmed_payment_pending",
+      "paid",
+      "accepted",
+    ]);
+
+    return bookings.filter((booking) =>
+      !!booking.booking_date &&
+      booking.booking_date >= cairoToday &&
+      activeStatuses.has((booking.status || "").toLowerCase())
+    );
   }, [bookings]);
 
   const pendingBookings = useMemo(() => {
     return bookings.filter((booking) => booking.status === "pending");
   }, [bookings]);
 
+  const paymentPendingBookings = useMemo(() => {
+    return bookings.filter(
+      (booking) => booking.status === "confirmed_payment_pending"
+    );
+  }, [bookings]);
+
+  const actionRequiredBookings = useMemo(
+    () => [...pendingBookings, ...paymentPendingBookings],
+    [pendingBookings, paymentPendingBookings]
+  );
+
   const confirmedBookings = useMemo(() => {
-    return bookings.filter((booking) => booking.status === "confirmed");
+    return bookings.filter((booking) =>
+      ["confirmed", "paid", "accepted"].includes(booking.status || "")
+    );
   }, [bookings]);
 
   const monthlyEarnings = useMemo(() => {
@@ -267,10 +312,10 @@ export default function MuaDashboardPage() {
 
     return bookings
       .filter((booking) => {
-        if (booking.status !== "confirmed") return false;
-        if (!booking.event_date) return false;
+        if (!["confirmed", "paid", "accepted"].includes(booking.status || "")) return false;
+        if (!booking.booking_date) return false;
 
-        const eventDate = new Date(booking.event_date);
+        const eventDate = new Date(booking.booking_date + "T12:00:00");
         return (
           eventDate.getMonth() === currentMonth &&
           eventDate.getFullYear() === currentYear
@@ -365,6 +410,10 @@ export default function MuaDashboardPage() {
             value={confirmedBookings.length.toString()}
           />
           <QuickPill
+            label="Unread messages"
+            value={unreadMessagesCount.toString()}
+          />
+          <QuickPill
             label="Wallet available"
             value={formatMoney(walletData?.available_balance)}
           />
@@ -400,9 +449,9 @@ export default function MuaDashboardPage() {
         />
 
         <StatCard
-          title="Monthly earnings"
-          value={loading ? "..." : `EGP ${monthlyEarnings.toLocaleString()}`}
-          subtext="Estimated from confirmed bookings this month"
+          title="Total earned"
+          value={loading ? "..." : formatMoney(walletData?.total_earned)}
+          subtext="Recorded earnings in your Beaura wallet"
           icon={<CircleDollarSign size={18} />}
         />
       </section>
@@ -441,8 +490,9 @@ export default function MuaDashboardPage() {
                     </p>
 
                     <p className="mt-1 text-sm text-[#6f6077]">
-                      {formatDate(nextBooking.event_date)} •{" "}
-                      {capitalize(nextBooking.status)}
+                      {formatDate(nextBooking.booking_date)}
+                      {nextBooking.booking_time ? ` · ${nextBooking.booking_time.slice(0, 5)}` : ""}
+                      {" · "}{capitalize(nextBooking.status)}
                     </p>
                   </div>
 
@@ -457,6 +507,73 @@ export default function MuaDashboardPage() {
             ) : (
               <EmptyState text="Once a client books you, your next appointment will show up here." />
             )}
+          </Card>
+
+          {/* ACTION REQUIRED */}
+          <Card>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-purple-700">
+                  Needs your attention
+                </p>
+                <h2 className="mt-2 text-2xl font-light tracking-[-0.04em]">
+                  Action required
+                </h2>
+              </div>
+              <Link
+                href="/dashboard/mua/bookings"
+                className="text-sm text-purple-700 hover:underline"
+              >
+                Open bookings
+              </Link>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {actionRequiredBookings.length > 0 && (
+                <Link
+                  href="/dashboard/mua/bookings"
+                  className="flex items-center justify-between gap-4 rounded-[1.3rem] border border-[#eadff5] bg-[#fffafc] p-4 transition hover:border-purple-300"
+                >
+                  <span>
+                    <span className="block text-sm font-medium text-[#171018]">
+                      Booking requests
+                    </span>
+                    <span className="mt-1 block text-xs text-[#6f6077]">
+                      {pendingBookings.length} waiting for your response
+                      {paymentPendingBookings.length > 0
+                        ? ` · ${paymentPendingBookings.length} waiting for bride payment`
+                        : ""}
+                    </span>
+                  </span>
+                  <span className="rounded-full bg-[#f7efff] px-3 py-1.5 text-sm font-semibold text-purple-700">
+                    {actionRequiredBookings.length}
+                  </span>
+                </Link>
+              )}
+
+              {unreadMessagesCount > 0 && (
+                <Link
+                  href="/dashboard/mua/messages"
+                  className="flex items-center justify-between gap-4 rounded-[1.3rem] border border-[#eadff5] bg-[#fffafc] p-4 transition hover:border-purple-300"
+                >
+                  <span>
+                    <span className="block text-sm font-medium text-[#171018]">
+                      Unread messages
+                    </span>
+                    <span className="mt-1 block text-xs text-[#6f6077]">
+                      Brides are waiting for your reply
+                    </span>
+                  </span>
+                  <span className="rounded-full bg-[#f7efff] px-3 py-1.5 text-sm font-semibold text-purple-700">
+                    {unreadMessagesCount}
+                  </span>
+                </Link>
+              )}
+
+              {actionRequiredBookings.length === 0 && unreadMessagesCount === 0 && (
+                <EmptyState text="You’re all caught up. New booking requests and unread messages will appear here." />
+              )}
+            </div>
           </Card>
 
           {/* RECENT BOOKINGS */}
@@ -494,8 +611,8 @@ export default function MuaDashboardPage() {
                         {booking.bride_profiles?.last_name || ""}
                       </p>
                       <p className="mt-1 text-sm text-[#6f6077]">
-                        {booking.event_date
-                          ? formatDate(booking.event_date)
+                        {booking.booking_date
+                          ? `${formatDate(booking.booking_date)}${booking.booking_time ? ` · ${booking.booking_time.slice(0, 5)}` : ""}`
                           : "No date yet"}
                       </p>
                     </div>
