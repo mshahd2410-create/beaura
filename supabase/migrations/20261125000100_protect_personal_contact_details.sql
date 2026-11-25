@@ -99,3 +99,49 @@ $$;
 
 revoke all on function public.get_booking_notification_contacts(uuid) from public, anon;
 grant execute on function public.get_booking_notification_contacts(uuid) to authenticated;
+
+-- Return only client names to an artist for brides linked to that artist's
+-- own bookings or conversations. This keeps artist dashboards and chat labels
+-- working after the broad bride-profile read policy is removed in phase 2.
+create or replace function public.get_mua_client_names(p_bride_ids uuid[])
+returns table (
+  bride_id uuid,
+  first_name text,
+  last_name text
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_is_admin boolean;
+begin
+  if v_uid is null then
+    raise exception 'Authentication required';
+  end if;
+
+  select exists (
+    select 1 from public.admins a where a.user_id = v_uid
+  ) into v_is_admin;
+
+  return query
+  select bp.id, bp.first_name, bp.last_name
+  from public.bride_profiles bp
+  where bp.id = any(coalesce(p_bride_ids, '{}'::uuid[]))
+    and (
+      v_is_admin
+      or exists (
+        select 1 from public.bookings b
+        where b.bride_id = bp.id and b.mua_id = v_uid
+      )
+      or exists (
+        select 1 from public.conversations c
+        where c.bride_id = bp.id and c.mua_id = v_uid
+      )
+    );
+end;
+$$;
+
+revoke all on function public.get_mua_client_names(uuid[]) from public, anon;
+grant execute on function public.get_mua_client_names(uuid[]) to authenticated;
