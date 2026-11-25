@@ -39,6 +39,7 @@ create policy "Admins can read MUA private details"
 on public.mua_private for select to authenticated
 using (exists (select 1 from public.admins a where a.user_id = auth.uid()));
 
+revoke all on public.mua_private from public, anon;
 grant select, insert, update on public.mua_private to authenticated;
 
 -- Remove all broad public-read policies from the artist table, then expose
@@ -126,5 +127,5 @@ begin
 end;
 $$;
 
-revoke all on function public.get_booking_notification_contacts(uuid) from public;
+revoke all on function public.get_booking_notification_contacts(uuid) from public, anon;
 grant execute on function public.get_booking_notification_contacts(uuid) to authenticated;
