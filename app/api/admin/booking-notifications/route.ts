@@ -159,15 +159,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Booking is not cancelled." }, { status: 409 });
     }
 
-    const [contactsResult, muaResult, serviceResult] = await Promise.all([
+    const [contactsResult, serviceResult] = await Promise.all([
       supabase.rpc("get_booking_notification_contacts", { p_booking_id: bookingId }),
-      supabase.from("mua_profiles").select("first_name, last_name").eq("id", booking.mua_id).maybeSingle(),
       booking.service_id
         ? supabase.from("mua_services").select("name").eq("id", booking.service_id).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
     ]);
 
-    if (contactsResult.error || muaResult.error || serviceResult.error) {
+    if (contactsResult.error || serviceResult.error) {
       return NextResponse.json({ error: "Could not load booking recipient details." }, { status: 500 });
     }
 
