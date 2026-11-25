@@ -82,8 +82,7 @@ returns table (
   bride_phone text,
   mua_first_name text,
   mua_last_name text,
-  mua_email text,
-  mua_phone text
+  mua_email text
 )
 language plpgsql
 security definer
@@ -118,8 +117,7 @@ begin
     bp.phone,
     mp.first_name,
     mp.last_name,
-    mpriv.email,
-    mpriv.phone
+    mpriv.email
   from public.bookings b
   left join public.bride_profiles bp on bp.id = b.bride_id
   left join public.mua_profiles mp on mp.id = b.mua_id
