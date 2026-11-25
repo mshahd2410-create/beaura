@@ -8,6 +8,7 @@ import { getBookingNumber } from "@/lib/bookingNumber";
 
 type Booking = {
   id: string;
+  booking_reference: string;
   bride_id: string;
   mua_id: string;
   service_id: string | null;
@@ -621,7 +622,7 @@ export default function BookingsPage() {
 
                       <div>
                         <p className="mb-1 text-xs font-semibold tracking-wide text-purple-700">
-                          Booking # {getBookingNumber(b.id)}
+                          Booking # {getBookingNumber(b.booking_reference)}
                         </p>
                         <h2 className="text-lg font-medium text-[#171018]">
                           {brideName}
