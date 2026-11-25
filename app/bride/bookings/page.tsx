@@ -610,13 +610,6 @@ export default function BrideBookings() {
                           {cleanStatus(status)}
                         </span>
 
-                        <span className="rounded-full border border-[#eadff5] bg-[#fffafc] px-3 py-1 text-xs font-medium text-[#6f6077]">
-                          {getPaymentMethodLabel(b)}
-                        </span>
-
-                        <span className="rounded-full border border-[#eadff5] bg-white px-3 py-1 text-xs font-medium text-[#6f6077]">
-                          {getPaymentStatusLabel(b)}
-                        </span>
                       </div>
 
                       <h2 className="mt-4 text-3xl font-light tracking-[-0.06em] text-[#171018]">
@@ -635,22 +628,10 @@ export default function BrideBookings() {
                         {b.booking_time || "No time"}
                       </p>
 
-                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                        <InfoCard
-                          label="Service subtotal"
-                          value={formatMoney(b.service_price ?? b.total_price)}
-                        />
+                      <p className="mt-3 text-sm font-medium text-[#6f6077]">
+                        Total · {formatMoney(b.total_price ?? b.service_price)}
+                      </p>
 
-                        <InfoCard
-                          label="Travel quote"
-                          value={b.location_type === "own_studio" ? "EGP 0 · Studio" : b.travel_fee_quote_status === "pending_bride_approval" || b.travel_fee_quote_status === "accepted" ? formatMoney(b.travel_fee) : "Awaiting MUA quote"}
-                        />
-
-                        <InfoCard
-                          label="Payment"
-                          value={getPaymentMethodLabel(b)}
-                        />
-                      </div>
                       {b.travel_fee_quote_status === "pending_bride_approval" && (
                         <div className="mt-4 rounded-2xl border border-purple-200 bg-[#f7efff] p-5">
                           <p className="text-sm font-medium text-purple-900">Your makeup artist has quoted travel for this address.</p>
