@@ -824,6 +824,7 @@ export default function MuaProfilePage() {
                 <p className="text-sm text-[#6f6077]">No ratings yet</p>
               )}
             </div>
+          </div>
           {reviews.length > 0 ? (
             <div className="mt-6 grid gap-3 md:grid-cols-2">
               {reviews.map((review: any, index: number) => (
@@ -840,7 +841,6 @@ export default function MuaProfilePage() {
           ) : (
             <p className="mt-6 rounded-2xl bg-[#fffafc] p-5 text-sm text-[#6f6077]">No written reviews yet. Client ratings will appear here after brides share feedback.</p>
           )}
-          </div>
         </section>
 
         {mua.portfolio.length > 1 && (
