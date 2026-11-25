@@ -330,6 +330,7 @@ export default function AdminDashboardPage() {
                 <Shortcut href="/admin/brides" label="Manage Clients" />
                 <Shortcut href="/admin/muas" label="Manage MUAs" />
                 <Shortcut href="/admin/bookings" label="Bookings" />
+                <Shortcut href="/admin/finance" label="Finance Overview" />
                 <Shortcut href="/admin/promotions" label="Promotions" />
                 <Shortcut href="/admin/support" label="Support Inbox" />
                 <Shortcut href="/admin/reports" label="Reports & Disputes" />
