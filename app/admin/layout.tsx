@@ -28,6 +28,7 @@ const NAV_ITEMS = [
   { href: "/admin/muas", label: "MUAs", icon: UserCheck },
   { href: "/admin/brides", label: "Brides", icon: Users },
   { href: "/admin/bookings", label: "Bookings", icon: CalendarCheck },
+  { href: "/admin/finance", label: "Finance Overview", icon: ReceiptText },
   { href: "/admin/payment-proofs", label: "Payment Proofs", icon: ReceiptText },
   { href: "/admin/pending-deposits", label: "Pending Deposits", icon: Wallet },
   { href: "/admin/cancellation-requests", label: "Cancellation Requests", icon: Clock },
