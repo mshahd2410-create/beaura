@@ -38,6 +38,7 @@ type MuaProfile = {
   bio: string | null;
   instagram: string | null;
   experience: string | null;
+  experience_years: number | null;
   cities: string[] | null;
   verified: boolean | null;
   beaura_tier: string | null;
@@ -47,6 +48,7 @@ type MuaService = {
   id: string;
   name: string;
   price: number | null;
+  duration_minutes: number | null;
 };
 
 type MuaWallet = {
@@ -67,6 +69,9 @@ export default function MuaDashboardPage() {
   const [profile, setProfile] = useState<MuaProfile | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [services, setServices] = useState<MuaService[]>([]);
+  const [profilePhone, setProfilePhone] = useState("");
+  const [portfolioCount, setPortfolioCount] = useState(0);
+  const [acceptedLocations, setAcceptedLocations] = useState<string[]>([]);
   const [walletData, setWalletData] = useState<MuaWallet | null>(null);
 
   useEffect(() => {
@@ -94,6 +99,21 @@ export default function MuaDashboardPage() {
         () => {
           loadDashboard();
         }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "mua_portfolio" },
+        () => loadDashboard()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "mua_service_locations" },
+        () => loadDashboard()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "mua_private" },
+        () => loadDashboard()
       )
       .on(
         "postgres_changes",
@@ -126,11 +146,14 @@ export default function MuaDashboardPage() {
       { data: bookingsData },
       { data: servicesData },
       { data: wallet },
+      { data: privateData },
+      { count: portfolioRows },
+      { data: locationRows },
     ] = await Promise.all([
       supabase
         .from("mua_profiles")
         .select(
-          "id, first_name, last_name, bio, instagram, experience, cities, verified, beaura_tier"
+          "id, first_name, last_name, bio, instagram, experience, experience_years, cities, verified, beaura_tier"
         )
         .eq("id", user.id)
         .maybeSingle(),
@@ -155,7 +178,7 @@ export default function MuaDashboardPage() {
 
       supabase
         .from("mua_services")
-        .select("id, name, price")
+        .select("id, name, price, duration_minutes")
         .eq("mua_id", user.id),
 
       supabase
@@ -164,6 +187,23 @@ export default function MuaDashboardPage() {
         .eq("user_id", user.id)
         .eq("user_type", "mua")
         .maybeSingle(),
+
+      supabase
+        .from("mua_private")
+        .select("phone")
+        .eq("id", user.id)
+        .maybeSingle(),
+
+      supabase
+        .from("mua_portfolio")
+        .select("id", { count: "exact", head: true })
+        .eq("mua_id", user.id),
+
+      supabase
+        .from("mua_service_locations")
+        .select("location_type")
+        .eq("mua_id", user.id)
+        .eq("is_accepted", true),
     ]);
 
     const bookingRows = (bookingsData || []) as Booking[];
@@ -190,6 +230,9 @@ export default function MuaDashboardPage() {
     setBookings(bookingsWithNames);
     setServices((servicesData as MuaService[]) || []);
     setWalletData((wallet as MuaWallet) || null);
+    setProfilePhone(privateData?.phone || "");
+    setPortfolioCount(portfolioRows || 0);
+    setAcceptedLocations((locationRows || []).map((row: { location_type: string }) => row.location_type));
 
     if (profileData?.first_name) {
       setMuaName(profileData.first_name);
@@ -252,22 +295,26 @@ export default function MuaDashboardPage() {
     return upcomingBookings[0] || null;
   }, [upcomingBookings]);
 
-  const profileCompletion = useMemo(() => {
-    if (!profile) return 0;
+  const profileTasks = useMemo(() => {
+    const completeServices = services.some(
+      (service) => Number(service.price) > 0 && Number(service.duration_minutes) > 0
+    );
 
-    const checks = [
-      !!profile.first_name,
-      !!profile.last_name,
-      !!profile.bio,
-      !!profile.instagram,
-      !!profile.experience,
-      !!(profile.cities && profile.cities.length > 0),
-      services.length > 0,
+    return [
+      { label: "Complete your basic details", detail: "Name, bio and Instagram", done: !!(profile?.first_name && profile?.last_name && profile?.bio && profile?.instagram), href: "/dashboard/mua/settings", weight: 20 },
+      { label: "Add your experience", detail: "Experience level and years", done: !!profile?.experience && profile?.experience_years != null, href: "/dashboard/mua/settings", weight: 10 },
+      { label: "Choose your service areas", detail: "At least one city or governorate", done: !!profile?.cities?.length, href: "/dashboard/mua/settings", weight: 10 },
+      { label: "Set up your services", detail: "At least one service with price and duration", done: completeServices, href: "/dashboard/mua/services", weight: 25 },
+      { label: "Build your portfolio", detail: "Add at least 5 photos", done: portfolioCount >= 5, href: "/dashboard/mua/portfolio", weight: 20 },
+      { label: "Choose where you work", detail: "Home, hotel, venue or your studio", done: acceptedLocations.length > 0, href: "/dashboard/mua/services", weight: 10 },
+      { label: "Add your contact number", detail: "A phone number for booking coordination", done: !!profilePhone, href: "/dashboard/mua/settings", weight: 5 },
     ];
+  }, [profile, services, portfolioCount, acceptedLocations, profilePhone]);
 
-    const completed = checks.filter(Boolean).length;
-    return Math.round((completed / checks.length) * 100);
-  }, [profile, services]);
+  const profileCompletion = useMemo(
+    () => profileTasks.reduce((total, task) => total + (task.done ? task.weight : 0), 0),
+    [profileTasks]
+  );
 
   return (
     <div className="space-y-8 text-[#171018]">
@@ -502,52 +549,41 @@ export default function MuaDashboardPage() {
 
           {/* PROFILE COMPLETION */}
           <Card>
-            <p className="text-xs uppercase tracking-[0.18em] text-purple-700">
-              Profile health
-            </p>
-
+            <p className="text-xs uppercase tracking-[0.18em] text-purple-700">Your profile</p>
             <h2 className="mt-2 text-2xl font-light tracking-[-0.04em]">
-              Complete your profile
+              {profileCompletion === 100 ? "Your profile is ready! ✨" : "Complete your profile"}
             </h2>
-
-            <div className="mt-5">
-              <div className="mb-2 flex items-center justify-between text-sm">
-                <span className="text-[#6f6077]">Completion</span>
-                <span className="font-medium text-[#171018]">
-                  {profileCompletion}%
-                </span>
+            <div className="mt-5 flex items-center gap-5">
+              <div className="relative h-24 w-24 shrink-0">
+                <svg viewBox="0 0 100 100" className="h-24 w-24 -rotate-90">
+                  <circle cx="50" cy="50" r="42" fill="none" stroke="#f1e5ff" strokeWidth="9" />
+                  <circle cx="50" cy="50" r="42" fill="none" stroke="#9333ea" strokeWidth="9" strokeLinecap="round" strokeDasharray={String(profileCompletion * 2.6389) + " 263.89"} />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center text-xl font-semibold text-[#171018]">{profileCompletion}%</div>
               </div>
-
-              <div className="h-3 overflow-hidden rounded-full bg-[#f1e5ff]">
-                <div
-                  className="h-full rounded-full bg-purple-600 transition-all"
-                  style={{ width: `${profileCompletion}%` }}
-                />
+              <div>
+                <p className="text-sm font-medium text-[#171018]">
+                  {profileCompletion === 100 ? "You’ve done it!" : profileTasks.filter((task) => task.done).length + " of " + profileTasks.length + " steps complete"}
+                </p>
+                <p className="mt-1 text-sm leading-6 text-[#6f6077]">
+                  {profileCompletion === 100 ? "Your artist profile has all the essentials clients need to book with confidence." : "Finish these steps to give brides everything they need to discover and book you."}
+                </p>
               </div>
             </div>
-
-            <div className="mt-5 space-y-3">
-              <ChecklistItem done={!!profile?.bio} label="Add your bio" />
-              <ChecklistItem
-                done={!!profile?.instagram}
-                label="Add your Instagram"
-              />
-              <ChecklistItem
-                done={!!(profile?.cities && profile.cities.length)}
-                label="Select your cities"
-              />
-              <ChecklistItem
-                done={services.length > 0}
-                label="Add at least one service"
-              />
+            <div className="mt-5 space-y-2">
+              {profileTasks.map((task) => (
+                <Link key={task.label} href={task.href} className="flex items-center gap-3 rounded-[1.2rem] border border-[#eadff5] bg-[#fffafc] px-4 py-3 transition hover:border-purple-300">
+                  <span className={"grid h-6 w-6 shrink-0 place-items-center rounded-full " + (task.done ? "bg-green-100 text-green-700" : "bg-[#f1e5ff] text-purple-700")}>
+                    {task.done ? <CheckCircle2 size={15} /> : <ArrowRight size={14} />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className={"block text-sm " + (task.done ? "text-[#6f6077]" : "font-medium text-[#171018]")}>{task.label}</span>
+                    <span className="mt-0.5 block text-xs text-[#8a7d91]">{task.detail}</span>
+                  </span>
+                  <ArrowRight size={15} className="shrink-0 text-purple-700" />
+                </Link>
+              ))}
             </div>
-
-            <Link
-              href="/dashboard/mua/settings"
-              className="mt-6 inline-flex items-center gap-2 text-sm text-purple-700"
-            >
-              Finish profile <ArrowRight size={16} />
-            </Link>
           </Card>
 
           {/* SERVICES SNAPSHOT */}
