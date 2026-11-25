@@ -79,8 +79,16 @@ async function sendBrideWhatsAppConfirmation({
 
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = result?.error?.message || "WhatsApp Cloud API rejected the message.";
-    throw new Error(message);
+    const apiError = result?.error || {};
+    const message = apiError.message || "WhatsApp Cloud API rejected the message.";
+    const diagnostic = [
+      apiError.code ? `code ${apiError.code}` : null,
+      apiError.error_subcode ? `subcode ${apiError.error_subcode}` : null,
+      apiError.type ? `type ${apiError.type}` : null,
+      apiError.fbtrace_id ? `trace ${apiError.fbtrace_id}` : null,
+    ].filter(Boolean).join(", ");
+    console.error("WhatsApp Cloud API error:", JSON.stringify(apiError));
+    throw new Error(diagnostic ? `${message} (${diagnostic})` : message);
   }
 
   return {
