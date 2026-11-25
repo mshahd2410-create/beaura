@@ -660,7 +660,6 @@ export default function BookingsPage() {
                           value={formatMoney(b.refund_amount)}
                         />
                       )}
-                    </div>
 
                     {Number(b.discount_amount || 0) > 0 && (
                       <p className="mt-4 rounded-2xl border border-purple-100 bg-purple-50 p-4 text-sm text-purple-700">
