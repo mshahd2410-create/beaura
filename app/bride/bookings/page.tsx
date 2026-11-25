@@ -101,6 +101,8 @@ export default function BrideBookings() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeStatus, setActiveStatus] = useState<BookingTab>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState("newest");
 
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [modalType, setModalType] = useState<ModalType>(null);
@@ -520,15 +522,24 @@ export default function BrideBookings() {
     return `EGP ${Number(value || 0).toLocaleString()}`;
   }
 
-  const filtered = bookings.filter((b) => {
+  const filtered = [...bookings.filter((b) => {
     const status = normalizeStatus(b.status);
-
-    if (activeStatus === "all") return true;
-    if (activeStatus === "cancelled") {
-      return status.includes("cancelled");
-    }
-
-    return status === activeStatus;
+    const matchesStatus = activeStatus === "all" ||
+      (activeStatus === "cancelled" ? status.includes("cancelled") : status === activeStatus);
+    const query = searchQuery.trim().toLowerCase();
+    const matchesSearch = !query ||
+      getMuaName(b).toLowerCase().includes(query) ||
+      (b.service?.name || "").toLowerCase().includes(query) ||
+      getBookingNumber(b.booking_reference).toLowerCase().includes(query) ||
+      (b.location || "").toLowerCase().includes(query);
+    return matchesStatus && matchesSearch;
+  })].sort((a, b) => {
+    if (sortBy === "oldest") return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    if (sortBy === "date-soonest") return new Date(a.booking_date || "9999-12-31").getTime() - new Date(b.booking_date || "9999-12-31").getTime();
+    if (sortBy === "date-latest") return new Date(b.booking_date || "0001-01-01").getTime() - new Date(a.booking_date || "0001-01-01").getTime();
+    if (sortBy === "price-low") return Number(a.total_price || 0) - Number(b.total_price || 0);
+    if (sortBy === "price-high") return Number(b.total_price || 0) - Number(a.total_price || 0);
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
   if (loading) {
@@ -599,6 +610,28 @@ export default function BrideBookings() {
               </button>
             );
           })}
+        </div>
+
+        <div className="rounded-[2rem] border border-[#eadff5] bg-white p-4 shadow-sm sm:p-5">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+            <label className="text-xs font-medium text-[#6f6077]">Search bookings
+              <input value={searchQuery} onChange={(event)=>setSearchQuery(event.target.value)} placeholder="Artist, service, booking number or location" className="mt-2 w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 py-3 text-sm text-[#171018] outline-none focus:border-purple-500"/>
+            </label>
+            <label className="text-xs font-medium text-[#6f6077]">Sort by
+              <select value={sortBy} onChange={(event)=>setSortBy(event.target.value)} className="mt-2 w-full rounded-2xl border border-[#eadff5] bg-[#fffafc] px-4 py-3 text-sm text-[#171018] sm:min-w-52">
+                <option value="newest">Recently added</option>
+                <option value="oldest">Oldest first</option>
+                <option value="date-soonest">Appointment: soonest</option>
+                <option value="date-latest">Appointment: latest</option>
+                <option value="price-low">Total price: low to high</option>
+                <option value="price-high">Total price: high to low</option>
+              </select>
+            </label>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs text-[#8a7d91]">Showing {filtered.length} of {bookings.length} bookings</span>
+            <button type="button" onClick={()=>{setSearchQuery("");setSortBy("newest");setActiveStatus("all");}} className="text-sm font-medium text-purple-700 hover:underline">Clear search and sorting</button>
+          </div>
         </div>
 
         {filtered.length === 0 ? (
