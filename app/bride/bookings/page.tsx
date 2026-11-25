@@ -210,7 +210,7 @@ export default function BrideBookings() {
           : Promise.resolve({ data: [] as any[] }),
 
         muaIds.length
-          ? supabase.from("mua_portfolio").select("mua_id, image_path").in("mua_id", muaIds).order("created_at", { ascending: true })
+          ? supabase.from("mua_portfolio").select("mua_id, image_path").in("mua_id", muaIds)
           : Promise.resolve({ data: [] as any[] }),
       ]);
 
