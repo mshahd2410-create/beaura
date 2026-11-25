@@ -260,7 +260,6 @@ export default function BookingPage() {
           id,
           first_name,
           last_name,
-          email,
           verified,
           status,
           mua_services (
@@ -428,21 +427,6 @@ export default function BookingPage() {
     return data as BasicProfile | null;
   }
 
-  async function getMuaProfile(id: string) {
-    const { data, error } = await supabase
-      .from("mua_profiles")
-      .select("id, first_name, last_name, email")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (error) {
-      console.warn("MUA PROFILE EMAIL LOAD ERROR:", error);
-      return null;
-    }
-
-    return data as BasicProfile | null;
-  }
-
   function getEmailServiceName() {
     if (!selectedService) return "Makeup service";
 
@@ -452,20 +436,11 @@ export default function BookingPage() {
   }
 
   async function sendNewBookingEmailToMua({
-    muaProfile,
-    brideProfile,
     bookingData,
   }: {
-    muaProfile: BasicProfile | null;
-    brideProfile: BasicProfile | null;
     bookingData: BookingData;
   }) {
     try {
-      if (!muaProfile?.email) {
-        console.warn("MUA EMAIL NOT SENT: Missing email.");
-        return;
-      }
-
       const emailRes = await fetch(
         "/api/emails/booking-request-created",
         {
@@ -490,11 +465,9 @@ export default function BookingPage() {
   }
 
   async function sendBookingRequestEmailToBride({
-    muaProfile,
     brideProfile,
     bookingData,
   }: {
-    muaProfile: BasicProfile | null;
     brideProfile: BasicProfile | null;
     bookingData: BookingData;
   }) {
@@ -791,10 +764,7 @@ export default function BookingPage() {
       }
 
       // Load profiles only after the database confirms creation.
-      const [brideProfile, muaProfile] = await Promise.all([
-        getBrideProfile(user.id),
-        getMuaProfile(muaId),
-      ]);
+      const brideProfile = await getBrideProfile(user.id);
 
       const brideProfileWithFallback: BasicProfile =
         brideProfile
@@ -811,13 +781,10 @@ export default function BookingPage() {
 
       // Email failures should not undo a successfully created booking.
       await sendNewBookingEmailToMua({
-        muaProfile,
-        brideProfile: brideProfileWithFallback,
         bookingData: bookingRow,
       });
 
       await sendBookingRequestEmailToBride({
-        muaProfile,
         brideProfile: brideProfileWithFallback,
         bookingData: bookingRow,
       });
