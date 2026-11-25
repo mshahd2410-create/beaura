@@ -62,12 +62,20 @@ export default function MessagesPage() {
     let brides: BrideProfile[] = [];
 
     if (brideIds.length > 0) {
-      const { data: brideData } = await supabase
-        .from("bride_profiles")
-        .select("id, first_name, last_name")
-        .in("id", brideIds);
+      const { data: brideData, error: brideError } = await supabase.rpc(
+        "get_mua_client_names",
+        { p_bride_ids: brideIds }
+      );
 
-      brides = brideData || [];
+      if (brideError) {
+        console.error("Could not load conversation client names:", brideError);
+      }
+
+      brides = (brideData || []).map((row: any) => ({
+        id: row.bride_id,
+        first_name: row.first_name,
+        last_name: row.last_name,
+      }));
     }
 
     const merged: ConversationWithBride[] = conversationRows.map((conversation) => ({
