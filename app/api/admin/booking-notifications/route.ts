@@ -7,7 +7,7 @@ import { getBookingNumber } from "@/lib/bookingNumber";
 type EventType = "confirmed" | "cancelled";
 
 function normalizeWhatsAppNumber(value: string) {
-  let digits = value.replace(/\\D/g, "");
+  let digits = value.replace(/\D/g, "");
   // Bride phone numbers are commonly stored in Egyptian local format (01xxxxxxxxx).
   if (digits.length === 11 && digits.startsWith("0")) {
     digits = `20${digits.slice(1)}`;
