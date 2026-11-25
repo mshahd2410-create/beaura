@@ -368,6 +368,26 @@ export default function MuaDashboardPage() {
     return totals;
   }, [bookings]);
 
+  const completedBookingCount = useMemo(
+    () => bookings.filter((booking) => booking.completed_by_mua === true).length,
+    [bookings]
+  );
+
+  const tierProgress = useMemo(() => {
+    const tiers = [
+      { name: "Starter", threshold: 0, next: 5 },
+      { name: "Rising Star", threshold: 5, next: 15 },
+      { name: "Pro", threshold: 15, next: 25 },
+      { name: "Elite", threshold: 25, next: null },
+    ];
+    const current = [...tiers].reverse().find((tier) => completedBookingCount >= tier.threshold) || tiers[0];
+    const remaining = current.next == null ? 0 : Math.max(current.next - completedBookingCount, 0);
+    const progress = current.next == null
+      ? 100
+      : Math.min(100, Math.round(((completedBookingCount - current.threshold) / (current.next - current.threshold)) * 100));
+    return { current, remaining, progress };
+  }, [completedBookingCount]);
+
   const profileTasks = useMemo(() => {
     const completeServices = services.some(
       (service) => Number(service.price) > 0 && Number(service.duration_minutes) > 0
@@ -482,6 +502,40 @@ export default function MuaDashboardPage() {
           subtext="Recorded earnings in your Beaura wallet"
           icon={<CircleDollarSign size={18} />}
         />
+      </section>
+
+      {/* BEAURA TIER */}
+      <section className="overflow-hidden rounded-[2rem] border border-[#eadff5] bg-gradient-to-br from-[#fff8fc] via-white to-[#f8f2ff] p-6 shadow-sm md:p-7">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-purple-700">Your Beaura journey</p>
+            <h2 className="mt-2 text-3xl font-light tracking-[-0.05em] text-[#171018]">{tierProgress.current.name} tier</h2>
+            <p className="mt-2 text-sm text-[#6f6077]">
+              {completedBookingCount} completed {completedBookingCount === 1 ? "booking" : "bookings"} so far
+              {tierProgress.current.next == null ? " · You’ve reached the highest tier!" : ` · ${tierProgress.remaining} more to reach ${tierProgress.current.next === 15 ? "Pro" : tierProgress.current.next === 25 ? "Elite" : "Rising Star"}`}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[#eadff5] bg-white/80 px-5 py-4 text-center">
+            <p className="text-xs uppercase tracking-[0.14em] text-[#8a7d91]">Current tier</p>
+            <p className="mt-1 text-2xl font-semibold text-purple-700">{tierProgress.current.name}</p>
+          </div>
+        </div>
+        <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-[#eee5f3]">
+          <div className="h-full rounded-full bg-gradient-to-r from-purple-500 to-pink-400 transition-all" style={{ width: `${tierProgress.progress}%` }} />
+        </div>
+        <div className="mt-4 grid grid-cols-4 gap-2 text-center">
+          {[
+            { name: "Starter", count: "0–4", reached: completedBookingCount >= 0 },
+            { name: "Rising Star", count: "5+", reached: completedBookingCount >= 5 },
+            { name: "Pro", count: "15+", reached: completedBookingCount >= 15 },
+            { name: "Elite", count: "25+", reached: completedBookingCount >= 25 },
+          ].map((tier) => (
+            <div key={tier.name} className={`rounded-xl px-2 py-3 ${tier.reached ? "bg-purple-50 text-purple-800" : "bg-white/70 text-[#9a8c9e]"}`}>
+              <p className="text-[10px] font-semibold sm:text-xs">{tier.name}</p>
+              <p className="mt-1 text-[10px]">{tier.count} bookings</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* REVENUE OVERVIEW */}
