@@ -33,7 +33,7 @@ BEGIN
     RAISE EXCEPTION 'A recipient and booking are required';
   END IF;
 
-  IF p_type NOT IN (
+  IF p_type IS NULL OR p_type NOT IN (
     'booking_created',
     'travel_fee_quote',
     'travel_fee_accepted',
