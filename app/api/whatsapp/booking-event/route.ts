@@ -36,7 +36,7 @@ export async function POST(request: Request) {
 
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
-      .select("id, booking_reference, bride_id, mua_id, status, booking_date, service_id, total_price, deposit_amount, payment_proof_status")
+      .select("id, booking_reference, bride_id, mua_id, status, booking_date, service_id, total_price, deposit_amount, travel_fee, payment_proof_status")
       .eq("id", bookingId)
       .maybeSingle();
     if (bookingError || !booking) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
       case "quote_received":
         recipientPhone = contacts.bride_phone || "";
         template = "beaura_quote_received";
-        parameters = [brideName, muaName, reference, date, total];
+        parameters = [brideName, muaName, reference, date, formatWhatsAppAmount(booking.travel_fee ?? booking.total_price)];
         break;
       case "payment_required":
         recipientPhone = contacts.bride_phone || "";
@@ -113,7 +113,16 @@ export async function POST(request: Request) {
 
     if (!recipientPhone) return NextResponse.json({ error: "Recipient WhatsApp number is missing from the profile." }, { status: 409 });
     const result = await sendBeauraWhatsAppTemplate({ to: recipientPhone, name: template!, parameters });
-    return NextResponse.json({ success: true, messageId: result.messageId, template });
+    let artistConfirmationMessageId: string | null = null;
+    if (event === "payment_verified") {
+      const confirmation = await sendBeauraWhatsAppTemplate({
+        to: recipientPhone,
+        name: "beaura_mua_booking_confirmed",
+        parameters: [muaName, reference, brideName, date, service, total],
+      });
+      artistConfirmationMessageId = confirmation.messageId;
+    }
+    return NextResponse.json({ success: true, messageId: result.messageId, template, artistConfirmationMessageId });
   } catch (error) {
     console.error("Beaura WhatsApp event error:", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "Could not send WhatsApp notification." }, { status: 500 });
