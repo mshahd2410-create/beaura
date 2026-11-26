@@ -154,10 +154,10 @@ export default function NotificationBell() {
   }, []);
 
   return (
-    <div className="relative">
+    <div className="relative z-40 shrink-0">
       <button
         onClick={() => setOpen((prev) => !prev)}
-        className="relative rounded-full border border-[#eadfd7] bg-white p-2 text-[#4b342c] shadow-sm transition hover:bg-[#f8f1ed]"
+        className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#eadfd7] bg-white p-2 text-[#4b342c] shadow-sm transition hover:bg-[#f8f1ed]"
         aria-label="Notifications"
       >
         <Bell size={20} />
