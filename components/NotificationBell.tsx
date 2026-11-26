@@ -170,7 +170,7 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-3 w-[360px] overflow-hidden rounded-3xl border border-[#eadfd7] bg-white shadow-xl">
+        <div className="fixed right-3 top-[4.5rem] z-[60] flex max-h-[calc(100dvh-6rem)] w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-3xl border border-[#eadfd7] bg-white shadow-xl sm:absolute sm:right-0 sm:top-auto sm:mt-3 sm:max-h-[min(32rem,calc(100dvh-6rem))] sm:w-[360px] sm:max-w-[calc(100vw-2rem)]">
           <div className="flex items-center justify-between border-b border-[#f0e5df] px-5 py-4">
             <div>
               <h3 className="text-sm font-semibold text-[#3f2f2a]">
@@ -190,7 +190,7 @@ export default function NotificationBell() {
             </button>
           </div>
 
-          <div className="max-h-[420px] overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {loading ? (
               <div className="flex items-center justify-center py-10 text-[#8a756b]">
                 <Loader2 className="mr-2 animate-spin" size={18} />
