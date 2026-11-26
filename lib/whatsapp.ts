@@ -54,10 +54,20 @@ export async function sendBeauraWhatsAppTemplate({
       template: {
         name,
         language: { code: language },
-        components: [{
-          type: "body",
-          parameters: parameters.map((text) => ({ type: "text", text: String(text || "Not provided") })),
-        }],
+        components: [
+          {
+            type: "body",
+            parameters: parameters.map((text) => ({ type: "text", text: String(text || "Not provided") })),
+          },
+          ...(name === "beaura_mua_payment_verified"
+            ? ["bank_transfer", "instapay", "mobile_wallet", "cash_collection"].map((payload, index) => ({
+                type: "button",
+                sub_type: "quick_reply",
+                index: String(index),
+                parameters: [{ type: "payload", payload }],
+              }))
+            : []),
+        ],
       },
     }),
   });
