@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getBookingNumber } from "@/lib/bookingNumber";
 import {
   formatWhatsAppAmount,
   formatWhatsAppDate,
-  getBookingNumber,
   sendBeauraWhatsAppTemplate,
 } from "@/lib/whatsapp";
 
