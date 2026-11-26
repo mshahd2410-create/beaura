@@ -224,7 +224,7 @@ export default function MuaLayout({ children }: { children: React.ReactNode }) {
         {/* MAIN */}
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-30 border-b border-[#eadff5] bg-[#fffafc]/90 backdrop-blur-xl">
-            <div className="flex h-16 items-center justify-between px-4 sm:px-8">
+            <div className="flex h-16 min-w-0 items-center justify-between gap-2 px-3 sm:px-8">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setMenuOpen(true)}
@@ -244,7 +244,7 @@ export default function MuaLayout({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                 <NotificationBell />
 
                 <Link
