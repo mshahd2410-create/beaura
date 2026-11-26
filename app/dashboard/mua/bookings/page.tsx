@@ -253,8 +253,10 @@ export default function BookingsPage() {
 
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          const whatsappNotice = await notifyBookingWhatsApp(booking.id, "quote_received");
-          if (!whatsappNotice.success) console.warn("Bride WhatsApp quote alert failed:", whatsappNotice.error);
+          if (!isStudio) {
+            const whatsappNotice = await notifyBookingWhatsApp(booking.id, "quote_received");
+            if (!whatsappNotice.success) console.warn("Bride WhatsApp quote alert failed:", whatsappNotice.error);
+          }
           const notice = isStudio
             ? "Your makeup artist accepted your studio booking. You can now continue to payment."
             : "Your makeup artist sent your travel quote. Review it and accept or decline it in your bookings.";
