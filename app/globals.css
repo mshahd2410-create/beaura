@@ -153,3 +153,47 @@ table {
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* Mobile-first layout protection shared by every Beaura route. */
+html, body {
+  width: 100%;
+  min-width: 320px;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+@media (max-width: 639px) {
+  main {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  /* Keep wide data views usable without forcing the whole page sideways. */
+  main table {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  main img,
+  main video,
+  main iframe {
+    max-width: 100%;
+  }
+
+  /* Avoid fixed-width children causing horizontal page overflow. */
+  main [class*="w-["],
+  main [class*="min-w-["] {
+    max-width: 100%;
+  }
+
+  input, select, textarea, button {
+    min-width: 0;
+  }
+}
