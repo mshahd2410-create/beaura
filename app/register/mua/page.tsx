@@ -503,6 +503,8 @@ function Input({
       <label className="mb-2 block text-sm text-[#554a5c]">{label}</label>
       <input
         type={type}
+        minLength={type === "password" ? 8 : undefined}
+        autoComplete={type === "password" ? "new-password" : type === "email" ? "email" : "off"}
         min={type === "number" ? 0 : undefined}
         max={type === "number" ? 60 : undefined}
         step={type === "number" ? 1 : undefined}
