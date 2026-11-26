@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { createNotification } from "@/lib/createNotification";
+import { notifyBookingWhatsApp } from "@/lib/notifyWhatsApp";
 import { getBookingNumber } from "@/lib/bookingNumber";
 
 type BookingStatus =
@@ -288,6 +289,10 @@ export default function BrideBookings() {
         p_accept: accept,
       });
       if (error) throw new Error(error.message);
+      if (accept) {
+        const whatsappNotice = await notifyBookingWhatsApp(booking.id, "payment_required");
+        if (!whatsappNotice.success) console.warn("Bride WhatsApp payment instructions alert failed:", whatsappNotice.error);
+      }
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const result = await createNotification({
