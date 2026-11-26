@@ -17,7 +17,13 @@ AS $$
       SELECT 1
       FROM public.bookings b
       WHERE b.mua_id = p.id
-        AND b.booking_date = p_date
+        AND (
+          b.booking_date = p_date
+          OR (
+            b.start_time < ((p_date + 1)::timestamp AT TIME ZONE 'Africa/Cairo')
+            AND b.end_time > (p_date::timestamp AT TIME ZONE 'Africa/Cairo')
+          )
+        )
         AND b.status IN ('pending', 'confirmed', 'paid', 'accepted')
     )
     AND NOT EXISTS (
