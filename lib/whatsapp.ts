@@ -1,5 +1,3 @@
-import { getBookingNumber } from "@/lib/bookingNumber";
-
 type WhatsAppTemplateName =
   | "beaura_mua_new_booking"
   | "beaura_mua_payment_verified"
@@ -71,4 +69,3 @@ export async function sendBeauraWhatsAppTemplate({
   return { messageId: result?.messages?.[0]?.id || null };
 }
 
-export { getBookingNumber };
