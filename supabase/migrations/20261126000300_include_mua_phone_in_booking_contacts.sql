@@ -1,11 +1,12 @@
--- Include the MUA phone number in booking notification contacts.
--- This migration was applied manually in Supabase and is being recorded here
--- so the database change is tracked and reproducible.
+-- Return the assigned artist's WhatsApp number to authenticated booking participants.
+-- The notification API uses this RPC; mua_private remains protected by RLS.
 
-DROP FUNCTION IF EXISTS public.get_booking_notification_contacts(uuid);
+begin;
 
-CREATE FUNCTION public.get_booking_notification_contacts(p_booking_id uuid)
-RETURNS TABLE (
+drop function if exists public.get_booking_notification_contacts(uuid);
+
+create function public.get_booking_notification_contacts(p_booking_id uuid)
+returns table (
   bride_first_name text,
   bride_last_name text,
   bride_email text,
@@ -15,48 +16,50 @@ RETURNS TABLE (
   mua_email text,
   mua_phone text
 )
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  IF auth.uid() IS NULL THEN
-    RAISE EXCEPTION 'Not authenticated';
-  END IF;
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_is_admin boolean;
+begin
+  if v_uid is null then
+    raise exception 'Authentication required';
+  end if;
 
-  IF NOT (
-    public.is_admin()
-    OR EXISTS (
-      SELECT 1
-      FROM public.bookings b
-      WHERE b.id = p_booking_id
-        AND (
-          b.bride_id = auth.uid()
-          OR b.mua_id = auth.uid()
-        )
-    )
-  ) THEN
-    RAISE EXCEPTION 'Not authorized';
-  END IF;
+  select exists (
+    select 1 from public.admins a where a.user_id = v_uid
+  ) into v_is_admin;
 
-  RETURN QUERY
-  SELECT
-    bride.first_name::text,
-    bride.last_name::text,
-    bride.email::text,
-    bride.phone::text,
-    mua.first_name::text,
-    mua.last_name::text,
-    mua.email::text,
-    mp.phone::text
-  FROM public.bookings b
-  LEFT JOIN public.profiles bride ON bride.id = b.bride_id
-  LEFT JOIN public.profiles mua ON mua.id = b.mua_id
-  LEFT JOIN public.mua_private mp ON mp.user_id = b.mua_id
-  WHERE b.id = p_booking_id;
-END;
+  if not exists (
+    select 1
+    from public.bookings b
+    where b.id = p_booking_id
+      and (v_is_admin or b.bride_id = v_uid or b.mua_id = v_uid)
+  ) then
+    raise exception 'Not authorized to access booking contacts';
+  end if;
+
+  return query
+  select
+    bp.first_name,
+    bp.last_name,
+    bp.email,
+    bp.phone,
+    mp.first_name,
+    mp.last_name,
+    mpriv.email,
+    mpriv.phone
+  from public.bookings b
+  left join public.bride_profiles bp on bp.id = b.bride_id
+  left join public.mua_profiles mp on mp.id = b.mua_id
+  left join public.mua_private mpriv on mpriv.id = b.mua_id
+  where b.id = p_booking_id;
+end;
 $$;
 
-REVOKE ALL ON FUNCTION public.get_booking_notification_contacts(uuid) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.get_booking_notification_contacts(uuid) FROM anon;
-GRANT EXECUTE ON FUNCTION public.get_booking_notification_contacts(uuid) TO authenticated;
+revoke all on function public.get_booking_notification_contacts(uuid) from public, anon;
+grant execute on function public.get_booking_notification_contacts(uuid) to authenticated;
+
+commit;
