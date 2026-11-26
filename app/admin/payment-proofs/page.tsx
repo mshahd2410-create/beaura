@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { createNotification } from "@/lib/createNotification";
+import { createAdminNotification } from "@/lib/createNotification";
 import { notifyBookingWhatsApp } from "@/lib/notifyWhatsApp";
 
 type ProofBooking = {
@@ -142,18 +142,16 @@ export default function AdminPaymentProofsPage() {
       : `The InstaPay / mobile-wallet payment proof was rejected. Reason: ${rejectionReason}`;
     const notificationTargets = decision === "approved"
       ? [
-          createNotification({
+          createAdminNotification({
             userId: item.bride_id,
-            actorId: user.id,
             bookingId: item.id,
             type: "booking_confirmed",
             title: "Booking confirmed",
             message: notificationMessage,
             href: "/bride/bookings",
           }),
-          createNotification({
+          createAdminNotification({
             userId: item.mua_id,
-            actorId: user.id,
             bookingId: item.id,
             type: "booking_confirmed",
             title: "Booking confirmed",
@@ -162,18 +160,16 @@ export default function AdminPaymentProofsPage() {
           }),
         ]
       : [
-          createNotification({
+          createAdminNotification({
             userId: item.bride_id,
-            actorId: user.id,
             bookingId: item.id,
             type: "booking_rejected",
             title: "Payment proof needs attention",
             message: notificationMessage,
             href: `/bride/bookings/${item.id}/payment`,
           }),
-          createNotification({
+          createAdminNotification({
             userId: item.mua_id,
-            actorId: user.id,
             bookingId: item.id,
             type: "admin_update",
             title: "Deposit proof was rejected",
