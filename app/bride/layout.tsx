@@ -112,12 +112,12 @@ export default function BrideLayout({
                 {unreadCount > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-purple-700 px-1 text-[10px] font-semibold text-white">{unreadCount > 9 ? "9+" : unreadCount}</span>}
               </button>
               {notificationsOpen && (
-                <div className="absolute right-0 top-12 z-50 w-[min(90vw,360px)] overflow-hidden rounded-2xl border border-[#eadff5] bg-white shadow-2xl">
+                <div className="fixed right-3 top-[4.5rem] z-[60] flex max-h-[calc(100dvh-6rem)] w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-2xl border border-[#eadff5] bg-white shadow-2xl sm:absolute sm:right-0 sm:top-12 sm:max-h-[min(32rem,calc(100dvh-6rem))] sm:w-[min(90vw,360px)]">
                   <div className="flex items-center justify-between border-b border-[#eadff5] px-4 py-3">
                     <p className="text-sm font-semibold">Notifications</p>
                     <span className="text-xs text-[#8a7d91]">{unreadCount} unread</span>
                   </div>
-                  <div className="max-h-96 overflow-y-auto">
+                  <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                     {notifications.length === 0 ? (
                       <p className="p-5 text-sm text-[#6f6077]">You’re all caught up.</p>
                     ) : notifications.map((item) => (
