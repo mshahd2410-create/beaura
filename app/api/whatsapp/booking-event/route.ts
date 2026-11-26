@@ -36,7 +36,7 @@ export async function POST(request: Request) {
 
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
-      .select("id, booking_reference, bride_id, mua_id, status, booking_date, service_id, total_price, deposit_amount, travel_fee, payment_proof_status")
+      .select("id, booking_reference, bride_id, mua_id, status, booking_date, service_id, total_price, deposit_amount, amount_due_after_wallet, travel_fee, payment_proof_status")
       .eq("id", bookingId)
       .maybeSingle();
     if (bookingError || !booking) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
     const date = formatWhatsAppDate(booking.booking_date);
     const service = serviceResult.data?.name || "Beauty service";
     const total = formatWhatsAppAmount(booking.total_price);
-    const due = formatWhatsAppAmount(booking.deposit_amount ?? Number(booking.total_price || 0) * 0.5);
+    const due = formatWhatsAppAmount(booking.amount_due_after_wallet ?? booking.deposit_amount ?? Number(booking.total_price || 0) * 0.5);
 
     let recipientPhone = "";
     let template: Parameters<typeof sendBeauraWhatsAppTemplate>[0]["name"];
