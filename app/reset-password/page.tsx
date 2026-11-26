@@ -25,10 +25,15 @@ export default function ResetPasswordPage() {
       }
     });
 
-    supabase.auth.getSession().then(({ error: sessionError }) => {
+    supabase.auth.getSession().then(({ data, error: sessionError }) => {
       if (!active) return;
       if (sessionError) {
         setError("We couldn't verify this reset link. Request a new one from the sign-in page.");
+      } else if (data.session) {
+        // Supabase may exchange the recovery code before this page finishes
+        // mounting, so the PASSWORD_RECOVERY event can already have passed.
+        setHasRecoverySession(true);
+        setError(null);
       } else {
         setError("This password reset link is invalid or has expired. Request a new link from the sign-in page.");
       }
