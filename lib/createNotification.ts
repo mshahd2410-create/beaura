@@ -10,11 +10,25 @@ export type NotificationType =
   | "travel_fee_accepted"
   | "travel_fee_declined";
 
+export type AdminNotificationType =
+  | "booking_confirmed"
+  | "booking_rejected"
+  | "admin_update";
+
 type CreateNotificationInput = {
   userId: string;
   actorId?: string | null;
   bookingId?: string | null;
   type: NotificationType;
+  title: string;
+  message: string;
+  href?: string | null;
+};
+
+type CreateAdminNotificationInput = {
+  userId: string;
+  bookingId: string;
+  type: AdminNotificationType;
   title: string;
   message: string;
   href?: string | null;
@@ -50,6 +64,31 @@ export async function createNotification({
 
   if (error) {
     console.error("Notification error:", error.message);
+    return { success: false, error };
+  }
+
+  return { success: true };
+}
+
+export async function createAdminNotification({
+  userId,
+  bookingId,
+  type,
+  title,
+  message,
+  href = null,
+}: CreateAdminNotificationInput) {
+  const { error } = await supabase.rpc("create_admin_booking_notification", {
+    p_user_id: userId,
+    p_booking_id: bookingId,
+    p_type: type,
+    p_title: title,
+    p_message: message,
+    p_href: href,
+  });
+
+  if (error) {
+    console.error("Admin notification error:", error.message);
     return { success: false, error };
   }
 
