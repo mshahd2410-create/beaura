@@ -3,6 +3,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { notifyBookingWhatsApp } from "@/lib/notifyWhatsApp";
 
 type Props = {
   open: boolean;
