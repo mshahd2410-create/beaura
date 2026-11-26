@@ -35,8 +35,8 @@ export default function HomePage() {
       `}</style>
 
       <header className="sticky top-0 z-50 border-b border-[#eadff5] bg-[#fffafc]/95 backdrop-blur-xl">
-        <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-5 sm:px-8">
-          <Link href="/" className="text-4xl font-light tracking-[-0.09em] text-[#171018]">Beaura<span className="text-purple-600">.</span></Link>
+        <div className="mx-auto flex h-[68px] max-w-7xl items-center justify-between gap-2 px-3 sm:h-[76px] sm:px-8">
+          <Link href="/" className="shrink-0 text-[2rem] font-light tracking-[-0.09em] text-[#171018] sm:text-4xl">Beaura<span className="text-purple-600">.</span></Link>
           <nav aria-label="Main navigation" className="hidden items-center gap-8 text-sm text-[#6f6077] md:flex">
             <a href="#artists" className="transition hover:text-purple-700">Makeup artists</a>
             <a href="/inspiration" className="transition hover:text-purple-700">Inspiration</a>
@@ -44,7 +44,7 @@ export default function HomePage() {
             <a href="#how-it-works" className="transition hover:text-purple-700">How it works</a>
             <Link href="/about" className="transition hover:text-purple-700">About Beaura</Link>
           </nav>
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-3">
             <details className="relative md:hidden">
               <summary aria-label="Open navigation menu" className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-full border border-[#eadff5] text-xl text-[#171018] focus-visible:outline focus-visible:outline-2 focus-visible:outline-purple-600">
                 <span aria-hidden="true">☰</span>
@@ -57,23 +57,23 @@ export default function HomePage() {
                 <Link href="/about" className="rounded-xl px-3 py-3 hover:bg-[#f7efff]">About Beaura</Link>
               </nav>
             </details>
-            <Link href="/login" className="rounded-full px-4 py-2.5 text-sm text-[#171018] transition hover:bg-[#f1e5ff]">Log in</Link>
-            <Link href="/register" className="rounded-full bg-[#171018] px-5 py-2.5 text-sm text-white transition hover:bg-purple-700">Create account</Link>
+            <Link href="/login" className="rounded-full px-2.5 py-2.5 text-xs text-[#171018] transition hover:bg-[#f1e5ff] sm:px-4 sm:text-sm">Log in</Link>
+            <Link href="/register" className="rounded-full bg-[#171018] px-3 py-2.5 text-xs text-white transition hover:bg-purple-700 sm:px-5 sm:text-sm">Create account</Link>
           </div>
         </div>
       </header>
 
-      <section className="relative overflow-hidden px-6 py-20">
+      <section className="relative overflow-hidden px-4 py-12 sm:px-6 sm:py-20">
         <div className="absolute left-[-120px] top-20 h-[420px] w-[420px] rounded-full bg-[#ead7ff] blur-3xl" />
         <div className="absolute right-[-100px] top-40 h-[360px] w-[360px] rounded-full bg-[#ffe3ef] blur-3xl" />
 
-        <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[1fr_0.9fr]">
+        <div className="relative mx-auto grid max-w-7xl min-w-0 items-center gap-8 sm:gap-12 lg:grid-cols-[1fr_0.9fr]">
           <div>
             <p className="mb-5 w-fit rounded-full border border-[#eadff5] bg-white px-5 py-2 text-xs uppercase tracking-[0.22em] text-purple-700">
               A softer way to find your artist
             </p>
 
-            <h1 className="max-w-4xl text-[4.2rem] font-light leading-[0.84] tracking-[-0.09em] md:text-[7.5rem]">
+            <h1 className="max-w-4xl text-[clamp(2.8rem,10vw,7.5rem)] font-light leading-[0.9] tracking-[-0.075em] sm:leading-[0.84] md:tracking-[-0.09em]">
               Your next glam crush is closer than you think.
             </h1>
 
@@ -111,18 +111,18 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="relative min-h-[480px] sm:min-h-[580px] lg:min-h-[650px]">
-            <div className="absolute right-0 top-0 h-[560px] w-[82%] rounded-t-full rounded-b-[4rem] bg-[#f1e5ff] shadow-[0_40px_130px_rgba(88,28,135,0.18)]" />
+          <div className="relative min-h-[500px] w-full min-w-0 sm:min-h-[580px] lg:min-h-[650px]">
+            <div className="absolute right-0 top-0 h-[440px] w-[82%] rounded-t-full rounded-b-[3rem] bg-[#f1e5ff] shadow-[0_40px_130px_rgba(88,28,135,0.18)] sm:h-[560px] sm:rounded-b-[4rem]" />
 
             <div className="float-soft absolute right-4 top-4 z-10 rounded-full bg-white px-5 py-3 text-xs uppercase tracking-[0.18em] text-purple-700 shadow-xl">
               bridal era
             </div>
 
-            <div className="float-slow absolute left-0 top-12 w-[78%] rounded-[2rem] border border-white bg-white p-4 shadow-2xl sm:w-[68%] sm:rounded-[3rem] sm:p-6">
+            <div className="float-slow absolute left-0 top-10 z-10 w-[84%] rounded-[1.75rem] border border-white bg-white p-3 shadow-2xl sm:top-12 sm:w-[68%] sm:rounded-[3rem] sm:p-6">
               <img
                 src="/Landing/hero-bride.jpg"
                 alt="Bridal makeup look"
-                className="h-72 w-full rounded-t-full rounded-b-[2.5rem] object-cover"
+                className="h-56 w-full rounded-t-full rounded-b-[2rem] object-cover sm:h-72 sm:rounded-b-[2.5rem]"
               />
 
               <div className="mt-6">
@@ -140,7 +140,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="absolute bottom-16 right-0 w-[68%] rotate-2 rounded-[2rem] border border-[#eadff5] bg-white p-4 shadow-xl sm:bottom-24 sm:w-[60%] sm:rounded-[2.5rem] sm:p-5">
+            <div className="absolute bottom-14 right-0 z-20 w-[70%] rotate-2 rounded-[1.5rem] border border-[#eadff5] bg-white p-3 shadow-xl sm:bottom-24 sm:w-[60%] sm:rounded-[2.5rem] sm:p-5">
               <p className="text-xs uppercase tracking-[0.2em] text-[#9a8ca2]">
                 what’s your vibe?
               </p>
@@ -157,11 +157,11 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="absolute bottom-0 left-10 -rotate-3 rounded-[2.5rem] bg-[#171018] p-6 text-white shadow-xl md:w-64">
+            <div className="absolute bottom-0 left-2 z-20 w-[54%] -rotate-3 rounded-[1.75rem] bg-[#171018] p-4 text-white shadow-xl sm:left-10 sm:rounded-[2.5rem] sm:p-6 md:w-64">
               <p className="text-xs uppercase tracking-[0.2em] text-white/45">
                 for MUAs
               </p>
-              <p className="mt-3 text-2xl font-light leading-tight">
+              <p className="mt-3 text-lg font-light leading-tight sm:text-2xl">
                 Your portfolio deserves better than a random DM.
               </p>
             </div>
@@ -188,10 +188,10 @@ export default function HomePage() {
 
       <section id="artists" className="scroll-mt-28 px-5 py-24 sm:px-8">
         <div className="mx-auto max-w-7xl">
-          <div className="mb-10 flex flex-col justify-between gap-6 md:flex-row md:items-end">
+          <div className="mb-10 flex min-w-0 flex-col justify-between gap-6 md:flex-row md:items-end">
             <div>
               <p className="text-xs uppercase tracking-[0.22em] text-purple-700">Find your makeup artist</p>
-              <h2 className="mt-4 max-w-3xl text-5xl font-light leading-[0.95] tracking-[-0.075em] md:text-7xl">Meet artists. See their work. Find your match.</h2>
+              <h2 className="mt-4 max-w-3xl text-[clamp(2.5rem,7vw,4.5rem)] font-light leading-[0.95] tracking-[-0.075em]">Meet artists. See their work. Find your match.</h2>
               <p className="mt-5 max-w-2xl text-sm leading-7 text-[#6f6077]">Explore makeup artists in Egypt, view their portfolios, compare services and prices, and choose who feels right for your occasion.</p>
             </div>
             <Link href="/bride/home" className="inline-flex w-fit items-center gap-3 rounded-full bg-[#171018] px-6 py-3.5 text-sm text-white transition hover:bg-purple-700">Browse all artists <span aria-hidden="true">↗</span></Link>
@@ -206,7 +206,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl">
           <div className="mb-12 max-w-2xl">
             <p className="text-xs uppercase tracking-[0.22em] text-purple-700">Makeup for every occasion</p>
-            <h2 className="mt-4 text-5xl font-light leading-[0.95] tracking-[-0.075em] md:text-6xl">What are you getting ready for?</h2>
+            <h2 className="mt-4 text-[clamp(2.4rem,7vw,3.75rem)] font-light leading-[0.95] tracking-[-0.075em]">What are you getting ready for?</h2>
             <p className="mt-5 text-sm leading-7 text-[#655968]">Choose the occasion and explore artists who offer the service you need.</p>
           </div>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -236,7 +236,7 @@ export default function HomePage() {
         <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
           <div>
             <p className="text-xs uppercase tracking-[0.22em] text-purple-700">Simple from start to finish</p>
-            <h2 className="mt-4 text-5xl font-light leading-[0.95] tracking-[-0.075em] md:text-6xl">Booking your makeup artist should be easy.</h2>
+            <h2 className="mt-4 text-[clamp(2.4rem,7vw,3.75rem)] font-light leading-[0.95] tracking-[-0.075em]">Booking your makeup artist should be easy.</h2>
             <p className="mt-6 max-w-lg text-sm leading-7 text-[#6f6077]">Everything you need to choose an artist and send your request is organised in one place.</p>
             <Link href="/bride/home" className="mt-8 inline-flex rounded-full border border-[#d9cbe6] bg-white px-6 py-3.5 text-sm text-[#171018] transition hover:border-purple-400 hover:text-purple-700">Start exploring</Link>
           </div>
