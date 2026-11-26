@@ -676,6 +676,9 @@ export default function RequestBookingModal({
 
       const finalBookingData = bookingData as BookingData;
 
+      const whatsappNotice = await notifyBookingWhatsApp(finalBookingData.id, "new_booking");
+      if (!whatsappNotice.success) console.warn("MUA WhatsApp booking alert failed:", whatsappNotice.error);
+
       console.log("BOOKING CREATED:", finalBookingData);
       console.log("BOOKING CREATED — starting email calls");
 
