@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { getBookingNumber } from "@/lib/bookingNumber";
+import { notifyBookingWhatsApp } from "@/lib/notifyWhatsApp";
 
 type BookingPayment = {
   id: string;
@@ -148,6 +149,9 @@ export default function BookingPaymentPage() {
       if (saved !== true) {
         throw new Error("Your receipt uploaded, but Beaura could not save it to this booking. Please contact support before trying again.");
       }
+
+      const whatsappNotice = await notifyBookingWhatsApp(booking.id, "payment_proof_received");
+      if (!whatsappNotice.success) console.warn("Bride WhatsApp payment proof acknowledgement failed:", whatsappNotice.error);
 
       setBooking((current) => current ? { ...current, payment_proof_status: "pending_review", payment_proof_path: path, payment_proof_uploaded_at: new Date().toISOString(), payment_proof_rejection_reason: null } : current);
       setFile(null);

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { createNotification } from "@/lib/createNotification";
+import { notifyBookingWhatsApp } from "@/lib/notifyWhatsApp";
 import GoogleLocationPicker from "@/components/GoogleLocationPicker";
 import {
   ArrowLeft,
@@ -778,6 +779,10 @@ export default function BookingPage() {
               last_name: null,
               email: user.email || null,
             };
+
+      // WhatsApp failures must not undo a successfully created booking.
+      const whatsappNotice = await notifyBookingWhatsApp(bookingRow.id, "new_booking");
+      if (!whatsappNotice.success) console.warn("MUA WhatsApp booking alert failed:", whatsappNotice.error);
 
       // Email failures should not undo a successfully created booking.
       await sendNewBookingEmailToMua({
