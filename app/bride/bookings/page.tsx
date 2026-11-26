@@ -290,7 +290,7 @@ export default function BrideBookings() {
       });
       if (error) throw new Error(error.message);
       const usesWallet = ["wallet", "credit_balance"].includes(String(booking.payment_method || "").toLowerCase());
-      if (accept && !usesWallet) {
+      if (accept && (!usesWallet || Number(booking.amount_due_after_wallet || 0) > 0)) {
         const whatsappNotice = await notifyBookingWhatsApp(booking.id, "payment_required");
         if (!whatsappNotice.success) console.warn("Bride WhatsApp payment instructions alert failed:", whatsappNotice.error);
       }
