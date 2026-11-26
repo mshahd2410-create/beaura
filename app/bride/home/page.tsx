@@ -56,6 +56,7 @@ export default function BrideHome() {
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [sortBy, setSortBy] = useState("recommended");
+  const [availabilityFilter, setAvailabilityFilter] = useState(false);
   const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>([]);
   const [ratings, setRatings] = useState<Record<string, { average: number; count: number }>>({});
   const [filterOpen, setFilterOpen] = useState(false);
@@ -150,7 +151,12 @@ export default function BrideHome() {
   }, []);
 
   useEffect(() => {
-    if (sortBy !== "availability" || !availabilityDate) return;
+    if (!availabilityFilter || !availabilityDate) {
+      setAvailableMuaIds([]);
+      setAvailabilityError("");
+      setAvailabilityLoading(false);
+      return;
+    }
 
     let cancelled = false;
     async function loadAvailableArtists() {
@@ -173,7 +179,7 @@ export default function BrideHome() {
 
     loadAvailableArtists();
     return () => { cancelled = true; };
-  }, [sortBy, availabilityDate]);
+  }, [availabilityFilter, availabilityDate]);
 
   const filteredMuas = useMemo(() => {
     const min = minPrice.trim() === "" ? null : Number(minPrice);
@@ -209,7 +215,7 @@ export default function BrideHome() {
       const matchesMax = max === null || (startingPrice !== null && startingPrice <= max);
       const rating = ratings[mua.id];
       const matchesRating = minimumRating === "" || (rating?.count > 0 && rating.average >= Number(minimumRating));
-      const matchesAvailability = sortBy !== "availability" || availableMuaIds.includes(mua.id);
+      const matchesAvailability = !availabilityFilter || availableMuaIds.includes(mua.id);
 
       return matchesSearch && matchesCity && matchesCategory && matchesMin && matchesMax && matchesRating && matchesAvailability;
     });
@@ -222,7 +228,7 @@ export default function BrideHome() {
         return prices.length ? Math.min(...prices) : null;
       };
 
-      if (sortBy === "availability") return 0;
+      if (sortBy === "recommended") return 0;
       if (sortBy === "price-low") {
         return (getStartingPrice(a) ?? Number.POSITIVE_INFINITY) -
           (getStartingPrice(b) ?? Number.POSITIVE_INFINITY);
@@ -243,7 +249,7 @@ export default function BrideHome() {
       return (ratings[b.id]?.average ?? -1) - (ratings[a.id]?.average ?? -1) ||
         (ratings[b.id]?.count ?? 0) - (ratings[a.id]?.count ?? 0);
     });
-  }, [muas, ratings, searchQuery, selectedCity, selectedCategory, minPrice, maxPrice, minimumRating, sortBy, availableMuaIds]);
+  }, [muas, ratings, searchQuery, selectedCity, selectedCategory, minPrice, maxPrice, minimumRating, sortBy, availabilityFilter, availableMuaIds]);
 
   const recentlyViewedMuas = recentlyViewedIds
     .map((id) => muas.find((mua) => mua.id === id))
@@ -349,10 +355,25 @@ export default function BrideHome() {
             <label className="text-xs font-medium text-[#6f6077]">Service<select value={selectedCategory} onChange={(e)=>setSelectedCategory(e.target.value)} className="mt-2 w-full rounded-xl border border-[#eadff5] bg-white px-3 py-3 text-sm text-[#171018]"><option value="All">All services</option>{SERVICE_SECTIONS.map((item)=><option key={item.value} value={item.value}>{item.title}</option>)}</select></label>
             <label className="text-xs font-medium text-[#6f6077]">Minimum rating<select value={minimumRating} onChange={(e)=>setMinimumRating(e.target.value)} className="mt-2 w-full rounded-xl border border-[#eadff5] bg-white px-3 py-3 text-sm text-[#171018]"><option value="">Any rating</option><option value="3">3 stars & up</option><option value="4">4 stars & up</option><option value="4.5">4.5 stars & up</option></select></label>
             <div className="grid grid-cols-2 gap-2"><label className="text-xs font-medium text-[#6f6077]">Min price (EGP)<input type="number" min="0" value={minPrice} onChange={(e)=>setMinPrice(e.target.value)} placeholder="Any" className="mt-2 w-full rounded-xl border border-[#eadff5] bg-white px-3 py-3 text-sm"/></label><label className="text-xs font-medium text-[#6f6077]">Max price (EGP)<input type="number" min="0" value={maxPrice} onChange={(e)=>setMaxPrice(e.target.value)} placeholder="Any" className="mt-2 w-full rounded-xl border border-[#eadff5] bg-white px-3 py-3 text-sm"/></label></div>
-          </div><div className="mt-4 flex flex-wrap justify-between gap-3"><button type="button" onClick={()=>{setSelectedCity("");setSelectedCategory("All");setMinimumRating("");setMinPrice("");setMaxPrice("");}} className="text-sm text-purple-700 hover:underline">Clear filters</button><span className="text-xs text-[#8a7d91]">Ratings are based on published reviews.</span></div></div>}
-          {sortOpen && <div className="mt-4 rounded-2xl border border-[#eadff5] bg-[#fffafc] p-4"><p className="mb-3 text-sm font-medium">Sort artists</p><div className="flex flex-wrap gap-2">{[{value:"recommended",label:"Recommended"},{value:"availability",label:"Availability"},{value:"rating",label:"Highest rated"},{value:"price-low",label:"Price: low to high"},{value:"price-high",label:"Price: high to low"},{value:"name",label:"Name: A to Z"}].map((option)=><button key={option.value} type="button" onClick={()=>{setSortBy(option.value);setSortOpen(false);}} className={`rounded-full px-4 py-2 text-xs ${sortBy===option.value?"bg-[#171018] text-white":"bg-[#f1e5ff] text-[#6f6077]"}`}>{option.label}</button>)}</div></div>}
-          {sortBy==="availability" && <div className="mt-4 rounded-2xl border border-[#eadff5] bg-white p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="flex items-center gap-2 text-sm font-medium text-[#171018]"><CalendarDays size={16} className="text-purple-700"/>Choose a date</p><p className="mt-1 text-xs text-[#8a7d91]">See artists with no bookings or blocked time on that day.</p></div><input type="date" value={availabilityDate} min={new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Cairo" })} onChange={(e)=>setAvailabilityDate(e.target.value)} className="w-full rounded-xl border border-[#eadff5] bg-[#fffafc] px-4 py-3 text-sm text-[#171018] outline-none focus:border-purple-500 sm:w-auto"/></div>{availabilityLoading && <p className="mt-3 text-xs text-purple-700">Checking artist calendars…</p>}{availabilityError && <p className="mt-3 text-xs text-red-600">{availabilityError}</p>}</div>}
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-[#8a7d91]">{filteredMuas.length} artists match your search</p><button type="button" onClick={()=>{setSearchQuery("");setSelectedCity("");setSelectedCategory("All");setMinimumRating("");setMinPrice("");setMaxPrice("");setSortBy("recommended");setAvailableMuaIds([]);setAvailabilityError("");}} className="text-xs text-purple-700 hover:underline">Reset everything</button></div>
+          </div>
+          <div className="mt-4 rounded-xl border border-[#eadff5] bg-white p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="rounded-xl bg-[#f1e5ff] p-2 text-purple-700"><CalendarDays size={18}/></span>
+                <div><p className="text-sm font-medium text-[#171018]">Available on a specific date</p><p className="mt-1 text-xs leading-5 text-[#8a7d91]">Only show artists with no bookings or blocked time that day.</p></div>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="flex items-center gap-2 text-sm text-[#6f6077]"><input type="checkbox" checked={availabilityFilter} onChange={(e)=>setAvailabilityFilter(e.target.checked)} className="h-4 w-4 accent-purple-700"/> Filter by availability</label>
+                <input aria-label="Choose availability date" type="date" value={availabilityDate} min={new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Cairo" })} onChange={(e)=>setAvailabilityDate(e.target.value)} className="w-full rounded-xl border border-[#eadff5] bg-[#fffafc] px-3 py-2.5 text-sm text-[#171018] outline-none focus:border-purple-500 sm:w-auto"/>
+              </div>
+            </div>
+            {availabilityFilter && availabilityLoading && <p className="mt-3 text-xs text-purple-700">Checking artist calendars…</p>}
+            {availabilityFilter && availabilityError && <p className="mt-3 text-xs text-red-600">{availabilityError}</p>}
+            {availabilityFilter && !availabilityLoading && !availabilityError && <p className="mt-3 text-xs text-[#6f6077]">{availableMuaIds.length} artists are available on {new Date(`${availabilityDate}T12:00:00`).toLocaleDateString("en-EG", {day:"numeric",month:"long",year:"numeric"})}.</p>}
+          </div>
+          <div className="mt-4 flex flex-wrap justify-between gap-3"><button type="button" onClick={()=>{setSelectedCity("");setSelectedCategory("All");setMinimumRating("");setMinPrice("");setMaxPrice("");setAvailabilityFilter(false);}} className="text-sm text-purple-700 hover:underline">Clear filters</button><span className="text-xs text-[#8a7d91]">Ratings are based on published reviews.</span></div></div>}
+          {sortOpen && <div className="mt-4 rounded-2xl border border-[#eadff5] bg-[#fffafc] p-4"><p className="mb-3 text-sm font-medium">Sort artists</p><div className="flex flex-wrap gap-2">{[{value:"recommended",label:"Recommended"},{value:"rating",label:"Highest rated"},{value:"price-low",label:"Price: low to high"},{value:"price-high",label:"Price: high to low"},{value:"name",label:"Name: A to Z"}].map((option)=><button key={option.value} type="button" onClick={()=>{setSortBy(option.value);setSortOpen(false);}} className={`rounded-full px-4 py-2 text-xs ${sortBy===option.value?"bg-[#171018] text-white":"bg-[#f1e5ff] text-[#6f6077]"}`}>{option.label}</button>)}</div></div>}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-[#8a7d91]">{filteredMuas.length} artists match your search</p><button type="button" onClick={()=>{setSearchQuery("");setSelectedCity("");setSelectedCategory("All");setMinimumRating("");setMinPrice("");setMaxPrice("");setSortBy("recommended");setAvailabilityFilter(false);setAvailableMuaIds([]);setAvailabilityError("");}} className="text-xs text-purple-700 hover:underline">Reset everything</button></div>
         </section>
 
         <section id="artists" className="mt-16 scroll-mt-28">
@@ -366,12 +387,12 @@ export default function BrideHome() {
           </div>
 
           {loading && <div className="rounded-[2rem] border border-[#eadff5] bg-white p-12 text-center text-sm text-[#6f6077]">Loading makeup artists...</div>}
-          {sortBy==="availability" && availabilityLoading && <div className="rounded-[2rem] border border-[#eadff5] bg-white p-8 text-center text-sm text-[#6f6077]">Checking availability for {new Date(`${availabilityDate}T12:00:00`).toLocaleDateString("en-EG", {day:"numeric",month:"long",year:"numeric"})}…</div>}
+          {availabilityFilter && availabilityLoading && <div className="rounded-[2rem] border border-[#eadff5] bg-white p-8 text-center text-sm text-[#6f6077]">Checking availability for {new Date(`${availabilityDate}T12:00:00`).toLocaleDateString("en-EG", {day:"numeric",month:"long",year:"numeric"})}…</div>}
           {!loading && !availabilityLoading && filteredMuas.length===0 && (
             <div className="rounded-[2rem] border border-[#eadff5] bg-white px-6 py-14 text-center">
               <h3 className="text-3xl font-light tracking-[-0.05em]">No artists match those filters.</h3>
-              <p className="mt-3 text-sm text-[#6f6077]">{sortBy==="availability" ? "No artists are fully free on this date. Try another date." : "Try a different city or service, or clear your filters."}</p>
-              <button onClick={()=>{setSearchQuery("");setSelectedCity("");setSelectedCategory("All");setMinPrice("");setMaxPrice("");setMinimumRating("");setSortBy("recommended");setAvailableMuaIds([]);setAvailabilityError("");}} className="mt-6 rounded-full bg-[#171018] px-6 py-3 text-sm text-white">Show all artists</button>
+              <p className="mt-3 text-sm text-[#6f6077]">{availabilityFilter ? "No artists are fully free on this date. Try another date." : "Try a different city or service, or clear your filters."}</p>
+              <button onClick={()=>{setSearchQuery("");setSelectedCity("");setSelectedCategory("All");setMinPrice("");setMaxPrice("");setMinimumRating("");setSortBy("recommended");setAvailabilityFilter(false);setAvailableMuaIds([]);setAvailabilityError("");}} className="mt-6 rounded-full bg-[#171018] px-6 py-3 text-sm text-white">Show all artists</button>
             </div>
           )}
           {!loading && !availabilityLoading && filteredMuas.length>0 && (
