@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { createNotification } from "@/lib/createNotification";
+import { notifyBookingWhatsApp } from "@/lib/notifyWhatsApp";
 
 type ProofBooking = {
   id: string;
@@ -185,6 +186,12 @@ export default function AdminPaymentProofsPage() {
 
     let deliveryWarning = "";
     if (decision === "approved") {
+      const artistWhatsApp = await notifyBookingWhatsApp(item.id, "payment_verified");
+      if (!artistWhatsApp.success) {
+        deliveryWarning += ` Artist WhatsApp notification failed: ${artistWhatsApp.error}`;
+        console.error("Artist WhatsApp payment notification failed:", artistWhatsApp.error);
+      }
+
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         if (!sessionData.session?.access_token) {
