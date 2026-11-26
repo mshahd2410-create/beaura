@@ -22,16 +22,12 @@ export default function ResetPasswordPage() {
       if (event === "PASSWORD_RECOVERY" && session) {
         setHasRecoverySession(true);
         setError(null);
-      } else if (session) {
-        setHasRecoverySession(true);
       }
     });
 
-    supabase.auth.getSession().then(({ data, error: sessionError }) => {
+    supabase.auth.getSession().then(({ error: sessionError }) => {
       if (!active) return;
-      if (data.session) {
-        setHasRecoverySession(true);
-      } else if (sessionError) {
+      if (sessionError) {
         setError("We couldn't verify this reset link. Request a new one from the sign-in page.");
       } else {
         setError("This password reset link is invalid or has expired. Request a new link from the sign-in page.");
