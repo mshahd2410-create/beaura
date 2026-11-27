@@ -6,7 +6,6 @@ import { Heart, SlidersHorizontal, ArrowUpDown, X, CalendarDays } from "lucide-r
 import { motion } from "framer-motion";
 import SupportHelpButton from "@/components/support/SupportHelpButton";
 import { supabase } from "@/lib/supabaseClient";
-import MasonryGrid from "@/components/MasonryGrid";
 import MuaCard from "@/components/MuaCard";
 
 const SERVICE_SECTIONS = [
@@ -340,8 +339,8 @@ export default function BrideHome() {
               <h2 className="mt-2 text-xl font-light tracking-[-0.05em] sm:text-3xl">Recently viewed artists</h2>
               <p className="mt-2 text-sm text-[#6f6077]">Artists you opened recently are saved on this device for quick access.</p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-              {recentlyViewedMuas.map((mua: any) => <MuaCard key={mua.id} mua={{...mua, rating: ratings[mua.id]}} />)}
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
+              {recentlyViewedMuas.map((mua: any) => <MuaCard key={mua.id} mua={{...mua, rating: ratings[mua.id]}} compact />)}
             </div>
           </section>
         )}
