@@ -39,9 +39,11 @@ export default function BrideArtistsPage() {
   const [availabilityError, setAvailabilityError] = useState("");
   const [filterOpen, setFilterOpen] = useState(true);
   const [sortOpen, setSortOpen] = useState(false);
+  const [region, setRegion] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    setRegion(params.get("region") || "");
     setSearchQuery(params.get("q") || "");
     setSelectedCity(params.get("city") || "");
     setSelectedCategory(params.get("service") || "All");
@@ -135,7 +137,13 @@ export default function BrideArtistsPage() {
       const services = mua.mua_services || [];
       const servicesText = services.map((service: any) => service.name).join(" ").toLowerCase();
       const matchesSearch = !query || fullName.includes(query) || cityText.includes(query) || servicesText.includes(query);
-      const matchesCity = selectedCity === "" || (mua.cities || []).includes(selectedCity);
+      const cityLower = cityText.toLowerCase();
+      const matchesRegion = region === "cairo-giza"
+        ? /cairo|giza|القاهرة|الجيزة/.test(cityLower)
+        : region === "alexandria"
+          ? /alex|اسكندرية|الإسكندرية|الاسكندرية/.test(cityLower)
+          : true;
+      const matchesCity = (selectedCity === "" || (mua.cities || []).includes(selectedCity)) && matchesRegion;
       const matchesCategory = selectedCategory === "All" || servicesText.includes(selectedCategory.toLowerCase());
       const prices = services.map((service: any) => Number(service?.price)).filter((price: number) => Number.isFinite(price) && price > 0);
       const startingPrice = prices.length ? Math.min(...prices) : null;
@@ -158,7 +166,7 @@ export default function BrideArtistsPage() {
       if (sortBy === "name") return `${a.first_name || ""} ${a.last_name || ""}`.localeCompare(`${b.first_name || ""} ${b.last_name || ""}`);
       return 0;
     });
-  }, [muas, ratings, searchQuery, selectedCity, selectedCategory, minimumRating, minPrice, maxPrice, sortBy, availabilityFilter, availableMuaIds]);
+  }, [muas, ratings, searchQuery, selectedCity, selectedCategory, minimumRating, minPrice, maxPrice, sortBy, availabilityFilter, availableMuaIds, region]);
 
   const resetFilters = () => {
     setSearchQuery("");
@@ -192,7 +200,7 @@ export default function BrideArtistsPage() {
         <header className="mt-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-purple-700">The Beaura directory</p>
-            <h1 className="mt-2 text-4xl font-light tracking-[-0.06em] sm:text-6xl">All makeup artists</h1>
+            <h1 className="mt-2 text-4xl font-light tracking-[-0.06em] sm:text-6xl">{region === "cairo-giza" ? "MUAs in Cairo & Giza" : region === "alexandria" ? "MUAs in Alexandria" : "All makeup artists"}</h1>
             <p className="mt-3 max-w-xl text-sm leading-7 text-[#6f6077]">Explore every verified artist, compare portfolios and prices, and find the right match for your occasion.</p>
           </div>
           <span className="w-fit rounded-full bg-[#f1e5ff] px-5 py-2.5 text-sm text-purple-700">{filteredMuas.length} {filteredMuas.length === 1 ? "artist" : "artists"}</span>
