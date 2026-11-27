@@ -30,13 +30,13 @@ export default function MuaCard({ mua, compact = false }: { mua: any; compact?: 
   }
 
   return (
-    <Link href={\`/bride/mua/\${mua.id}\`} className="group block h-full">
-      <article className={\`h-full overflow-hidden border border-[#eadff5] bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg \${compact ? "rounded-2xl" : "rounded-[2rem] hover:shadow-xl"}\`}>
-        <div className={\`relative bg-[#f1e5ff] \${compact ? "aspect-square" : "aspect-[4/5]"}\`}>
+    <Link href={`/bride/mua/${mua.id}`} className="group block h-full">
+      <article className={`h-full overflow-hidden border border-[#eadff5] bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg ${compact ? "rounded-2xl" : "rounded-[2rem] hover:shadow-xl"}`}>
+        <div className={`relative bg-[#f1e5ff] ${compact ? "aspect-square" : "aspect-[4/5]"}`}>
           {images.length > 0 ? (
             <img
               src={images[index].publicUrl}
-              alt={\`\${mua.first_name || "Makeup artist"} portfolio\`}
+              alt={`${mua.first_name || "Makeup artist"} portfolio`}
               className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]"
             />
           ) : (
@@ -46,14 +46,14 @@ export default function MuaCard({ mua, compact = false }: { mua: any; compact?: 
           )}
 
           {mua.verified && (
-            <span className={\`absolute left-2 top-2 flex items-center gap-1 rounded-full bg-white/90 text-[#171018] backdrop-blur \${compact ? "px-2 py-1 text-[9px]" : "left-4 top-4 gap-1.5 px-3 py-1.5 text-[11px]"}\`}>
+            <span className={`absolute left-2 top-2 flex items-center gap-1 rounded-full bg-white/90 text-[#171018] backdrop-blur ${compact ? "px-2 py-1 text-[9px]" : "left-4 top-4 gap-1.5 px-3 py-1.5 text-[11px]"}`}>
               <ShieldCheck size={compact ? 10 : 13} />
               Verified
             </span>
           )}
 
           {mua.beaura_tier && (
-            <span className={\`absolute right-2 top-2 rounded-full bg-[#f7efff]/95 font-semibold uppercase text-purple-700 backdrop-blur \${compact ? "px-2 py-1 text-[8px] tracking-wide" : "right-4 top-4 px-3 py-1.5 text-[10px] tracking-[0.14em]"}\`}>
+            <span className={`absolute right-2 top-2 rounded-full bg-[#f7efff]/95 font-semibold uppercase text-purple-700 backdrop-blur ${compact ? "px-2 py-1 text-[8px] tracking-wide" : "right-4 top-4 px-3 py-1.5 text-[10px] tracking-[0.14em]"}`}>
               {mua.beaura_tier}
             </span>
           )}
@@ -73,10 +73,10 @@ export default function MuaCard({ mua, compact = false }: { mua: any; compact?: 
         <div className={compact ? "p-2.5 sm:p-3" : "p-5"}>
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <h3 className={\`truncate font-medium text-[#171018] \${compact ? "text-sm tracking-tight sm:text-base" : "text-2xl font-light tracking-[-0.05em]"}\`}>
+              <h3 className={`truncate font-medium text-[#171018] ${compact ? "text-sm tracking-tight sm:text-base" : "text-2xl font-light tracking-[-0.05em]"}`}>
                 {mua.first_name} {mua.last_name}
               </h3>
-              <p className={\`mt-1 flex items-center gap-1 truncate text-[#6f6077] \${compact ? "text-[10px] sm:text-xs" : "text-sm"}\`}>
+              <p className={`mt-1 flex items-center gap-1 truncate text-[#6f6077] ${compact ? "text-[10px] sm:text-xs" : "text-sm"}`}>
                 <MapPin size={compact ? 11 : 14} className="shrink-0" />
                 {Array.isArray(mua.cities) && mua.cities.length ? mua.cities.slice(0, 2).join(", ") : "Location on request"}
               </p>
@@ -90,7 +90,7 @@ export default function MuaCard({ mua, compact = false }: { mua: any; compact?: 
           </div>
 
           {mua.rating?.count > 0 && (
-            <div className={\`mt-2 flex items-center gap-1 text-[#6f6077] \${compact ? "text-[10px]" : "mt-3 text-sm"}\`}>
+            <div className={`mt-2 flex items-center gap-1 text-[#6f6077] ${compact ? "text-[10px]" : "mt-3 text-sm"}`}>
               <Star size={compact ? 11 : 14} className="fill-[#d4a843] text-[#d4a843]" />
               <span className="font-medium text-[#171018]">{Number(mua.rating.average).toFixed(1)}</span>
               <span>({mua.rating.count})</span>
@@ -98,16 +98,16 @@ export default function MuaCard({ mua, compact = false }: { mua: any; compact?: 
           )}
 
           {serviceNames.length > 0 && (
-            <div className={\`flex flex-wrap gap-1.5 \${compact ? "mt-2" : "mt-4 gap-2"}\`}>
+            <div className={`flex flex-wrap gap-1.5 ${compact ? "mt-2" : "mt-4 gap-2"}`}>
               {serviceNames.map((service: string) => (
-                <span key={service} className={\`rounded-full bg-[#f7efff] text-[#6f6077] \${compact ? "max-w-full truncate px-2 py-1 text-[9px]" : "px-3 py-1.5 text-[11px]"}\`}>
+                <span key={service} className={`rounded-full bg-[#f7efff] text-[#6f6077] ${compact ? "max-w-full truncate px-2 py-1 text-[9px]" : "px-3 py-1.5 text-[11px]"}`}>
                   {service}
                 </span>
               ))}
             </div>
           )}
 
-          <p className={\`font-semibold uppercase text-purple-700 \${compact ? "mt-2 text-[9px] tracking-wide" : "mt-4 text-xs tracking-[0.16em]"}\`}>
+          <p className={`font-semibold uppercase text-purple-700 ${compact ? "mt-2 text-[9px] tracking-wide" : "mt-4 text-xs tracking-[0.16em]"}`}>
             View portfolio
           </p>
         </div>
