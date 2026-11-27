@@ -420,6 +420,14 @@ export default function BrideHome() {
                   <button type="button" onClick={()=>setArtistPage((page)=>Math.min(artistPageCount-1,page+1))} disabled={artistPage>=artistPageCount-1} className="rounded-full border border-[#eadff5] px-4 py-2 text-xs text-[#6f6077] disabled:opacity-40">Next</button>
                 </div>
               </div>
+              <div className="mt-6 flex justify-center">
+                <Link
+                  href={`/bride/artists?q=${encodeURIComponent(searchQuery)}&city=${encodeURIComponent(selectedCity)}&service=${encodeURIComponent(selectedCategory)}&rating=${encodeURIComponent(minimumRating)}&min=${encodeURIComponent(minPrice)}&max=${encodeURIComponent(maxPrice)}&sort=${encodeURIComponent(sortBy)}&available=${availabilityFilter ? "1" : "0"}&date=${encodeURIComponent(availabilityDate)}`}
+                  className="inline-flex w-full max-w-xs items-center justify-center rounded-full border border-[#d9c6e8] bg-white px-6 py-3 text-sm font-medium text-[#51424d] shadow-sm transition hover:border-purple-400 hover:bg-[#f7efff]"
+                >
+                  View all {filteredMuas.length} artists
+                </Link>
+              </div>
             </>
           )}
         </section>
