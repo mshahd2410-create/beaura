@@ -262,6 +262,16 @@ export default function BrideHome() {
     .filter(Boolean)
     .slice(0, 6);
 
+  const getCityText = (mua: any) => (mua.cities || []).join(" ").toLowerCase();
+  const cairoGizaMuas = muas.filter((mua) => {
+    const city = getCityText(mua);
+    return city.includes("cairo") || city.includes("giza") || city.includes("القاهرة") || city.includes("الجيزة");
+  }).slice(0, 8);
+  const alexandriaMuas = muas.filter((mua) => {
+    const city = getCityText(mua);
+    return city.includes("alex") || city.includes("اسكندرية") || city.includes("الإسكندرية") || city.includes("الاسكندرية");
+  }).slice(0, 8);
+
   const handleServiceClick = (service: string) => {
     setSelectedCategory(service);
 
@@ -339,7 +349,7 @@ export default function BrideHome() {
               <h2 className="mt-2 text-xl font-light tracking-[-0.05em] sm:text-3xl">Recently viewed artists</h2>
               <p className="mt-2 text-sm text-[#6f6077]">Artists you opened recently are saved on this device for quick access.</p>
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-3 lg:grid-cols-6">
               {recentlyViewedMuas.map((mua: any) => <MuaCard key={mua.id} mua={{...mua, rating: ratings[mua.id]}} compact />)}
             </div>
           </section>
@@ -405,11 +415,11 @@ export default function BrideHome() {
             <>
               <div className="sm:hidden">
                 <div className="-mx-3 flex snap-x snap-mandatory gap-2 overflow-x-auto px-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {filteredMuas.map((mua)=><div key={mua.id} className="w-[43vw] max-w-[190px] shrink-0 snap-start"><MuaCard mua={{...mua, rating: ratings[mua.id]}} compact/></div>)}
+                  {filteredMuas.map((mua)=><div key={mua.id} className="w-[36vw] max-w-[155px] shrink-0 snap-start"><MuaCard mua={{...mua, rating: ratings[mua.id]}} compact/></div>)}
                 </div>
                 <p className="mt-1 text-center text-[10px] text-[#8a7d91]">Swipe to explore more artists</p>
               </div>
-              <div className="hidden grid-cols-2 gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+              <div className="hidden grid-cols-3 gap-2 sm:grid sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">
                 {pagedMuas.map((mua)=><MuaCard key={mua.id} mua={{...mua, rating: ratings[mua.id]}} compact/> )}
               </div>
               <div className="mt-5 hidden items-center justify-between sm:flex">
@@ -430,6 +440,38 @@ export default function BrideHome() {
               </div>
             </>
           )}
+        </section>
+
+        <section className="mt-10 sm:mt-16">
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-purple-700 sm:text-xs">Popular locations</p>
+              <h2 className="mt-1 text-xl font-light tracking-[-0.05em] sm:mt-2 sm:text-3xl">MUAs in Cairo &amp; Giza</h2>
+              <p className="mt-1 text-[11px] text-[#6f6077] sm:text-sm">Discover artists around Greater Cairo.</p>
+            </div>
+            <Link href="/bride/artists?region=cairo-giza" className="shrink-0 rounded-full border border-[#d9c6e8] px-3 py-2 text-[10px] font-medium text-purple-700 transition hover:bg-[#f7efff] sm:px-5 sm:py-2.5 sm:text-xs">View all</Link>
+          </div>
+          {loading ? <p className="text-xs text-[#8a7d91]">Loading artists...</p> : cairoGizaMuas.length > 0 ? (
+            <div className="-mx-3 flex snap-x snap-mandatory gap-2 overflow-x-auto px-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-3 sm:overflow-visible sm:px-0 lg:grid-cols-5">
+              {cairoGizaMuas.map((mua) => <div key={mua.id} className="w-[36vw] max-w-[155px] shrink-0 snap-start sm:w-auto sm:max-w-none"><MuaCard mua={{ ...mua, rating: ratings[mua.id] }} compact /></div>)}
+            </div>
+          ) : <p className="rounded-2xl border border-[#eadff5] bg-white p-5 text-xs text-[#8a7d91]">More Cairo and Giza artists are coming soon.</p>}
+        </section>
+
+        <section className="mt-9 sm:mt-14">
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-purple-700 sm:text-xs">Explore by city</p>
+              <h2 className="mt-1 text-xl font-light tracking-[-0.05em] sm:mt-2 sm:text-3xl">MUAs in Alexandria</h2>
+              <p className="mt-1 text-[11px] text-[#6f6077] sm:text-sm">Find your glam team in Alex.</p>
+            </div>
+            <Link href="/bride/artists?region=alexandria" className="shrink-0 rounded-full border border-[#d9c6e8] px-3 py-2 text-[10px] font-medium text-purple-700 transition hover:bg-[#f7efff] sm:px-5 sm:py-2.5 sm:text-xs">View all</Link>
+          </div>
+          {loading ? <p className="text-xs text-[#8a7d91]">Loading artists...</p> : alexandriaMuas.length > 0 ? (
+            <div className="-mx-3 flex snap-x snap-mandatory gap-2 overflow-x-auto px-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-3 sm:overflow-visible sm:px-0 lg:grid-cols-5">
+              {alexandriaMuas.map((mua) => <div key={mua.id} className="w-[36vw] max-w-[155px] shrink-0 snap-start sm:w-auto sm:max-w-none"><MuaCard mua={{ ...mua, rating: ratings[mua.id] }} compact /></div>)}
+            </div>
+          ) : <p className="rounded-2xl border border-[#eadff5] bg-white p-5 text-xs text-[#8a7d91]">More Alexandria artists are coming soon.</p>}
         </section>
       </div>
     </main>
