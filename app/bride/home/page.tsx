@@ -66,6 +66,8 @@ export default function BrideHome() {
   const [availableMuaIds, setAvailableMuaIds] = useState<string[]>([]);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [availabilityError, setAvailabilityError] = useState("");
+  const [artistPage, setArtistPage] = useState(0);
+  const artistsPerPage = 4;
 
   useEffect(() => {
     try {
@@ -251,6 +253,11 @@ export default function BrideHome() {
     });
   }, [muas, ratings, searchQuery, selectedCity, selectedCategory, minPrice, maxPrice, minimumRating, sortBy, availabilityFilter, availableMuaIds]);
 
+  useEffect(() => { setArtistPage(0); }, [searchQuery, selectedCity, selectedCategory, minPrice, maxPrice, minimumRating, sortBy, availabilityFilter, availabilityDate]);
+
+  const artistPageCount = Math.max(1, Math.ceil(filteredMuas.length / artistsPerPage));
+  const pagedMuas = filteredMuas.slice(artistPage * artistsPerPage, (artistPage + 1) * artistsPerPage);
+
   const recentlyViewedMuas = recentlyViewedIds
     .map((id) => muas.find((mua) => mua.id === id))
     .filter(Boolean)
@@ -268,30 +275,30 @@ export default function BrideHome() {
   };
 
   return (
-    <main className="min-h-screen bg-[#fffafc] pb-24 pt-24 text-[#171018]">
+    <main className="min-h-screen bg-[#fffafc] pb-16 pt-20 text-[#171018] sm:pb-24 sm:pt-24">
       <style>{`
         @keyframes beauraMarquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
         .beaura-marquee { animation: beauraMarquee 30s linear infinite; }
       `}</style>
 
-      <div className="mx-auto max-w-7xl px-5 sm:px-8">
+      <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8">
         <motion.section
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="relative overflow-hidden rounded-[2.5rem] bg-[#f1e5ff] px-7 py-10 sm:px-12 sm:py-14"
+          className="relative overflow-hidden rounded-[1.5rem] bg-[#f1e5ff] px-4 py-6 sm:rounded-[2.5rem] sm:px-12 sm:py-14"
         >
           <div className="absolute -right-20 -top-24 h-80 w-80 rounded-full bg-[#ffe3ef] blur-3xl" />
           <div className="relative max-w-3xl">
             <p className="text-xs uppercase tracking-[0.22em] text-purple-700">{getGreeting()}, {name}</p>
-            <h1 className="mt-5 max-w-3xl text-5xl font-light leading-[0.94] tracking-[-0.075em] sm:text-7xl">Find the makeup artist who gets your look.</h1>
-            <p className="mt-6 max-w-xl text-sm leading-7 text-[#655968]">Explore verified artists, see their makeup work, compare services and prices, and send a booking request when you’re ready.</p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <a href="#artists" className="rounded-full bg-[#171018] px-7 py-3.5 text-sm text-white transition hover:bg-purple-700">Explore makeup artists</a>
+            <h1 className="mt-3 max-w-3xl text-3xl font-light leading-[1] tracking-[-0.06em] sm:mt-5 sm:text-7xl">Find the makeup artist who gets your look.</h1>
+            <p className="mt-3 max-w-xl text-xs leading-6 text-[#655968] sm:mt-6 sm:text-sm sm:leading-7">Explore verified artists, see their makeup work, compare services and prices, and send a booking request when you’re ready.</p>
+            <div className="mt-5 flex flex-wrap gap-2 sm:mt-8 sm:gap-3">
+              <a href="#artists" className="rounded-full bg-[#171018] px-4 py-2.5 text-xs text-white transition hover:bg-purple-700 sm:px-7 sm:py-3.5 sm:text-sm">Explore makeup artists</a>
               <SupportHelpButton userType="bride" />
             </div>
           </div>
-          <div className="relative mt-10 grid grid-cols-3 gap-2 sm:absolute sm:bottom-8 sm:right-8 sm:mt-0 sm:w-[42%]">
+          <div className="relative mt-6 grid grid-cols-3 gap-2 sm:absolute sm:bottom-8 sm:right-8 sm:mt-0 sm:w-[42%]">
             {["/Landing/bridal.jpg","/Landing/engagement.jpg","/Landing/soiree.jpg"].map((image,index)=>(
               <div key={image} className={index===1?"-mt-6 overflow-hidden rounded-t-full rounded-b-2xl":"overflow-hidden rounded-[1.25rem]"}>
                 <img src={image} alt="Makeup inspiration" className="h-28 w-full object-cover sm:h-36"/>
@@ -306,13 +313,13 @@ export default function BrideHome() {
           </div>
         </div>
 
-        <section className="mt-16">
-          <div className="mb-7 max-w-2xl">
+        <section className="mt-9 sm:mt-16">
+          <div className="mb-4 max-w-2xl sm:mb-7">
             <p className="text-xs uppercase tracking-[0.2em] text-purple-700">Browse by occasion</p>
-            <h2 className="mt-3 text-4xl font-light tracking-[-0.065em] sm:text-5xl">What do you need makeup for?</h2>
-            <p className="mt-3 text-sm leading-7 text-[#6f6077]">Choose an occasion to see artists who offer that service.</p>
+            <h2 className="mt-2 text-2xl font-light tracking-[-0.06em] sm:mt-3 sm:text-5xl">What do you need makeup for?</h2>
+            <p className="mt-2 text-xs leading-6 text-[#6f6077] sm:mt-3 sm:text-sm sm:leading-7">Choose an occasion to see artists who offer that service.</p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-4 xl:grid-cols-4">
             {SERVICE_SECTIONS.map((item,index)=>(
               <button key={item.title} onClick={()=>handleServiceClick(item.value)} className={`group overflow-hidden rounded-[1.75rem] border bg-white text-left transition hover:-translate-y-1 hover:shadow-xl ${selectedCategory===item.value?"border-purple-500 shadow-md":"border-[#eadff5]"}`}>
                 <div className="relative aspect-[5/4] overflow-hidden">
@@ -330,7 +337,7 @@ export default function BrideHome() {
           <section className="mt-16">
             <div className="mb-6">
               <p className="text-xs uppercase tracking-[0.2em] text-purple-700">Pick up where you left off</p>
-              <h2 className="mt-2 text-3xl font-light tracking-[-0.05em]">Recently viewed artists</h2>
+              <h2 className="mt-2 text-xl font-light tracking-[-0.05em] sm:text-3xl">Recently viewed artists</h2>
               <p className="mt-2 text-sm text-[#6f6077]">Artists you opened recently are saved on this device for quick access.</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -339,13 +346,13 @@ export default function BrideHome() {
           </section>
         )}
 
-        <section className="mt-16 rounded-[2rem] border border-[#eadff5] bg-white p-5 shadow-sm sm:p-7">
+        <section className="mt-9 rounded-2xl border border-[#eadff5] bg-white p-3 shadow-sm sm:mt-16 sm:rounded-[2rem] sm:p-7">
           <div className="mb-5">
             <p className="text-xs uppercase tracking-[0.2em] text-purple-700">Find the right artist</p>
             <h2 className="mt-2 text-3xl font-light tracking-[-0.05em]">Search by name, city or service</h2>
           </div>
           <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto_auto]">
-            <input aria-label="Search makeup artists" placeholder="Try an artist name, Cairo, bridal makeup..." value={searchQuery} onChange={(e)=>setSearchQuery(e.target.value)} className="min-w-0 rounded-2xl border border-[#eadff5] bg-[#fffafc] px-5 py-4 text-sm outline-none transition focus:border-purple-500"/>
+            <input aria-label="Search makeup artists" placeholder="Try an artist name, Cairo, bridal makeup..." value={searchQuery} onChange={(e)=>setSearchQuery(e.target.value)} className="min-w-0 rounded-xl border border-[#eadff5] bg-[#fffafc] px-3 py-3 text-xs outline-none transition focus:border-purple-500 sm:rounded-2xl sm:px-5 sm:py-4 sm:text-sm"/>
             <button type="button" onClick={()=>{setFilterOpen(!filterOpen);setSortOpen(false);}} aria-expanded={filterOpen} className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-5 py-4 text-sm transition ${filterOpen?"border-purple-400 bg-[#f7efff]":"border-[#eadff5] hover:bg-[#f7efff]"}`}><SlidersHorizontal size={16}/> Filter</button>
             <button type="button" onClick={()=>{setSortOpen(!sortOpen);setFilterOpen(false);}} aria-expanded={sortOpen} className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-5 py-4 text-sm transition ${sortOpen?"border-purple-400 bg-[#f7efff]":"border-[#eadff5] hover:bg-[#f7efff]"}`}><ArrowUpDown size={16}/> Sort</button>
             <Link href="/bride/favorites" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#171018] px-5 py-4 text-sm text-white transition hover:bg-purple-700"><Heart size={16}/> Favorites</Link>
@@ -376,14 +383,14 @@ export default function BrideHome() {
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-[#8a7d91]">{filteredMuas.length} artists match your search</p><button type="button" onClick={()=>{setSearchQuery("");setSelectedCity("");setSelectedCategory("All");setMinimumRating("");setMinPrice("");setMaxPrice("");setSortBy("recommended");setAvailabilityFilter(false);setAvailableMuaIds([]);setAvailabilityError("");}} className="text-xs text-purple-700 hover:underline">Reset everything</button></div>
         </section>
 
-        <section id="artists" className="mt-16 scroll-mt-28">
-          <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <section id="artists" className="mt-9 scroll-mt-24 sm:mt-16 sm:scroll-mt-28">
+          <div className="mb-4 flex flex-col justify-between gap-2 sm:mb-8 sm:flex-row sm:items-end">
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-purple-700">Makeup artists</p>
-              <h2 className="mt-2 text-4xl font-light tracking-[-0.065em] sm:text-5xl">{selectedCategory==="All"?"Explore makeup artists":selectedCategory}</h2>
-              <p className="mt-3 max-w-xl text-sm leading-7 text-[#6f6077]">Open a profile to view the artist’s portfolio, services, prices and booking options.</p>
+              <h2 className="mt-2 text-2xl font-light tracking-[-0.06em] sm:text-5xl">{selectedCategory==="All"?"Explore makeup artists":selectedCategory}</h2>
+              <p className="mt-2 max-w-xl text-xs leading-5 text-[#6f6077] sm:mt-3 sm:text-sm sm:leading-7">Open a profile to view the artist’s portfolio, services, prices and booking options.</p>
             </div>
-            <span className="w-fit rounded-full bg-[#f1e5ff] px-5 py-2.5 text-sm text-purple-700">{filteredMuas.length} {filteredMuas.length===1?"artist":"artists"}</span>
+            <span className="w-fit rounded-full bg-[#f1e5ff] px-3 py-1.5 text-xs text-purple-700 sm:px-5 sm:py-2.5 sm:text-sm">{filteredMuas.length} {filteredMuas.length===1?"artist":"artists"}</span>
           </div>
 
           {loading && <div className="rounded-[2rem] border border-[#eadff5] bg-white p-12 text-center text-sm text-[#6f6077]">Loading makeup artists...</div>}
@@ -397,15 +404,23 @@ export default function BrideHome() {
           )}
           {!loading && !availabilityLoading && filteredMuas.length>0 && (
             <>
-              <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                {filteredMuas.slice(0,5).map((mua)=><MuaCard key={mua.id} mua={{...mua, rating: ratings[mua.id]}}/>)}
+              <div className="sm:hidden">
+                <div className="-mx-3 flex snap-x snap-mandatory gap-2 overflow-x-auto px-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {filteredMuas.map((mua)=><div key={mua.id} className="w-[43vw] max-w-[190px] shrink-0 snap-start"><MuaCard mua={{...mua, rating: ratings[mua.id]}} compact/></div>)}
+                </div>
+                <p className="mt-1 text-center text-[10px] text-[#8a7d91]">Swipe to explore more artists</p>
               </div>
-              {filteredMuas.length>5 && (
-                <details className="mt-7 rounded-[1.5rem] border border-[#eadff5] bg-white p-5">
-                  <summary className="cursor-pointer list-none text-center text-sm font-medium text-purple-700">Show all {filteredMuas.length} artists</summary>
-                  <div className="mt-6"><MasonryGrid>{filteredMuas.slice(5).map((mua)=><MuaCard key={mua.id} mua={{...mua, rating: ratings[mua.id]}}/>)}</MasonryGrid></div>
-                </details>
-              )}
+              <div className="hidden grid-cols-2 gap-3 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+                {pagedMuas.map((mua)=><MuaCard key={mua.id} mua={{...mua, rating: ratings[mua.id]}} compact/> )}
+              </div>
+              <div className="mt-5 hidden items-center justify-between sm:flex">
+                <p className="text-xs text-[#8a7d91]">Showing {artistPage * artistsPerPage + 1}–{Math.min((artistPage + 1) * artistsPerPage, filteredMuas.length)} of {filteredMuas.length}</p>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={()=>setArtistPage((page)=>Math.max(0,page-1))} disabled={artistPage===0} className="rounded-full border border-[#eadff5] px-4 py-2 text-xs text-[#6f6077] disabled:opacity-40">Previous</button>
+                  <span className="text-xs text-[#6f6077]">{artistPage+1} / {artistPageCount}</span>
+                  <button type="button" onClick={()=>setArtistPage((page)=>Math.min(artistPageCount-1,page+1))} disabled={artistPage>=artistPageCount-1} className="rounded-full border border-[#eadff5] px-4 py-2 text-xs text-[#6f6077] disabled:opacity-40">Next</button>
+                </div>
+              </div>
             </>
           )}
         </section>
